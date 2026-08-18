@@ -1,0 +1,23 @@
+# Python-generated files
+__pycache__/
+*.py[oc]
+build/
+dist/
+wheels/
+*.egg-info
+
+# Virtual environments
+.venv
+
+
+# Images and audio
+*.wav
+*.tiff
+
+# Data
+SPRSound/
+dataset/dataset/
+dataset/full_dataset/
+dataset/good_quality/
+dataset/poor_quality/
+

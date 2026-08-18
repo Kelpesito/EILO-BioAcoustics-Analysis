@@ -1,0 +1,16 @@
+[project]
+name = "EILO-BioAcoustics-Analysis"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "matplotlib>=3.11.1",
+    "nbformat>=5.11.0",
+    "pandas>=3.0.5",
+    "plotly>=6.9.0",
+    "scikit-image>=0.26.0",
+    "scipy>=1.18.0",
+    "soundfile>=0.14.0",
+    "tqdm>=4.70.0",
+]
