@@ -34,7 +34,7 @@ The project is developed in **Python 3.14** and uses [uv](https://docs.astral.sh
 ### 1. Clone the repository
 
 ```bash
-git clone <REPOSITORY_URL>
+git clone https://github.com/Kelpesito/EILO-BioAcoustics-Analysis.git
 cd EILO-BioAcoustics-Analysis
 ```
 
@@ -108,11 +108,14 @@ EILO-BioAcoustics-Analysis/
 
 ## 📝 Changelog
 
-### v0.1.0
+- **v0.1.1**
+    - Updated repository link
 
-- Added the initial repository structure with `pyproject.toml`, `uv.lock`, and Python 3.14 environment pinning.
-- Added the dataset preparation pipeline under `dataset/`, comprising five ordered scripts.
-- Added the fragment extraction step with bandpass filtering (70–1900 Hz) and resampling (8 kHz → 4 kHz).
-- Added STFT-based RTF computation, exporting 224×224 log-frequency, dB-scale spectrogram images.
-- Added three exploratory notebooks: `visualization_signal.ipynb`, `visualization_fragment.ipynb`, and `EDA.ipynb`.
-- Added detailed `dataset/README.md` documenting the full pipeline and exploratory results.
+- **v0.1.0**
+
+    - Added the initial repository structure with `pyproject.toml`, `uv.lock`, and Python 3.14 environment pinning.
+    - Added the dataset preparation pipeline under `dataset/`, comprising five ordered scripts.
+    - Added the fragment extraction step with bandpass filtering (70–1900 Hz) and resampling (8 kHz → 4 kHz).
+    - Added STFT-based RTF computation, exporting 224×224 log-frequency, dB-scale spectrogram images.
+    - Added three exploratory notebooks: `visualization_signal.ipynb`, `visualization_fragment.ipynb`, and `EDA.ipynb`.
+    - Added detailed `dataset/README.md` documenting the full pipeline and exploratory results.
