@@ -39,6 +39,8 @@ dataset/
 ├── get_poor_quality_records.py  ← step 3
 ├── get_fragments.py             ← step 4
 ├── get_rtf.py                   ← step 5
+├── src/
+│   └── calculate_rtf.py         ← RTF functions used by get_rtf.py
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
 ├── visualization_signal.ipynb   ← raw record + preprocessing visualization
 └── visualization_fragment.ipynb ← single-fragment + STFT visualization
@@ -207,7 +209,7 @@ For each fragment `.wav`, this step computes one or more **time–frequency repr
 | `SCALOGRAM` | 🟡 planned |  |  |
 | `WSST` | 🟡 planned |  |  |
 
-#### RTF configurarion (see [calculate_rtf](calculate_rtf.py)):
+#### RTF configurarion (see [calculate_rtf](src/calculate_rtf.py)):
 
 **STFT configuration**
 
@@ -242,7 +244,7 @@ dataset/dataset/
 ```
 
 > The `-t` flag selects the representation.
-> New RTFs can be added by implementing a `calculate_<name>(signal, fs)` function in `calculate_rtf.py` and registering it in the `CALCULATE_RTF` dict.
+> New RTFs can be added by implementing a `calculate_<name>(signal, fs)` function in `src/calculate_rtf.py` and registering it in the `CALCULATE_RTF` dict.
 > The rest of the pipeline (folder creation, `.tiff` export, resize) is handled generically.
 
 ---

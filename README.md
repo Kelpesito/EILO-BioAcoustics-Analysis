@@ -101,12 +101,15 @@ EILO-BioAcoustics-Analysis/
 
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, and exploratory notebooks. See [`dataset/README.md`](dataset/README.md) for the full pipeline description. |
+| `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
 | `README.md`            | This file.                                                                                                                |
 
 ---
 
 ## 📝 Changelog
+- **v0.1.2**
+    - Created folder `dataset/src`
+    - Moved file `dataset/calculate_rtf.py` to `dataset/src/calculate_rtf.py`
 
 - **v0.1.1**
     - Updated repository link
