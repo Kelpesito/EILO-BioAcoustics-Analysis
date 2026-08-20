@@ -27,7 +27,7 @@ from tqdm import tqdm
 import soundfile as sf
 import tifffile
 
-from calculate_rtf import calculate_rtf
+from src.calculate_rtf import calculate_rtf
 
 
 # Representaciones Tiempo-Frecuencia disponibles
