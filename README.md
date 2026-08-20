@@ -6,7 +6,7 @@
 
 ## Table of Contents
 
-- [🌬️ Overview](#-overview)
+- [🫁 Overview](#-overview)
 - [⚙️ Installation](#️-installation)
 - [📦 Dependencies](#-dependencies)
 - [🗂️ Repository Structure](#️-repository-structure)
