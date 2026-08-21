@@ -252,27 +252,26 @@ dataset/dataset/
 ## 📁 Final folder layout
 
 After running the full pipeline, the relevant outputs are (compare with
-[📂 Repository layout](#-repository-layout) to see what ships with the repo
-vs. what the pipeline produces):
+[📂 Repository layout](#-repository-layout) to see what ships with the repo vs. what the pipeline produces):
 
 ```
 dataset/
-├── [full_dataset/](./full_dataset/)                   ← step 1
-│   ├── [wav/](./full_dataset/wav/)
-│   └── [json/](./full_dataset/json/)
-├── [good_quality/](./good_quality/)                   ← step 3
-│   ├── [wav/](./good_quality/wav/)
-│   └── [json/](./good_quality/json/)
-├── [poor_quality/](./poor_quality/)                   ← step 3
-│   ├── [wav/](./poor_quality/wav/)
-│   └── [json/](./poor_quality/json/)
-├── [dataset/](./dataset/)                             ← steps 4 & 5
-│   ├── [audio/](./dataset/audio/)                     # filtered, resampled fragments
-│   ├── [spectrogram/](./dataset/spectrogram/)         # 224×224 STFT .tiff images
-│   ├── [scalogram/](./dataset/scalogram/)             # 224×224 CWT .tiff images (planned)
-│   └── [wsst/](./dataset/wsst/)                        # 224×224 WSST .tiff images (planned)
-├── [metadata.csv](./metadata.csv)                     ← step 2
-└── [fragments_metadata.csv](./fragments_metadata.csv) ← step 4
+├── full_dataset/          ← step 1
+│   ├── wav/                       
+│   └── json/                        
+├── good_quality/          ← step 3
+│   ├── wav/                       
+│   └── json/                        
+├── poor_quality/          ← step 3
+│   ├── wav/                       
+│   └── json/                        
+├── dataset/               ← steps 4 & 5
+│   ├── audio/             # filtered, resampled fragments
+│   ├── spectrogram/       # 224×224 STFT .tiff images
+│   ├── scalogram/         # 224×224 CWT .tiff images (planned)
+│   └── wsst/              # 224×224 WSST .tiff images (planned)
+├── metadata.csv           ← step 2
+└── fragments_metadata.csv ← step 4
 ```
 
 ---
@@ -291,8 +290,7 @@ Visualizes a single fragment from `dataset/audio/`: plots the raw waveform and t
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 
-Exploratory analysis of the prepared fragment dataset using
-`fragments_metadata.csv`. The notebook examines four aspects of the dataset:
+Exploratory analysis of the prepared fragment dataset using `fragments_metadata.csv`. The notebook examines four aspects of the dataset:
 - the **distribution of respiratory-sound labels**, 
 - fragment **durations**,
 - the **number of fragments** contributed by each patient,

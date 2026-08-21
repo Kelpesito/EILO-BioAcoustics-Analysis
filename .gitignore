@@ -16,8 +16,10 @@ wheels/
 
 # Data
 SPRSound/
+
 dataset/dataset/
 dataset/full_dataset/
 dataset/good_quality/
 dataset/poor_quality/
 
+classification/splits/

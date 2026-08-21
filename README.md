@@ -93,6 +93,8 @@ EILO-BioAcoustics-Analysis/
 │
 └── dataset/
     └── README.md
+└── classification/
+    └── README.md
 ```
 
 ---
@@ -102,11 +104,20 @@ EILO-BioAcoustics-Analysis/
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
+| `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `README.md`            | This file.                                                                                                                |
 
 ---
 
 ## 📝 Changelog
+
+- **v1.0.0**
+    - Started `classification` repository
+    - Split data in Train/Validation/Test sets by patient
+    - Defined ablation study to select the architecture model
+
+---
+
 - **v0.1.2**
     - Created folder `dataset/src`
     - Moved file `dataset/calculate_rtf.py` to `dataset/src/calculate_rtf.py`
