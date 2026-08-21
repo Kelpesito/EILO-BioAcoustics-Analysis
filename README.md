@@ -74,6 +74,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
 | `plotly`          | Interactive plotting in the visualization notebooks.                             |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
+| `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
 | `scipy`           | Numerical computing, signal processing, and the STFT implementation.             |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
 | `tqdm`            | Progress bars for long-running batch operations in the pipeline scripts.         |
