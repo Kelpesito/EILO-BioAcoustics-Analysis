@@ -69,14 +69,20 @@ The project declares the following direct dependencies in `pyproject.toml`:
 
 | Dependency        | Purpose                                                                          |
 | ----------------- | -------------------------------------------------------------------------------- |
+| `ipywidgets`      | Interactive widgets for Jupyter notebooks (e.g. progress bars, interactive controls). |
+| `jupyter`         | Notebook environment used to run the project's `.ipynb` notebooks.               |
+| `kaleido`         | Static image export engine for `Plotly` figures.                                   |
 | `matplotlib`      | Static plotting for exploratory analysis and visualisation notebooks.             |
 | `nbformat`        | Parsing and validating Jupyter notebook structure (`.ipynb`).                    |
+| `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner). |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
 | `plotly`          | Interactive plotting in the visualization notebooks.                             |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
 | `scipy`           | Numerical computing, signal processing, and the STFT implementation.             |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
+| `torch`           | Deep-learning framework used to build and train the classification CNN models.   |
+| `torchvision`     | PyTorch computer-vision utilities (image transforms/augmentation) for the classification data pipeline. |
 | `tqdm`            | Progress bars for long-running batch operations in the pipeline scripts.         |
 
 ---
@@ -92,8 +98,8 @@ EILO-BioAcoustics-Analysis/
 ├── pyproject.toml
 ├── uv.lock
 │
-└── dataset/
-    └── README.md
+├── pyproject.toml
+│   └── README.md
 └── classification/
     └── README.md
 ```
@@ -111,6 +117,15 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+
+- **v1.1.0**
+    - Implemented the classification training & hyperparameter tuning pipeline (`classification/src/`):
+        - Data loading / Data augmentation / Dataloaders
+        - 2D-CNN model
+        - Training loop
+        - Optuna based hyperparameter tuning search space 
+    - Added `classification/training.ipynb` to drive hyperparameter tuning and cross-validation tests (*work in progress*)
+    - Expanded Exploratory Data Analysis (EDA) in `dataset/EDA.ipynb`
 
 - **v1.0.0**
     - Started `classification` repository

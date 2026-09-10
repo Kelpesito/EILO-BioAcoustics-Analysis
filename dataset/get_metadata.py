@@ -30,6 +30,7 @@ from pathlib import Path
 import json
 
 import pandas as pd
+import soundfile as sf
 from tqdm import tqdm
 
 
@@ -68,6 +69,8 @@ def get_metadata_from_file(file: Path) -> dict:
                 Relative .wav file
             - Poor Quality: int
                 Whether the record is "Poor Quality" (1) or not (0)
+            - duration: float
+                Signal duration, in s
     """
     filename = file.stem
     patient_id, age, gender, position, record_id = filename.split("_")
@@ -77,6 +80,10 @@ def get_metadata_from_file(file: Path) -> dict:
         
         poor_quality = data.get("record_annotation", 0)
         poor_quality = 1 if poor_quality == "Poor Quality" else 0
+
+    # Duration calculation
+    signal, fs = sf.read(f"{WAV_PATH / filename}.wav")
+    duration = len(signal) / fs
     
     return {
         "record_id": record_id,
@@ -86,7 +93,8 @@ def get_metadata_from_file(file: Path) -> dict:
         "position": position,
         "json_path": f"{filename}.json",
         "wav_path": f"{filename}.wav",
-        "Poor Quality": poor_quality
+        "Poor Quality": poor_quality,
+        "duration": duration,
     }
 
 

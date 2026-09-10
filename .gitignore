@@ -23,3 +23,5 @@ dataset/good_quality/
 dataset/poor_quality/
 
 classification/splits/
+classification/results/
+classification/models/

@@ -19,11 +19,11 @@ The pipeline is implemented as **5 ordered, independent scripts** that build on 
         - [⚙️ RTF configurarion](#rtf-configurarion-see-calculate_rtf)
 - [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
+    - [▶️ How to run](#-how-to-run)
     - [visualization_signal.ipynb — Raw record + preprocessing](#visualizationsignalipynb--raw-record--preprocessing)
     - [visualization_fragment.ipynb — Single fragment + STFT](#visualizationfragmentipynb--single-fragment--stft)
     - [EDA.ipynb — Exploratory Data Analysis](#edaipynb--exploratory-data-analysis)
         - [📝 Results](#-results)
-    - [▶️ How to run](#-how-to-run)
 
 ---
 
@@ -33,6 +33,7 @@ When you clone the repository, the `dataset/` folder ships with the pipeline scr
 
 ```
 dataset/
+├── assets/                      ← folder with the images in this file
 ├── README.md                    ← this file
 ├── get_sprsound_dataset.py      ← step 1
 ├── get_metadata.py              ← step 2
@@ -280,6 +281,10 @@ dataset/
 
 The dataset ships with three exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
 
+### ▶️ How to run
+
+From the `dataset/` folder, launch Jupyter / VS Code and open the notebook of interest, then run all cells in order.
+
 ### [visualization_signal.ipynb](visualization_signal.ipynb) — Raw record + preprocessing
 
 Visualizes one full record end-to-end: loads a `.wav` and its companion `.json` from `good_quality/`, applies the pipeline's preprocessing, and plots the time-domain signal (with event annotations) and the PSD before vs. after preprocessing. Useful for sanity-checking the filter and resampling steps on a single record.
@@ -290,17 +295,32 @@ Visualizes a single fragment from `dataset/audio/`: plots the raw waveform and t
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 
-Exploratory analysis of the prepared fragment dataset using `fragments_metadata.csv`. The notebook examines four aspects of the dataset:
-- the **distribution of respiratory-sound labels**, 
-- fragment **durations**,
-- the **number of fragments** contributed by each patient,
-- and the **number of distinct labels** observed per patient.
+Exploratory analysis of the prepared fragment dataset using `fragments_metadata.csv`. The notebook examines the following aspects of the dataset:
+- some **descriptiive parameters** of the dataset,
+- the **distribution of respiratory-sound labels**,
+- the **age patient distribution** (patient level, fragment level and label level),
+- fragment **durations** (fragment level and label level),
+- the **number of fragments** contributed by each **record**,
+- the **number of records** contributed by each **patient**,
+- the **number of fragments** contributed by each **patient**,
+- the **number of distinct labels** observed per patient,
+- and the **relationship between age and duration** (by label).
 
 Each section includes visualizations and descriptive statistics to characterize the dataset and identify relevant patterns.
 
 #### 📝 Results
 
+- **Descriptive parameters**:
+    - Number of records: 6567
+    - Number of `Poor Quality` records: 230 (3.5%)
+    - Number of segments: 24578
+    - Number of patients: 958
+    - Total recorded time: 20h 48 min 39.85 s
+    - Corpus duration: 11 h 52 min 39.24 s (57.07%)
+<br/><br/>
+
 - **Label distribution:**
+![Label distribution](assets\label_distribution.png)
 
 |     Category     | Proportion | Relative fraction |
 |:----------------:|:----------:|:----------:|
@@ -314,7 +334,45 @@ Each section includes visualizations and descriptive statistics to characterize 
 |  Coarse Crackle  |    0.7%    |    3.05%   |
 |      Stridor     |    0.3%    |    1.27%   |
 
+- **Age distribution:**
+![Age distribution](assets\age_patient_distribution.png)
+
+| Metric | Age (years) |
+|:------:|:-----------:|
+|  Mean  |     5.54    |
+|   std  |     3.60    |
+|   min  |       0     |
+|   Q1   |     3.4     |
+| Median |     5       |
+|   Q3   |     7.3     |
+|   max  |      55     |
+
+![Age distribution by fragment](assets\age_fragment_distribution.png)
+
+| Metric | Age (years) |
+|:------:|:-----------:|
+|  Mean  |     5.04    |
+|   std  |     3.08    |
+|   min  |       0     |
+|   Q1   |     3.1     |
+| Median |     4.6     |
+|   Q3   |     6.8     |
+|   max  |      55     |
+
+![Age distribution by label](assets\age_distribution_class.png)
+
+| **Metric / Age (years)** | Normal | Fine Crackle | Wheeze | Wheeze+Crackle | Rhonchi | Coarse Crackle | Stridor |
+|:------------------------:|:------:|:------------:|:------:|:--------------:|:-------:|:--------------:|:-------:|
+|           Mean           |  5.37  |     4.53     |  3.12  |      2.69      |   3.72  |      3.76      |   1.47  |
+|            std           |  3.09  |     2.70     |  2.98  |      2.00      |   2.20  |      2.60      |   1.71  |
+|            min           |    0   |       0      |   0.2  |       0.3      |   0.5   |       0.2      |   0.2   |
+|            Q1            |   3.4  |      2.3     |   0.9  |       1.3      |    2    |       1.5      |   0.5   |
+|          Median          |    5   |      4.2     |   2.2  |       1.7      |   3.1   |       3.4      |   1.3   |
+|            Q3            |    7   |      6.5     |   4.2  |       3.7      |   4.3   |        6       |   1.5   |
+|            max           |   55   |     14.1     |  14.6  |      11.1      |   11.7  |      13.2      |   10.3  |
+
 - **Fragment duration:**
+![Fragment duration](assets\duration_distribution.png)
 
 | Metric | Duration (s) |
 |:------:|:------------:|
@@ -326,7 +384,61 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Q3   |     2.18     |
 |   max  |     9.27     |
 
+![Fragment duration](assets\duration_distribution_class.png)
+
+| **Metric / Duration (s)** | Normal | Fine Crackle | Wheeze | Wheeze+Crackle | Rhonchi | Coarse Crackle | Stridor |
+|:-------------------------:|:------:|:------------:|:------:|:--------------:|:-------:|:--------------:|:-------:|
+|            Mean           |  1.82  |     1.59     |  1.05  |      1.91      |   1.71  |      1.36      |   1.78  |
+|            std            |  0.74  |     0.68     |  0.70  |      0.56      |   0.85  |      0.53      |   1.00  |
+|            min            |  0.20  |     0.26     |  0.13  |      0.46      |   0.27  |      0.39      |   0.33  |
+|             Q1            |  1.31  |     1.02     |  0.51  |      1.57      |   0.93  |      0.92      |   0.96  |
+|           Median          |  1.74  |     1.58     |  0.78  |      1.99      |   1.67  |      1.40      |   1.55  |
+|             Q3            |  2.25  |     2.03     |  1.50  |      2.22      |   2.30  |      1.67      |   2.39  |
+|            max            |  9.27  |     7.17     |  6.12  |      4.62      |   4.38  |      3.02      |   5.71  |
+
+- **Fragments per record:**
+![Fragments per record](assets\fragments_record_distribution.png)
+
+| Number of fragments per record | Count | Proportion (%) |
+|:------------------------------:|:-----:|:--------------:|
+|               1                |  764  |      12.06     |
+|               2                |  1016 |      16.03     |
+|               3                |  1315 |      20.75     |
+|               4                |  1225 |      19.33     |
+|               5                |   778 |      12.28     |
+|               6                |   535 |      8.44      |
+|               7                |   309 |      4.88      |
+|               8                |   182 |      2.87      |
+|               9                |   103 |      1.63      |
+|               ≥10              |   110 |      1.74      |
+
+
+| Metric | Fragments per record  |
+|:------:|:---------------------:|
+|  Mean  |          3.88         |
+|   std  |          2.20         |
+|   min  |           1           |
+|   Q1   |           2           |
+| Median |           4           |
+|   Q3   |           5           |
+|   max  |          24           |
+
+- **Records per patient**
+![Records per patient](assets\records_patient_distribution.png)
+
+| Metric | Records per patient   |
+|:------:|:---------------------:|
+|  Mean  |          6.82         |
+|   std  |          7.06         |
+|   min  |           1           |
+|   Q1   |           3           |
+| Median |           5           |
+|   Q3   |           8           |
+|   max  |          83           |
+
+
 - **Fragments per patient:** 
+![Fragments per patient](assets\fragments_patient_distribution.png)
 
 | Metric | Fragments per patient |
 |:------:|:---------------------:|
@@ -339,6 +451,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   max  |          298          |
 
 - **Labels per patient:**
+![Labels per patient](assets\labels_patient_distribution.png)
 
 | Number of labels per patient | Count | Proportion (%) |
 |:----------------------------:|:-----:|:--------------:|
@@ -359,6 +472,8 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Q3   |               2              |
 |   max  |               6              |
 
-### ▶️ How to run
 
-From the `dataset/` folder, launch Jupyter / VS Code and open the notebook of interest, then run all cells in order.
+- **Age vs duration by label:**
+![Age vs duration vs label](assets\age_vs_duration_vs_label.png)
+
+Scatter of fragment duration against patient age, colored by label. The classes overlap substantially in this 2D space, so age and duration alone do not cleanly separate the labels.
