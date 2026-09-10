@@ -320,7 +320,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 <br/><br/>
 
 - **Label distribution:**
-![Label distribution](assets\label_distribution.png)
+![Label distribution](assets/label_distribution.png)
 
 |     Category     | Proportion | Relative fraction |
 |:----------------:|:----------:|:----------:|
@@ -335,7 +335,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |      Stridor     |    0.3%    |    1.27%   |
 
 - **Age distribution:**
-![Age distribution](assets\age_patient_distribution.png)
+![Age distribution](assets/age_patient_distribution.png)
 
 | Metric | Age (years) |
 |:------:|:-----------:|
@@ -347,7 +347,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Q3   |     7.3     |
 |   max  |      55     |
 
-![Age distribution by fragment](assets\age_fragment_distribution.png)
+![Age distribution by fragment](assets/age_fragment_distribution.png)
 
 | Metric | Age (years) |
 |:------:|:-----------:|
@@ -359,7 +359,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Q3   |     6.8     |
 |   max  |      55     |
 
-![Age distribution by label](assets\age_distribution_class.png)
+![Age distribution by label](assets/age_distribution_class.png)
 
 | **Metric / Age (years)** | Normal | Fine Crackle | Wheeze | Wheeze+Crackle | Rhonchi | Coarse Crackle | Stridor |
 |:------------------------:|:------:|:------------:|:------:|:--------------:|:-------:|:--------------:|:-------:|
@@ -372,7 +372,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |            max           |   55   |     14.1     |  14.6  |      11.1      |   11.7  |      13.2      |   10.3  |
 
 - **Fragment duration:**
-![Fragment duration](assets\duration_distribution.png)
+![Fragment duration](assets/duration_distribution.png)
 
 | Metric | Duration (s) |
 |:------:|:------------:|
@@ -384,7 +384,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Q3   |     2.18     |
 |   max  |     9.27     |
 
-![Fragment duration](assets\duration_distribution_class.png)
+![Fragment duration](assets/duration_distribution_class.png)
 
 | **Metric / Duration (s)** | Normal | Fine Crackle | Wheeze | Wheeze+Crackle | Rhonchi | Coarse Crackle | Stridor |
 |:-------------------------:|:------:|:------------:|:------:|:--------------:|:-------:|:--------------:|:-------:|
@@ -397,7 +397,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |            max            |  9.27  |     7.17     |  6.12  |      4.62      |   4.38  |      3.02      |   5.71  |
 
 - **Fragments per record:**
-![Fragments per record](assets\fragments_record_distribution.png)
+![Fragments per record](assets/fragments_record_distribution.png)
 
 | Number of fragments per record | Count | Proportion (%) |
 |:------------------------------:|:-----:|:--------------:|
@@ -424,7 +424,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   max  |          24           |
 
 - **Records per patient**
-![Records per patient](assets\records_patient_distribution.png)
+![Records per patient](assets/records_patient_distribution.png)
 
 | Metric | Records per patient   |
 |:------:|:---------------------:|
@@ -438,7 +438,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 
 
 - **Fragments per patient:** 
-![Fragments per patient](assets\fragments_patient_distribution.png)
+![Fragments per patient](assets/fragments_patient_distribution.png)
 
 | Metric | Fragments per patient |
 |:------:|:---------------------:|
@@ -451,7 +451,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   max  |          298          |
 
 - **Labels per patient:**
-![Labels per patient](assets\labels_patient_distribution.png)
+![Labels per patient](assets/labels_patient_distribution.png)
 
 | Number of labels per patient | Count | Proportion (%) |
 |:----------------------------:|:-----:|:--------------:|
@@ -474,6 +474,6 @@ Each section includes visualizations and descriptive statistics to characterize 
 
 
 - **Age vs duration by label:**
-![Age vs duration vs label](assets\age_vs_duration_vs_label.png)
+![Age vs duration vs label](assets/age_vs_duration_vs_label.png)
 
 Scatter of fragment duration against patient age, colored by label. The classes overlap substantially in this 2D space, so age and duration alone do not cleanly separate the labels.
