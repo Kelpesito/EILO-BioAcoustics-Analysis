@@ -117,26 +117,28 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.1.1**
+    - Fixed images visualization in `dataset/README.md`.
 
 - **v1.1.0**
     - Implemented the classification training & hyperparameter tuning pipeline (`classification/src/`):
         - Data loading / Data augmentation / Dataloaders
         - 2D-CNN model
         - Training loop
-        - Optuna based hyperparameter tuning search space 
-    - Added `classification/training.ipynb` to drive hyperparameter tuning and cross-validation tests (*work in progress*)
-    - Expanded Exploratory Data Analysis (EDA) in `dataset/EDA.ipynb`
+        - Optuna based hyperparameter tuning search space
+    - Added `classification/training.ipynb` to drive hyperparameter tuning and cross-validation tests (*work in progress*).
+    - Expanded Exploratory Data Analysis (EDA) in `dataset/EDA.ipynb`.
 
 - **v1.0.0**
-    - Started `classification` repository
-    - Split data in Train/Validation/Test sets by patient
-    - Defined ablation study to select the architecture model
+    - Started `classification` repository.
+    - Split data in Train/Validation/Test sets by patient.
+    - Defined ablation study to select the architecture model.
 
 ---
 
 - **v0.1.2**
-    - Created folder `dataset/src`
-    - Moved file `dataset/calculate_rtf.py` to `dataset/src/calculate_rtf.py`
+    - Created folder `dataset/src`.
+    - Moved file `dataset/calculate_rtf.py` to `dataset/src/calculate_rtf.py`.
 
 - **v0.1.1**
     - Updated repository link
