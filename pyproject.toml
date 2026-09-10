@@ -1,17 +1,29 @@
 [project]
 name = "EILO-BioAcoustics-Analysis"
-version = "1.0.0"
+version = "1.1.0"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
 dependencies = [
+    "ipywidgets>=8.1.9",
+    "jupyter>=1.1.1",
+    "kaleido>=1.4.0",
     "matplotlib>=3.11.1",
     "nbformat>=5.11.0",
+    "optuna>=4.9.0",
     "pandas>=3.0.5",
     "plotly>=6.9.0",
     "scikit-image>=0.26.0",
     "scikit-learn>=1.9.0",
     "scipy>=1.18.0",
     "soundfile>=0.14.0",
+    "torch>=2.13.0",
+    "torchvision>=0.28.0",
     "tqdm>=4.70.0",
 ]
+
+[tool.uv]
+index-strategy = "unsafe-best-match"
+
+[[tool.uv.index]]
+url = "https://download.pytorch.org/whl/cu126"
