@@ -15,14 +15,14 @@ The **[ICBHI 2017 Challenge](https://bhichallenge.med.auth.gr/ICBHI_2017_Challen
 - [🔁 Pipeline overview](#-pipeline-overview)
     - [1️⃣ Extract the raw ICBHI records — get_icbhi_dataset.py](#1️⃣-extract-the-raw-icbhi-records--get_icbhi_datasetpy)
     - [2️⃣ Build the metadata table — get_metadata.py](#2️⃣-build-the-metadata-table--get_metadatapy)
-    - [3️⃣ Extract respiratory-cycle fragments — get_fragments.py](#3️⃣-extract-respiratory-cycle-fragments--get_fragmentspy)
     - [➕ Extra: check for multichannel recordings — check_channels.py](#-extra-check-for-multichannel-recordings--check_channelspy)
+    - [3️⃣ Extract respiratory-cycle fragments — get_fragments.py](#3️⃣-extract-respiratory-cycle-fragments--get_fragmentspy)
 - [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
     - [▶️ How to run](#️-how-to-run)
-    - [visualization_signal.ipynb — Raw record + preprocessing](#visualizationsignalipynb--raw-record--preprocessing)
+    - [visualization_signal.ipynb — Raw record + preprocessing](#visualization_signalipynb--raw-record--preprocessing)
     - [EDA.ipynb — Exploratory Data Analysis](#edaipynb--exploratory-data-analysis)
-        - [📝 EDA results](#-eda-results)
+        - [📝 Results](#-results)
 
 ---
 
@@ -212,7 +212,7 @@ Exploratory analysis of `metadata.csv` and `fragments_metadata.csv`, cross-refer
 - plots the age distribution (full population vs. the ≤ 21 filter) as an overlaid histogram + boxplot;
 - plots the respiratory-cycle **duration** distribution (full population vs. the ≤ 21 filter) as an overlaid histogram + boxplot, to compare against SPRSound's [fragment duration distribution](../dataset/README.md#-results).
 
-#### 📝 EDA results
+#### 📝 Results
 
 - **Descriptive parameters:**
     - **Full dataset:**
