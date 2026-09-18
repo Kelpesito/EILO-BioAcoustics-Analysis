@@ -20,6 +20,7 @@ Generates:
         - json_path
         - wav_path
         - Poor Quality: Whether it is a Poor Quality record (1) or not (0) 
+        - duration: Duration of segment
 
 Execution:
     python dataset/get_metadata.py
@@ -82,8 +83,8 @@ def get_metadata_from_file(file: Path) -> dict:
         poor_quality = 1 if poor_quality == "Poor Quality" else 0
 
     # Duration calculation
-    signal, fs = sf.read(f"{WAV_PATH / filename}.wav")
-    duration = len(signal) / fs
+    info = sf.info(f"{WAV_PATH / filename}.wav")
+    duration = info.duration
     
     return {
         "record_id": record_id,
