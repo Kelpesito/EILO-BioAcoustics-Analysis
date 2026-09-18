@@ -121,6 +121,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.2.2**
+    - Updated `ICBHI/README.md`
+
 - **v1.2.1**
     - Added label distribution to `ICBHI/EDA.ipynb`.
 
