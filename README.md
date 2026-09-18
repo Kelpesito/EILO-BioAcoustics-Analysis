@@ -21,7 +21,7 @@
 
 EILO is a prevalent condition in children and adolescents, with a significant impact on their quality of life and sport performance. The diagnosis of EILO currently requires visualisation of the larynx during exercise, with the reference test being **continuous exercise laryngoscopy (CLE)** — an invasive procedure that demands trained personnel and sophisticated equipment. The overarching aim of the project is to develop and evaluate an **AI-based acoustic respiratory analysis tool** as a **non-invasive alternative for the screening of EILO**.
 
-As project-specific respiratory sound recordings are not yet available for this project, the initial development and training of the models will be carried out using **[SPRSound](https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound)**, a publicly available database of annotated respiratory sounds from **pediatric patients**. The dataset contains a variety of **normal and adventitious respiratory sounds** and provides a suitable starting point for developing and evaluating the **signal-processing and machine-learning pipeline**.
+As project-specific respiratory sound recordings are not yet available for this project, the initial development and training of the models will be carried out using **[SPRSound](https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound)**, a publicly available database of annotated respiratory sounds from **pediatric patients**. The dataset contains a variety of **normal and adventitious respiratory sounds** and provides a suitable starting point for developing and evaluating the **signal-processing and machine-learning pipeline**. A second public database, **[ICBHI 2017](https://bhichallenge.med.auth.gr/ICBHI_2017_Challenge)**, is used as an auxiliary reference to characterize respiratory-cycle durations in a pediatric population, since it (unlike SPRSound) segments its recordings into full respiratory cycles.
 
 The project will progressively explore different approaches for **respiratory sound representation, analysis, and classification**, providing the basis for **future work with project-specific recordings**.
 
@@ -61,6 +61,8 @@ The data preparation pipeline expects a clone of the [SPRSound](https://github.c
 git clone https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound.git
 ```
 
+The auxiliary [ICBHI 2017 Challenge](https://bhichallenge.med.auth.gr/ICBHI_2017_Challenge) dataset used in `ICBHI/` is not git-clonable — it must be downloaded manually from the challenge website, with every file placed directly under `ICBHI/ICBHI/data/` (non-data files such as `filename_differences.txt`, `filename_format.txt`, … removed). See [ICBHI/README.md](ICBHI/README.md) for details.
+
 ---
 
 ## 📦 Dependencies
@@ -97,10 +99,11 @@ EILO-BioAcoustics-Analysis/
 ├── README.md
 ├── pyproject.toml
 ├── uv.lock
-│
-├── pyproject.toml
+├── dataset/
 │   └── README.md
-└── classification/
+├── classification/
+│   └── README.md
+└── ICBHI/
     └── README.md
 ```
 
@@ -112,11 +115,17 @@ EILO-BioAcoustics-Analysis/
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
 | `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
+| `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
 
 ---
 
 ## 📝 Changelog
+- **v1.2.0**
+    - Study of ICBHI 2017 database: auxiliary analysis for duration-based filtering.
+    - Optimized `dataset/get_metadata.py` script: Now the images are not fully read, just extract the metadata info with `soundfile.info`.
+    - Removed .csv files from Git tracking.
+
 - **v1.1.1**
     - Fixed images visualization in `dataset/README.md`.
 
@@ -144,7 +153,6 @@ EILO-BioAcoustics-Analysis/
     - Updated repository link
 
 - **v0.1.0**
-
     - Added the initial repository structure with `pyproject.toml`, `uv.lock`, and Python 3.14 environment pinning.
     - Added the dataset preparation pipeline under `dataset/`, comprising five ordered scripts.
     - Added the fragment extraction step with bandpass filtering (70–1900 Hz) and resampling (8 kHz → 4 kHz).

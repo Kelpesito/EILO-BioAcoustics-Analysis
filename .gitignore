@@ -9,13 +9,14 @@ wheels/
 # Virtual environments
 .venv
 
-
-# Images and audio
+# Images, audio and other data
 *.wav
 *.tiff
+*.csv
 
 # Data
 SPRSound/
+ICBHI/ICBHI/
 
 dataset/dataset/
 dataset/full_dataset/
@@ -25,3 +26,5 @@ dataset/poor_quality/
 classification/splits/
 classification/results/
 classification/models/
+
+ICBHI/dataset/
