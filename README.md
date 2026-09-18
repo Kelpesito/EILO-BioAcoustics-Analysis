@@ -121,6 +121,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.2.1**
+    - Added label distribution to `ICBHI/EDA.ipynb`.
+
 - **v1.2.0**
     - Study of ICBHI 2017 database: auxiliary analysis for duration-based filtering.
     - Optimized `dataset/get_metadata.py` script: Now the images are not fully read, just extract the metadata info with `soundfile.info`.

@@ -255,3 +255,10 @@ Exploratory analysis of `metadata.csv` and `fragments_metadata.csv`, cross-refer
 | Median |     2.54     |         1.83            |
 |   Q3   |     3.37     |         2.40            |
 |   max  |     16.16    |         7.16            |
+
+- **Label distribution:**
+    - Global
+    ![Label distribution](assets/label_distribution.png)
+
+    - Filtered (≤ 21 y/o)
+    ![Label distribution filtered](assets/label_distribution_filtered.png)
