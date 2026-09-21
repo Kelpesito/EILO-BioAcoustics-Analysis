@@ -1,7 +1,7 @@
 """
 get_metadata.py
 
-DATASET PREPARATION PIPELINE (2/5)
+DATASET PREPARATION PIPELINE (2/6)
 ----------------------------------
 Obtains a metadata file from the respiratory sound records.
 

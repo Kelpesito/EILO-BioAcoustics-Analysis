@@ -1,7 +1,7 @@
 """
 get_rtf.py
 
-DATASET PREPARATION PIPELINE (5/5)
+DATASET PREPARATION PIPELINE (5/6)
 ----------------------------------
 Generates a folder with the desired Time-Frequency Representation (RTF) of each fragment
  

@@ -256,6 +256,8 @@ Exploratory analysis of `metadata.csv` and `fragments_metadata.csv`, cross-refer
 |   Q3   |     3.37     |         2.40            |
 |   max  |     16.16    |         7.16            |
 
+> No time filtering is needed, as duration distribution in ICBHI 2017 database is similar to SPRSound (approximatelly the same range values)
+
 - **Label distribution:**
     - Global
     ![Label distribution](assets/label_distribution.png)
