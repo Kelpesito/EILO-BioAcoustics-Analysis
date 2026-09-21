@@ -1,7 +1,7 @@
 """
 get_poor_quality_records.py
 
-DATASET PREPARATION PIPELINE (3/5)
+DATASET PREPARATION PIPELINE (3/6)
 ----------------------------------
 Separates the files which are classified as "Poor Quality" and copy them in a folder for these
 records, and copy the other files in a folder for the "Good Quality" records.

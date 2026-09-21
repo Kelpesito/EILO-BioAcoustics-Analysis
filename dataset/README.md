@@ -2,7 +2,7 @@
 
 This folder contains the **data preparation pipeline** for the **EILO-BioAcoustics-Analysis** project. It transforms the raw [SPRSound](https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound) dataset of pediatric respiratory sound recordings into clean, fragment-level audio and time–frequency representations ready for modeling.
 
-The pipeline is implemented as **5 ordered, independent scripts** that build on each other's outputs.
+The pipeline is implemented as **6 ordered, independent scripts** that build on each other's outputs.
 
 ---
 
@@ -17,6 +17,7 @@ The pipeline is implemented as **5 ordered, independent scripts** that build on 
     - [4️⃣ Extract annotated respiratory fragments — get_fragments.py](#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy)
     - [5️⃣ Compute time–frequency representations — get_rtf.py]()
         - [⚙️ RTF configurarion](#rtf-configurarion-see-calculate_rtf)
+    - [6️⃣ Filter out crackle fragments — filter_dataset.py](#6️⃣-filter-out-crackle-fragments--filter_datasetpy)
 - [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
     - [▶️ How to run](#-how-to-run)
@@ -24,6 +25,8 @@ The pipeline is implemented as **5 ordered, independent scripts** that build on 
     - [visualization_fragment.ipynb — Single fragment + STFT](#visualizationfragmentipynb--single-fragment--stft)
     - [EDA.ipynb — Exploratory Data Analysis](#edaipynb--exploratory-data-analysis)
         - [📝 Results](#-results)
+    - [EDA_filtered.ipynb — Exploratory Data Analysis (crackle-filtered)](#eda_filteredipynb--exploratory-data-analysis-crackle-filtered)
+        - [📝 Results](#-results-1)
 
 ---
 
@@ -40,6 +43,7 @@ dataset/
 ├── get_poor_quality_records.py  ← step 3
 ├── get_fragments.py             ← step 4
 ├── get_rtf.py                   ← step 5
+├── filter_dataset.py            ← step 6
 ├── src/
 │   └── calculate_rtf.py         ← RTF functions used by get_rtf.py
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
@@ -57,15 +61,16 @@ From the project root:
 # 0. Clone SPRSound (one-time)
 git clone https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound.git
 
-# 1–5. Run the pipeline in order
+# 1–6. Run the pipeline in order
 python dataset/get_sprsound_dataset.py
 python dataset/get_metadata.py
 python dataset/get_poor_quality_records.py
 python dataset/get_fragments.py
 python dataset/get_rtf.py -t STFT
+python dataset/filter_dataset.py
 ```
 
-The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/fragments_metadata.csv` are the canonical input for downstream training.
+The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/fragments_metadata.csv` (or, with crackle fragments removed, `dataset/fragments_metadata_filtered.csv`) are the canonical input for downstream training.
 
 ---
 
@@ -73,13 +78,16 @@ The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/
 
 | Step | Script | Input | Output |
 |:----:|:-------|:------|:-------|
-| **1/5** | `get_sprsound_dataset.py` | `../SPRSound/` (cloned repo) | `full_dataset/wav/`, `full_dataset/json/` |
-| **2/5** | `get_metadata.py` | `full_dataset/wav/`, `full_dataset/json/` | `metadata.csv` |
-| **3/5** | `get_poor_quality_records.py` | `full_dataset/`, `metadata.csv` | `good_quality/`, `poor_quality/` |
-| **4/5** | `get_fragments.py` | `good_quality/` | `dataset/audio/`, `fragments_metadata.csv` |
-| **5/5** | `get_rtf.py` | `dataset/audio/`, `fragments_metadata.csv` | `dataset/{stft,scalogram,wsst}/*.tiff` |
+| **1/6** | `get_sprsound_dataset.py` | `../SPRSound/` (cloned repo) | `full_dataset/wav/`, `full_dataset/json/` |
+| **2/6** | `get_metadata.py` | `full_dataset/wav/`, `full_dataset/json/` | `metadata.csv` |
+| **3/6** | `get_poor_quality_records.py` | `full_dataset/`, `metadata.csv` | `good_quality/`, `poor_quality/` |
+| **4/6** | `get_fragments.py` | `good_quality/` | `dataset/audio/`, `fragments_metadata.csv` |
+| **5/6** | `get_rtf.py` | `dataset/audio/`, `fragments_metadata.csv` | `dataset/{stft,scalogram,wsst}/*.tiff` |
+| **6/6** | `filter_dataset.py` | `fragments_metadata.csv` | `fragments_metadata_filtered.csv` |
 
-Each step depends on the outputs of the previous ones, so they must be run in order.
+Each step depends on the outputs of the previous ones, so they must be run in order. Step 6 is a fork rather than a continuation: it does not feed step 5, it filters the same `fragments_metadata.csv` that step 4 produces, in parallel to it.
+
+> Because step 6 only depends on step 4's output (`fragments_metadata.csv`), it can be run right after step 4 — before step 5 — if you only need the filtered label set and not the spectrograms yet, or if you want the RTF of the filtered dataset, directly.
 
 ---
 
@@ -250,6 +258,38 @@ dataset/dataset/
 
 ---
 
+### 6️⃣ Filter out crackle fragments — [filter_dataset.py](filter_dataset.py)
+
+Reads `fragments_metadata.csv` and writes a filtered copy with crackle-related fragments removed:
+
+- Drops `Fine Crackle` and `Coarse Crackle` fragments entirely.
+- Collapses `Wheeze+Crackle` into `Wheeze` (keeps the wheeze component, discards the crackle component).
+- Leaves all other labels unchanged.
+
+> Only depends on step 4, so it can be run right after `get_fragments.py` — before `get_rtf.py` (step 5) — if you don't need the spectrograms yet.
+
+Crackles are filtered out because they are **not relevant to this project**: EILO (Exercise-Induced Laryngeal Obstruction) is an upper-airway, inspiratory condition that presents acoustically as wheeze/stridor, not as the fine/coarse crackles typically associated with lower-airway pathology (e.g. fluid or fibrosis in the alveoli). Crackles are also **uncommon in the patient population this project will study**, so keeping them in the training data would bias models toward a class they are unlikely to encounter in practice.
+
+**Label mapping:**
+
+| Original label | Filtered label |
+|:----------------|:----------------|
+| `Fine Crackle` | *(dropped)* |
+| `Coarse Crackle` | *(dropped)* |
+| `Wheeze+Crackle` | `Wheeze` |
+| Normal / Wheeze / Rhonchi / Stridor | unchanged |
+
+**Generates:** `dataset/fragments_metadata_filtered.csv`
+
+**Run:**
+```bash
+python dataset/filter_dataset.py
+```
+
+See [EDA_filtered.ipynb](#eda_filteredipynb--exploratory-data-analysis-crackle-filtered) for exploratory analysis of the resulting dataset.
+
+---
+
 ## 📁 Final folder layout
 
 After running the full pipeline, the relevant outputs are (compare with
@@ -271,8 +311,9 @@ dataset/
 │   ├── spectrogram/       # 224×224 STFT .tiff images
 │   ├── scalogram/         # 224×224 CWT .tiff images (planned)
 │   └── wsst/              # 224×224 WSST .tiff images (planned)
-├── metadata.csv           ← step 2
-└── fragments_metadata.csv ← step 4
+├── metadata.csv                    ← step 2
+├── fragments_metadata.csv          ← step 4
+└── fragments_metadata_filtered.csv ← step 6
 ```
 
 ---
@@ -330,7 +371,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Fine Crackle   |    14.4%   |    60.8%   |
 |      Wheeze      |    6.1%    |    25.9%   |
 |  Wheeze+Crackle  |    1.2%    |    5.22%   |
-|      Ronchi      |    0.9%    |    3.74%   |
+|      Rhonchi      |    0.9%    |    3.74%   |
 |  Coarse Crackle  |    0.7%    |    3.05%   |
 |      Stridor     |    0.3%    |    1.27%   |
 
@@ -475,5 +516,171 @@ Each section includes visualizations and descriptive statistics to characterize 
 
 - **Age vs duration by label:**
 ![Age vs duration vs label](assets/age_vs_duration_vs_label.png)
+
+Scatter of fragment duration against patient age, colored by label. The classes overlap substantially in this 2D space, so age and duration alone do not cleanly separate the labels.
+
+### [EDA_filtered.ipynb](EDA_filtered.ipynb) — Exploratory Data Analysis (crackle-filtered)
+
+Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`.
+
+#### 📝 Results
+
+- **Descriptive parameters**:
+    - Number of segments: 20871 (84.92%)
+    - Number of patients: 920 (96.03%)
+    - Total recorded time: 20h 48 min 39.85 s
+    - Corpus duration: 10 h 15 min 7.04 s (86.31%)
+<br/><br/>
+
+- **Label distribution:**
+![Label distribution](assets/filtered/label_distribution.png)
+
+|     Category     | Proportion | Relative fraction |
+|:----------------:|:----------:|:----------:|
+| **Normal**       |            |            |
+|      Normal      |    89.9%   |    100%    |
+| **Adventitious** |            |            |
+|      Wheeze      |    8.7%    |    86.1%   |
+|      Rhonchi     |    1.0%    |    10.3%   |
+|      Stridor     |    0.4%    |    3.53%   |
+
+- **Age distribution:**
+![Age distribution](assets/filtered/age_patient_distribution.png)
+
+| Metric | Age (years) |
+|:------:|:-----------:|
+|  Mean  |     5.54    |
+|   std  |     3.60    |
+|   min  |       0     |
+|   Q1   |     3.4     |
+| Median |     5       |
+|   Q3   |     7.3     |
+|   max  |      55     |
+
+![Age distribution by fragment](assets/filtered/age_fragment_distribution.png)
+
+| Metric | Age (years) |
+|:------:|:-----------:|
+|  Mean  |     5.14    |
+|   std  |     3.14    |
+|   min  |       0     |
+|   Q1   |     3.2     |
+| Median |     4.6     |
+|   Q3   |     6.9     |
+|   max  |      55     |
+
+![Age distribution by label](assets/filtered/age_distribution_class.png)
+
+| **Metric / Age (years)** | Normal | Wheeze | Rhonchi | Stridor |
+|:------------------------:|:------:|:------:|:-------:|:-------:|
+|           Mean           |  5.37  |  3.05  |   3.72  |   1.47  |
+|            std           |  3.09  |  2.84  |   2.20  |   1.71  |
+|            min           |    0   |   0.2  |   0.5   |   0.2   |
+|            Q1            |   3.4  |   1    |    2    |   0.5   |
+|          Median          |    5   |   2    |   3.1   |   1.3   |
+|            Q3            |    7   |   4.1  |   4.3   |   1.5   |
+|            max           |   55   |  14.6  |   11.7  |   10.3  |
+
+- **Fragment duration:**
+![Fragment duration](assets/filtered/duration_distribution.png)
+
+| Metric | Duration (s) |
+|:------:|:------------:|
+|  Mean  |     1.77    |
+|   std  |     0.76     |
+|   min  |     0.13     |
+|   Q1   |     1.24     |
+| Median |     1.71     |
+|   Q3   |     2.22     |
+|   max  |     9.27     |
+
+![Fragment duration](assets/filtered/duration_distribution_class.png)
+
+| **Metric / Duration (s)** | Normal | Wheeze | Rhonchi | Stridor |
+|:-------------------------:|:------:|:------:|:-------:|:-------:|
+|            Mean           |  1.82  |  1.19  |   1.71  |   1.78  |
+|            std            |  0.74  |  0.75  |   0.85  |   1.00  |
+|            min            |  0.20  |  0.13  |   0.27  |   0.33  |
+|             Q1            |  1.31  |  0.56  |   0.93  |   0.96  |
+|           Median          |  1.74  |  0.97  |   1.67  |   1.55  |
+|             Q3            |  2.25  |  1.83  |   2.30  |   2.39  |
+|            max            |  9.27  |  6.12  |   4.38  |   5.71  |
+
+- **Fragments per record:**
+![Fragments per record](assets/filtered/fragments_record_distribution.png)
+
+| Number of fragments per record | Count | Proportion (%) |
+|:------------------------------:|:-----:|:--------------:|
+|               1                |  748  |      13.65     |
+|               2                |  904  |      16.50     |
+|               3                |  1123 |      20.49     |
+|               4                |  998  |      18.21     |
+|               5                |   646 |      11.79     |
+|               6                |   464 |      8.47      |
+|               7                |   268 |      4.89      |
+|               8                |   153 |      2.79      |
+|               9                |   86  |      1.57      |
+|               ≥10              |   90  |      1.64      |
+
+
+| Metric | Fragments per record  |
+|:------:|:---------------------:|
+|  Mean  |          3.81         |
+|   std  |          2.22         |
+|   min  |           1           |
+|   Q1   |           2           |
+| Median |           3           |
+|   Q3   |           5           |
+|   max  |          24           |
+
+- **Records per patient**
+![Records per patient](assets/filtered/records_patient_distribution.png)
+
+| Metric | Records per patient   |
+|:------:|:---------------------:|
+|  Mean  |          6.83         |
+|   std  |          7.06         |
+|   min  |           1           |
+|   Q1   |           3           |
+| Median |           5           |
+|   Q3   |           8           |
+|   max  |          83           |
+
+
+- **Fragments per patient:** 
+![Fragments per patient](assets/filtered/fragments_patient_distribution.png)
+
+| Metric | Fragments per patient |
+|:------:|:---------------------:|
+|  Mean  |          22.69        |
+|   std  |          26.25        |
+|   min  |           1           |
+|   Q1   |           7           |
+| Median |           15          |
+|   Q3   |           29          |
+|   max  |          295          |
+
+- **Labels per patient:**
+![Labels per patient](assets/filtered/labels_patient_distribution.png)
+
+| Number of labels per patient | Count | Proportion (%) |
+|:----------------------------:|:-----:|:--------------:|
+|               1              |  764  |      83.04     |
+|               2              |  141  |      15.33     |
+|               3              |   15  |      1.63      |
+
+| Metric | Number of labels per patient |
+|:------:|:----------------------------:|
+|  Mean  |              1.19             |
+|   std  |              0.43             |
+|   min  |               1              |
+|   Q1   |               1              |
+| Median |               1              |
+|   Q3   |               1              |
+|   max  |               3              |
+
+
+- **Age vs duration by label:**
+![Age vs duration vs label](assets/filtered/age_vs_duration_vs_label.png)
 
 Scatter of fragment duration against patient age, colored by label. The classes overlap substantially in this 2D space, so age and duration alone do not cleanly separate the labels.

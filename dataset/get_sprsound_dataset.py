@@ -1,7 +1,7 @@
 """
 get_sprsound_dataset.py
 
-DATASET PREPARATION PIPELINE (1/5)
+DATASET PREPARATION PIPELINE (1/6)
 ----------------------------------
 Extracts the records from the SPRSound folder repository.
 
