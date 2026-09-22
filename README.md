@@ -121,6 +121,16 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.2.4**
+    - Modification of RTF extraction pipeline:
+        - Normalized the segment durations to 4 seconds:
+            - If < 4 seconds, cyclic padding
+            - If > 4 seconds, choose the most energetic window
+        - Signal normalization before RTF (standardization)
+    - Modification of STFT parameters:
+        - Spectrogram normalization (max = 0 dB)
+        - Clip frequencies < 1050 Hz
+
 - **v1.2.3**
     - Filtered SPRSound database by label (dropped crackles)
     - Updated `ICBHI/README.md`.

@@ -13,10 +13,10 @@ from scipy.interpolate import interp1d
 from skimage.transform import resize
 
 
-EPS = 1e-14
+EPS = 1e-7
 
 FMIN = 50
-FMAX = 2000
+FMAX = 1050
 
 # Espectrograma - STFT
 N = 179  # Samples/window for STFT
@@ -33,7 +33,8 @@ def calculate_stft(signal: np.ndarray, fs: float) -> np.ndarray:
     dB:
     - Calculates the STFT (Hann window - 179 samples; overlap - 10 samples; 2048 samples FFT)
     - Converts absolute scale to dB
-    - Crop frequencies [50 - 2000] Hz
+    - STFT normalization (max = 0 dB)
+    - Crop frequencies [50 - 1050] Hz
     - Log frequency
     
     Parameters
@@ -52,7 +53,7 @@ def calculate_stft(signal: np.ndarray, fs: float) -> np.ndarray:
     stft = ShortTimeFFT(hann(N), HOP, fs, mfft=NFFT, scale_to="psd")
     spectrogram = stft.spectrogram(signal)
     f = stft.f
-    spectrogram_dB = 10*np.log10(spectrogram + EPS)  # Convertir a dB
+    spectrogram_dB = 10*np.log10(spectrogram/spectrogram.max() + EPS)  # Convertir a dB
     
     # Crop frequencies
     mask = (f >= FMIN) & (f <= FMAX)

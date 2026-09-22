@@ -16,6 +16,7 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
     - [3️⃣ Split records by quality — get_poor_quality_records.py](#3️⃣-split-records-by-quality--get_poor_quality_recordspy)
     - [4️⃣ Extract annotated respiratory fragments — get_fragments.py](#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy)
     - [5️⃣ Compute time–frequency representations — get_rtf.py]()
+        - [Fragment pre-processing (pre_process)](#fragment-pre-processing-pre_process)
         - [⚙️ RTF configurarion](#rtf-configurarion-see-calculate_rtf)
     - [6️⃣ Filter out crackle fragments — filter_dataset.py](#6️⃣-filter-out-crackle-fragments--filter_datasetpy)
 - [📁 Final folder layout](#-final-folder-layout)
@@ -208,7 +209,15 @@ python dataset/get_fragments.py
 
 ### 5️⃣ Compute time–frequency representations — [get_rtf.py](get_rtf.py)
 
-For each fragment `.wav`, this step computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
+For each fragment `.wav`, this step first **pre-processes** the signal to a fixed 4-second duration, then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
+
+#### Fragment pre-processing (`pre_process`)
+
+Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **4-second** window before the RTF is computed:
+
+- **Duration < 4 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 4 s, then a random 4-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model.
+- **Duration > 4 s → most-energetic window:** the signal is passed through an energy filter (`signal² ` convolved with a 4-second moving-sum kernel) and the 4-second window with the highest cumulative energy is selected, on the assumption that this window best captures the annotated event rather than surrounding silence/background.
+- **Normalization:** in both cases, the resulting 4-second segment is z-score normalized (subtract mean, divide by standard deviation) before being handed to `calculate_rtf`.
 
 **Available RTFs:**
 
@@ -217,6 +226,8 @@ For each fragment `.wav`, this step computes one or more **time–frequency repr
 | `STFT` | ✅ implemented | `scipy.signal.ShortTimeFFT` | Log-frequency, dB-scale spectrogram (see config below) |
 | `SCALOGRAM` | 🟡 planned |  |  |
 | `WSST` | 🟡 planned |  |  |
+
+> All RTFs share the same output contract: 224×224 float32 array written as `.tiff`. 
 
 #### RTF configurarion (see [calculate_rtf](src/calculate_rtf.py)):
 
@@ -227,12 +238,12 @@ For each fragment `.wav`, this step computes one or more **time–frequency repr
 | Window | Hann, **179 samples** |
 | Hop size | **10 samples** |
 | FFT length | **2048** points |
-| Frequency range | **50–2000 Hz** (cropped) |
+| Frequency range | **50–1050 Hz** (cropped) |
 | Frequency scale | **Logarithmic** (`np.geomspace`) |
-| Amplitude scale | **Decibels** (`10·log10`) |
+| Amplitude scale | **Decibels** (`10·log10`), normalized so the spectrogram's peak is **0 dB** before conversion |
 | Output size | **224 × 224** pixels (resized, vertically flipped) |
 
-> All RTFs share the same output contract: 224×224 float32 array written as `.tiff`. 
+> The spectrogram is normalized to its own maximum (`spectrogram / spectrogram.max()`) before the dB conversion, so amplitude is expressed relative to each fragment's peak energy rather than on an absolute scale. The frequency range was narrowed from 50–2000 Hz to 50–1050 Hz to better match the spectral content relevant to this project's target sounds (wheeze/stridor).
 
 **Run (one RTF at a time):**
 ```bash
