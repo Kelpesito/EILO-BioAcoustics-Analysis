@@ -19,58 +19,58 @@ NUM_WORKERS = 4
 IMG_SIZE = 224
 
 
-def compute_mean_std(dataset: Dataset, batch_size: int = 32) -> tuple[float, float]:
-    """
-    Given a dataset, computes its mean and std.
+# def compute_mean_std(dataset: Dataset, batch_size: int = 32) -> tuple[float, float]:
+#     """
+#     Given a dataset, computes its mean and std.
 
-    Mean is calculated as:
-    mu = 1/N * sum_{i,j}x
+#     Mean is calculated as:
+#     mu = 1/N * sum_{i,j}x
 
-    Std is calculated as:
-        sigma = sqrt(1/N*sum_{i,j}x^2 - mu^2),
-    since:
-        sigma = sqrt(V[x])
-        V[x] = E[x^2] - E[x]^2
-        E[x] = mu
+#     Std is calculated as:
+#         sigma = sqrt(1/N*sum_{i,j}x^2 - mu^2),
+#     since:
+#         sigma = sqrt(V[x])
+#         V[x] = E[x^2] - E[x]^2
+#         E[x] = mu
 
-    Parameters
-    ----------
-    dataset: Dataset
-        Raw dataset to compute mean and std
-    batch_size: int, optional
-        Batch size to compute mean and std (default = 32)
+#     Parameters
+#     ----------
+#     dataset: Dataset
+#         Raw dataset to compute mean and std
+#     batch_size: int, optional
+#         Batch size to compute mean and std (default = 32)
 
-    Returns
-    -------
-    mean: float
-        Dataset mean
-    std: float
-        Dataset std
-    """
-    loader = DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=NUM_WORKERS,
-        pin_memory=True
-    )
+#     Returns
+#     -------
+#     mean: float
+#         Dataset mean
+#     std: float
+#         Dataset std
+#     """
+#     loader = DataLoader(
+#         dataset,
+#         batch_size=batch_size,
+#         shuffle=False,
+#         num_workers=NUM_WORKERS,
+#         pin_memory=True
+#     )
 
-    channel_sum = 0.0
-    channel_sum_sq = 0.0
-    n_pixels = 0
-    for images, _ in loader:
-        batch_samples = images.size(0)
-        images = images.view(batch_samples, images.size(1), -1)
+#     channel_sum = 0.0
+#     channel_sum_sq = 0.0
+#     n_pixels = 0
+#     for images, _ in loader:
+#         batch_samples = images.size(0)
+#         images = images.view(batch_samples, images.size(1), -1)
         
-        channel_sum += images.sum(dim=[0, 2])
-        channel_sum_sq += (images ** 2).sum(dim=[0, 2])
+#         channel_sum += images.sum(dim=[0, 2])
+#         channel_sum_sq += (images ** 2).sum(dim=[0, 2])
         
-        n_pixels += images.size(0) * images.size(2)
+#         n_pixels += images.size(0) * images.size(2)
         
-    mean = channel_sum / n_pixels
-    std = torch.sqrt(channel_sum_sq / n_pixels - mean ** 2)
+#     mean = channel_sum / n_pixels
+#     std = torch.sqrt(channel_sum_sq / n_pixels - mean ** 2)
 
-    return mean, std
+#     return mean, std
 
 
 def get_dataloaders(
@@ -87,7 +87,7 @@ def get_dataloaders(
     """
     Get training and validation dataloaders from dataframe:
         1. Get Train and Validation split dataframes
-        2. Compute mean and std from training set
+        # 2. Compute mean and std from training set  (Mean and std are now computed by image)
         3. Generate Train and Validation sets with transformations
         4. Generate sampler (WeightedRandomSampler) to handle class imbalance
         5. Generate dataloaders
@@ -132,9 +132,10 @@ def get_dataloaders(
     df_train = df[(df[fold_col] != -1) & (df[fold_col] != fold_val)]
 
     # Compute mean and std from training set -> Normalize
-    stats_transform = T.Compose([T.ToTensor(), T.Resize((img_size, img_size))])
-    train_ds_raw = ImageDataset(df_train, origin, class_to_idx, image_col, label_col, transform=stats_transform)
-    mean, std = compute_mean_std(train_ds_raw, batch_size=batch_size)
+    # stats_transform = T.Compose([T.ToTensor(), T.Resize((img_size, img_size))])
+    # train_ds_raw = ImageDataset(df_train, origin, class_to_idx, image_col, label_col, transform=stats_transform)
+    # mean, std = compute_mean_std(train_ds_raw, batch_size=batch_size)
+    mean, std = None, None
 
     # Train and validation datasets with transformations
     train_ds = ImageDataset(
@@ -161,7 +162,8 @@ def get_dataloaders(
     # Dataloaders
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, sampler=sampler,
-        num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0
+        num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0,
+        drop_last=True,
     )
     val_loader = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,

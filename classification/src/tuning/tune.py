@@ -77,8 +77,8 @@ def objective(
     - **Training hyperparameters:**
         - batch_size: {16, 32, 64}
         - lr_max: float [1e-4, 1e-2] log
-        - lr_min_ratio: float [3e-3, 1e-1] log
-        - num_epochs: int [20, 100]
+        # - lr_min_ratio: float [3e-3, 1e-1] log
+        # - num_epochs: int [20, 100]
         - weight_decay: float [1e-4, 1e-2] log
         - optimizer_name: {"adam", "adaw", "sgd"}
         - loss_name: {"ce", "fl"}
@@ -127,8 +127,8 @@ def objective(
     # Training hyperparameters
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
     lr_max = trial.suggest_float("lr_max", 1e-4, 1e-2, log=True)
-    lr_min_ratio = trial.suggest_float("lr_min_ratio", 3e-3, 1e-1, log=True)
-    num_epochs = trial.suggest_int("num_epochs", 20, 100)
+    # lr_min_ratio = trial.suggest_float("lr_min_ratio", 3e-3, 1e-1, log=True)
+    # num_epochs = trial.suggest_int("num_epochs", 20, 100)
     weight_decay = trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True)
     optimizer_name = trial.suggest_categorical("optimizer", ["adam", "adamw", "sgd"])
     loss_name = trial.suggest_categorical("loss", ["ce", "fl"])
@@ -145,8 +145,8 @@ def objective(
         "dropout_fc": dropout_fc,
         "batch_size": batch_size,
         "lr_max": lr_max,
-        "lr_min_ratio": lr_min_ratio,
-        "num_epochs": num_epochs,
+        # "lr_min_ratio": lr_min_ratio,
+        # "num_epochs": num_epochs,
         "weight_decay": weight_decay,
         "optimizer_name": optimizer_name,
         "loss_name": loss_name,
