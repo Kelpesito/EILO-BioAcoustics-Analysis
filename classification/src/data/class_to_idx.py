@@ -15,6 +15,13 @@ MULTICLASS_IDX = {
     "Stridor": 6,
 }
 
+FILTERED_IDX = {
+    "Normal": 0,
+    "Wheeze": 1,
+    "Rhonchi": 2,
+    "Stridor": 3,
+}
+
 BINARY_IDX = {
     "Normal": 0,
     "Adventitious": 1,

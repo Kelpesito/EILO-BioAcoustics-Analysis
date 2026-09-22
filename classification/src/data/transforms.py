@@ -10,47 +10,47 @@ import torch
 from torchvision import transforms
 
 
-SILENCE_VAL = -140.0
 IMG_SIZE = 224
 
 
 class Normalize:
     """
     Normalization of image by batch mean and std.
+    If mean and std are None, the normalization is calculated by image
 
     Parameters
     ----------
-    mean: float, optional
-        Batch mean value (default = 0.5)
-    std: float, optional
-        Batch std value (default = 0.5)
+    mean: float | None, optional
+        Batch mean value (default = None)
+    std: float | None, optional
+        Batch std value (default = None)
     """
-    def __init__(self, mean: float = 0.5, std: float = 0.5):
+    def __init__(self, mean: float | None = None, std: float | None = None):
 
         self.mean = mean
         self.std = std
 
     def __call__(self, x):
-        return (x - self.mean) / self.std
+        if self.mean is not None and self.std is not None: 
+            return (x - self.mean) / self.std
+
+        mean = x.mean()
+        std = x.std()
+
+        return (x - mean) / std
 
 
 class TemporalShift:
     """
-    Performs a temporal shift in the image.
+    Performs a circular temporal shift in the image.
 
     Parameters
     ----------
-    max_shift: float, optional
-        Maximum fraction of width to time shift (default = 0.1)
     p: float, optional
         Probability to apply the transformation (default = 0.5)
-    fill_value: float, optional
-        Zero-value to fill (default = SILENCE_VAL)
     """
-    def __init__(self, max_shift: float = 0.1, p: float = 0.5, fill_value: float = SILENCE_VAL):
-        self.max_shift = max_shift
+    def __init__(self, p: float = 0.5):
         self.p = p
-        self.fill_value = fill_value
 
     def __call__(self, x):
         if torch.rand(1).item() > self.p:
@@ -58,22 +58,12 @@ class TemporalShift:
 
         _, h, w = x.shape
 
-        shift = torch.randint(int(np.floor(-self.max_shift*w)), int(np.floor(self.max_shift*w)) + 1, (1,)).item()
+        shift = torch.randint(-w + 1, w, (1,)).item()
 
         if shift == 0:
             return x
 
-        x = x.clone()
-        if shift > 0:
-            x[:, :, shift:] = x[:, :, :-shift]
-            x[:, :, :shift] = self.fill_value
-
-        else:
-            shift = abs(shift)
-            x[:, :, :-shift] = x[:, :, shift:]
-            x[:, :, -shift:] = self.fill_value
-
-        return x
+        return torch.roll(x, shifts=shift, dims=-1)
 
 
 class TimeMask:
@@ -86,13 +76,11 @@ class TimeMask:
         Maximum fraction of width to the time mask (default = 0.1)
     p: float, optional
         Probability to apply the transformation (default = 0.5)
-    fill_value: float, optional
-        Zero-value to fill (default = SILENCE_VAL)
     """
-    def __init__(self, max_width=0.1, p=0.5, fill_value=SILENCE_VAL):
+    def __init__(self, max_width=0.1, p=0.5):
         self.max_width = max_width
         self.p = p
-        self.fill_value = fill_value
+        self.fill_value = 0.0
 
     def __call__(self, x):
         if torch.rand(1).item() > self.p:
@@ -117,13 +105,11 @@ class FreqMask:
         Maximum fraction of width to the frequency mask (default = 0.1)
     p: float, optional
         Probability to apply the transformation (default = 0.5)
-    fill_value: float, optional
-        Zero-value to fill (default = SILENCE_VAL)
         """
-    def __init__(self, max_height: float = 0.1, p: float = 0.5, fill_value: float = SILENCE_VAL):
+    def __init__(self, max_height: float = 0.1, p: float = 0.5):
         self.max_height = max_height
         self.p = p
-        self.fill_value = fill_value
+        self.fill_value = 0.0
 
     def __call__(self, x):
         if torch.rand(1).item() > self.p:
@@ -170,7 +156,11 @@ class AddGaussianNoise:
         return tensor + noise
 
 
-def get_train_transforms(mean: float, std: float, img_size: int = IMG_SIZE) -> transforms.Compose:
+def get_train_transforms(
+        mean: float | None,
+        std: float | None,
+        img_size: int = IMG_SIZE
+    ) -> transforms.Compose:
     """
     Returns the set of transformations for training sets:
     ToTensor + Resize + Normalize + DataAugmentation
@@ -180,9 +170,9 @@ def get_train_transforms(mean: float, std: float, img_size: int = IMG_SIZE) -> t
 
     Parameters
     ----------
-    mean: float
+    mean: float | None
         Mean value to normalize
-    std: float
+    std: float | None
         Std value to normalize
     img_size: int, optional
         Image size (default = IMG_SIZE)
@@ -195,15 +185,15 @@ def get_train_transforms(mean: float, std: float, img_size: int = IMG_SIZE) -> t
     return transforms.Compose([
         transforms.ToTensor(),
         transforms.Resize((img_size, img_size)),
-        TemporalShift(max_shift=0.1, p=0.5, fill_value=SILENCE_VAL),
-        TimeMask(max_width=0.1, p=0.5, fill_value=SILENCE_VAL),
-        FreqMask(max_height=0.1, p=0.5, fill_value=SILENCE_VAL),
         Normalize(mean=mean, std=std),
+        TemporalShift(p=0.5),
+        TimeMask(max_width=0.1, p=0.5),
+        FreqMask(max_height=0.1, p=0.5),
         AddGaussianNoise(std_range=(0.01, 0.1), p=0.5),
     ])
 
 
-def get_val_transforms(mean: float, std: float, img_size: int = IMG_SIZE) -> transforms.Compose:
+def get_val_transforms(mean: float | None, std: float | None, img_size: int = IMG_SIZE) -> transforms.Compose:
     """
     Returns the set of transformations for validation / test sets:
     ToTensor + Resize + Normalize

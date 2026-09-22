@@ -44,20 +44,22 @@ classification/
     ├── data/
     │   ├── class_to_idx.py      ← label ↔ index dictionaries (multiclass / hierarchical)
     │   ├── dataset.py           ← ImageDataset: reads a fragment's .tiff RTF + label
-    │   ├── dataloaders.py       ← train/val DataLoaders, per-fold mean/std, WeightedRandomSampler
-    │   └── transforms.py        ← SpecAugment-style augmentations (shift, time/freq mask, noise)
+    │   ├── dataloaders.py       ← train/val DataLoaders, per-image normalization, WeightedRandomSampler
+    │   └── transforms.py        ← SpecAugment-style augmentations (circular shift, time/freq mask, noise)
     ├── models/
     │   └── cnn2d.py             ← configurable 2D-CNN classifier (CNNClassifier_MultiClass)
     ├── training/
     │   ├── train.py             ← train/eval loop; single-fold fit() and 5-fold train_cv()
-    │   ├── early_stopping.py    ← early stopping on validation MCC
+    │   ├── callbacks/
+    │   │   ├── early_stopping.py ← early stopping on validation MCC
+    │   │   └── lwu_ca.py          ← linear warmup + cosine annealing LR schedule (alternative, not used by default)
     │   └── losses.py            ← FocalLoss
     ├── tuning/
     │   └── tune.py              ← Optuna hyperparameter search (model + training params)
     └── utils/
         ├── build_loss.py        ← loss factory (cross-entropy / focal)
         ├── build_optimizer.py   ← optimizer factory (Adam / AdamW / SGD)
-        ├── build_scheduler.py   ← LR scheduler (linear warmup + cosine annealing)
+        ├── build_scheduler.py   ← LR scheduler factory (default: ReduceLROnPlateau; lwu_ca available as alternative)
         └── seed.py              ← reproducibility seeding
 ```
 
@@ -120,23 +122,24 @@ The `src/` package implements the model, data pipeline, and training/tuning logi
 
 | Module | File | Role |
 |:-------|:-----|:-----|
-| `data` | `class_to_idx.py` | Label ↔ index dictionaries: `MULTICLASS_IDX` (7 classes) and `BINARY_IDX` (`Normal` / `Adventitious`, for the hierarchical setup) |
+| `data` | `class_to_idx.py` | Label ↔ index dictionaries: `MULTICLASS_IDX` (7 classes), `FILTERED_IDX` (4 classes), and `BINARY_IDX` (`Normal` / `Adventitious`, for the hierarchical setup) |
 | `data` | `dataset.py` | `ImageDataset` — reads a fragment's `.tiff` RTF and its encoded label |
-| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold: computes normalization mean/std from the training fold only, and oversamples via `WeightedRandomSampler` to counter the [class imbalance](../dataset/README.md#-results) |
-| `data` | `transforms.py` | SpecAugment-style augmentation for the training set only: random temporal shift, time/frequency masking, Gaussian noise |
+| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold; normalization is now done **per image** inside `transforms.py` rather than from a precomputed training-fold mean/std, and oversamples via `WeightedRandomSampler` to counter the [class imbalance](../dataset/README.md#-results) |
+| `data` | `transforms.py` | SpecAugment-style augmentation for the training set only: random **circular** temporal shift, time/frequency masking, Gaussian noise |
 | `models` | `cnn2d.py` | `CNNClassifier_MultiClass` — configurable 2D-CNN baseline (stacked `Conv→BatchNorm→LeakyReLU→Dropout` blocks, global-average-pooled embedding, MLP head); serves as the "Baseline" architecture in [stage 4](#️-modify-the-cnn-stage-4) |
 | `training` | `train.py` | Shared train/eval loop — `fit()` (single fold) and `train_cv()` (5-fold CV); see below |
-| `training` | `early_stopping.py` | Early stopping on validation MCC |
+| `training` | `callbacks/early_stopping.py` | Early stopping on validation MCC |
+| `training` | `callbacks/lwu_ca.py` | Linear warmup + cosine annealing LR schedule (alternative scheduler, not used by default — see [scheduler section](#-learning-rate-scheduler--build_schedulerpy)) |
 | `training` | `losses.py` | `FocalLoss`, for the class-imbalanced label distribution |
 | `tuning` | `tune.py` | Optuna hyperparameter search (`tune()`); see below |
-| `utils` | `build_loss.py` / `build_optimizer.py` / `build_scheduler.py` | Factories building the loss (CE / focal), optimizer (Adam / AdamW / SGD), and LR scheduler (linear warmup + cosine annealing) from a plain hyperparameter dict |
+| `utils` | `build_loss.py` / `build_optimizer.py` / `build_scheduler.py` | Factories building the loss (CE / focal), optimizer (Adam / AdamW / SGD), and LR scheduler (`ReduceLROnPlateau` by default, or `lwu_ca`) from a plain hyperparameter dict |
 | `utils` | `seed.py` | Fixes all random seeds for reproducibility |
 
 The three entry points that tie these modules together:
 
 | Function | Scope | What it does | Output |
 |:---------|:------|:--------------|:-------|
-| `fit()` | 1 CV fold | Trains one model with a linear-warmup + cosine-annealing LR schedule and early stopping on validation MCC (patience 10); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
+| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping on validation MCC (patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
 | `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, LR schedule, weight decay, optimizer, loss + focal gamma), using a TPE sampler and a Hyperband pruner, maximizing validation MCC | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
 
@@ -174,13 +177,30 @@ Linear → logits                            (num_classes = 7)
 
 ### 📉 Learning rate scheduler — `build_scheduler.py`
 
-Training uses a `SequentialLR` combining three phases, driven by `lr_max`, `lr_min_ratio` (with `lr_min = lr_min_ratio · lr_max`) and `warmup_epochs` (default 5):
+`build_scheduler(scheduler_name, optimizer, **kwargs)` is a factory over two interchangeable LR schedules, dispatched by `scheduler_name`:
 
-| Phase | Epochs | Behavior |
-|:------|:-------|:---------|
-| **Warmup** (`LinearLR`) | `1` → `warmup_epochs` | LR rises linearly from `lr_min` to `lr_max` |
-| **Cosine annealing** (`CosineAnnealingLR`) | `warmup_epochs` → `num_epochs` | LR decays from `lr_max` back down to `lr_min` following a cosine curve |
-| **Constant** (`ConstantLR`) | `num_epochs` → end of training | LR held at `lr_min` for any remaining epochs (training can run up to `MAX_EPOCHS = 120`, subject to early stopping) |
+| `scheduler_name` | Implementation | Used by default? |
+|:------------------|:----------------|:------------------|
+| `"rlrop"` | `torch.optim.lr_scheduler.ReduceLROnPlateau` | ✅ yes — this is what `fit()` currently builds |
+| `"lwu_ca"` | `callbacks/lwu_ca.py` — linear warmup + cosine annealing (`SequentialLR`) | 🟡 available, not wired into `fit()` |
+
+**`fit()` uses `ReduceLROnPlateau`** (`"rlrop"`): the LR is held constant while validation MCC keeps improving, and is cut whenever it plateaus, rather than following a fixed schedule.
+
+| Parameter | Value | Behavior |
+|:----------|:------|:---------|
+| `mode` | `"max"` | Watches validation MCC, higher is better |
+| `factor` | `0.25` | LR is multiplied by this factor on each plateau |
+| `patience` | `5` epochs | Epochs without improvement (`threshold_mode="abs"`) before cutting the LR |
+| `cooldown` | `2` epochs | Epochs to wait after a cut before resuming plateau-tracking |
+
+`scheduler.step(val_mcc)` is called once per epoch, right after computing validation metrics.
+
+> `"lwu_ca"` (the previous default) is kept in `callbacks/lwu_ca.py` as a selectable alternative: three phases driven by `lr_max`, `lr_min_ratio` (`lr_min = lr_min_ratio · lr_max`) and `warmup_epochs`:
+> - `LinearLR` warmup (`lr_min` → `lr_max`) up to `warmup_epochs`,
+> - `CosineAnnealingLR` decay (`lr_max` → `lr_min`) up to `num_epochs`,
+> - then `ConstantLR` at `lr_min` for any remaining epochs.
+>
+> It is no longer used by `fit()`, so [`tune()`](#️-hyperparameter-search-space--tunepy) no longer samples `lr_min_ratio`/`num_epochs` either — using `"lwu_ca"` again would require reintroducing them to the search space.
 
 ### 🎛️ Hyperparameter search space — `tune.py`
 
@@ -203,9 +223,7 @@ Training uses a `SequentialLR` combining three phases, driven by `lr_max`, `lr_m
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
 | `batch_size` | `{16, 32, 64}` | |
-| `lr_max` | `[1e-4, 1e-2]` (log) | Peak learning rate, reached after warmup |
-| `lr_min_ratio` | `[3e-3, 1e-1]` (log) | `lr_min / lr_max`; sets both the warmup start and the cosine floor |
-| `num_epochs` | `[20, 100]` (int) | Warmup + cosine-annealing horizon (see scheduler above) |
+| `lr_max` | `[1e-4, 1e-2]` (log) | Initial learning rate passed to the optimizer |
 | `weight_decay` | `[1e-4, 1e-2]` (log) | |
 | `optimizer` | `{adam, adamw, sgd}` | |
 | `loss` | `{ce, fl}` | Cross-entropy vs. `FocalLoss` |

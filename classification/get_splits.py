@@ -28,7 +28,7 @@ from sklearn.model_selection import StratifiedGroupKFold
 
 
 DATASET_PATH = Path("dataset")
-FRAGMENTS_METADATA = DATASET_PATH / "fragments_metadata.csv"
+FRAGMENTS_METADATA = DATASET_PATH / "fragments_metadata_filtered.csv"
 
 CLASSIFICATION_PATH = Path("classification")
 SPLITS_PATH = CLASSIFICATION_PATH / "splits"

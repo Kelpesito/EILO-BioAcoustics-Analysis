@@ -24,7 +24,7 @@ from src.utils.build_optimizer import build_optimizer
 from src.utils.build_scheduler import build_scheduler
 from src.utils.seed import set_seed
 
-from .early_stopping import EarlyStopping
+from callbacks.early_stopping import EarlyStopping
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -32,6 +32,12 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 WARMUP_EPOCHS = 5
 MAX_EPOCHS = 120
 IMG_SIZE = 224
+
+EARLYSTOPPING_PATIENCE = 15
+
+REDUCELR_FACTOR = 0.25
+REDUCELR_PATIENCE = 5
+REDUCELR_COOLDOWN = 2
 
 CLASSIFICATION_PATH = Path("classification")
 RESULTS_PATH = CLASSIFICATION_PATH / "results"
@@ -324,16 +330,22 @@ def fit(
     optimizer = build_optimizer(model=model, **params)
     
     # Build the learning rate scheduler
-    scheduler = build_scheduler(
-        optimizer=optimizer,
-        lr_max=params["lr_max"],
-        lr_min_ratio=params["lr_min_ratio"],
-        num_epochs=params["num_epochs"],
-        warmup_epochs=WARMUP_EPOCHS,
-    )
+    # scheduler_params = {
+    #     "lr_max": params["lr_max"],
+    #     "lr_min_ratio": params["lr_min_ratio"],
+    #     "num_epochs": params["num_epochs"],
+    #     "warmup_epochs": WARMUP_EPOCHS
+    # }  # SCHEDULER PARAMS FOR LWU_CA
+    scheduler_params = {
+        "mode": "max",
+        "factor": REDUCELR_FACTOR,
+        "patience": REDUCELR_PATIENCE,
+        "cooldown": REDUCELR_COOLDOWN,
+    }  # SCHEDULER PARAMS FOR RLROP
+    scheduler = build_scheduler(optimizer=optimizer, scheduler_name="rlrop", **scheduler_params)
     
     early_stopping = EarlyStopping(
-        patience=10,
+        patience=EARLYSTOPPING_PATIENCE,
         mode="max",
         min_delta=1e-4,
     )
@@ -374,7 +386,7 @@ def fit(
         val_mcc = val_metrics["mcc"]
         
         # Update learning rate and early stopping
-        scheduler.step()
+        scheduler.step(val_mcc)
         early_stopping.step(
             score=val_mcc,
             model=model,

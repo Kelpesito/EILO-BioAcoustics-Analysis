@@ -121,6 +121,14 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.0**
+    - Generated splits from filtered csv.
+    - Normalization is now applied per image (before per training set).
+    - Added circularity to `TimeShift` in `classification/src/data/transforms.py`.
+    - Changed learning rate scheduler: `ReduceLROnPlateau` for Linear Warm-Up + Cosine Annealing
+    - Created new submodule `classification/src/training/callbacks` including custom callbacks: `early_stopping.py` (before in `classification/src/training`) and `lwu_ca.py`.
+    - Now `classification/src/utils/build_scheduler.py` does not only builds the `lwu_ca`, now can initialize the `ReduceLROnPlateau`. 
+
 - **v1.2.4**
     - Modification of RTF extraction pipeline:
         - Normalized the segment durations to 4 seconds:
