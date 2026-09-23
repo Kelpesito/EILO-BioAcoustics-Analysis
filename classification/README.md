@@ -289,6 +289,7 @@ Replaces the baseline CNN backbone with more expressive architectures and measur
 2. **Residual** — ResNet-style skip connections
 3. **Dense** — DenseNet-style dense connectivity
 4. **SE / CBAM** — channel- or spatial-attention modules (Attention Convolutional Neural Network)
+5. **ViT** (pretrained) — Vision Transformer for each channel / input
 
 The winning architecture is carried into stage 5.
 
@@ -381,7 +382,7 @@ This folder is a **work in progress**. The checklist below tracks the pipeline s
 - [ ] **Stage 1** — 2D representations (STFT, CWT, WSST, and all combinations)
 - [ ] **Stage 2** — 1D representations (raw signal, IMF, IMF reconstruction, IMF late fusion, RNN)
 - [ ] **Stage 3** — Input fusion (2D only / 1D only / 2D + 1D)
-- [ ] **Stage 4** — CNN modifications (baseline, Residual, Dense, SE/CBAM)
+- [ ] **Stage 4** — CNN modifications (baseline, Residual, Dense, SE/CBAM, ViT)
 - [ ] **Stage 5** — Late fusion with attention (no attention / with attention)
 - [ ] **Stage 6** — Classifier choice (MLP, LR, SVM, LGB)
 - [ ] **Stage 7** — Classification type (multiclass, hierarchical)
