@@ -24,7 +24,7 @@ from src.utils.build_optimizer import build_optimizer
 from src.utils.build_scheduler import build_scheduler
 from src.utils.seed import set_seed
 
-from callbacks.early_stopping import EarlyStopping
+from .callbacks.early_stopping import EarlyStopping
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")

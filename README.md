@@ -121,6 +121,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v.1.3.2**
+    - Fixed bug in `classification/src/training/train.py`.
+
 - **v1.3.1**
     - Updated `classification/README.md`.
 
