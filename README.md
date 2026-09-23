@@ -121,6 +121,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.1**
+    - Updated `classification/README.md`.
+
 - **v1.3.0**
     - Generated splits from filtered csv.
     - Normalization is now applied per image (before per training set).
