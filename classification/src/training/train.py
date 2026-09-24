@@ -16,7 +16,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 import optuna
 from optuna.trial import Trial
-from tqdm import tqdm
+from tqdm.auto import tqdm
 
 from src.data.dataloaders import get_dataloaders
 from src.models.cnn2d import build
@@ -353,7 +353,7 @@ def fit(
     
     # Training loop
     history = []
-    for epoch in (epoch_bar := tqdm(range(1, max_epochs + 1), desc="Training", unit="epoch", leave=False)):
+    for epoch in (epoch_bar := tqdm(range(1, max_epochs + 1), desc="Training", unit="epoch")):
         
         # Train for one epoch
         train_loss = train_one_epoch(
@@ -523,7 +523,7 @@ def train_cv(
     fold_results = {}
     fold_history = {}
     # Cross-validation loop
-    for fold in (cv_bar := tqdm(range(1, n_folds + 1), desc="CV", unit="fold", leave=False)):
+    for fold in (cv_bar := tqdm(range(1, n_folds + 1), desc="CV", unit="fold")):
 
         tqdm.write("=" * 60)
         tqdm.write(f"FOLD {fold}")
