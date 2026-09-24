@@ -525,9 +525,9 @@ def train_cv(
     # Cross-validation loop
     for fold in (cv_bar := tqdm(range(1, n_folds + 1), desc="CV", unit="fold", leave=False)):
 
-        print("=" * 60)
-        print(f"FOLD {fold}")
-        print("=" * 60)
+        tqdm.write("=" * 60)
+        tqdm.write(f"FOLD {fold}")
+        tqdm.write("=" * 60)
         
         # Build the model
         model = build(
