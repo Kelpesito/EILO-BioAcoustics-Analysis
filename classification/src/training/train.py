@@ -16,6 +16,7 @@ from torch.optim import Optimizer
 from torch.utils.data import DataLoader
 import optuna
 from optuna.trial import Trial
+from tqdm import tqdm
 
 from src.data.dataloaders import get_dataloaders
 from src.models.cnn2d import build
@@ -105,7 +106,7 @@ def train_one_epoch(
     """
     model.train()
     total_loss = 0.0
-    for images, labels in loader:
+    for images, labels in tqdm(loader, desc="[Train]", leave=False, unit="batch"):
         images = images.to(device)
         labels = labels.to(device)
 
@@ -182,7 +183,7 @@ def evaluate(
     all_labels = []
     all_probs = []
 
-    for images, labels in loader:
+    for images, labels in tqdm(loader, desc="[Eval]", leave=False, unit="batch"):
         images = images.to(device)
         labels = labels.to(device)
 
@@ -352,7 +353,7 @@ def fit(
     
     # Training loop
     history = []
-    for epoch in range(1, max_epochs + 1):
+    for epoch in (epoch_bar := tqdm(range(1, max_epochs + 1), desc="Training", unit="epoch", leave=False)):
         
         # Train for one epoch
         train_loss = train_one_epoch(
@@ -384,7 +385,8 @@ def fit(
         )
         
         val_mcc = val_metrics["mcc"]
-        
+        current_lr = optimizer.param_groups[0]["lr"]
+
         # Update learning rate and early stopping
         scheduler.step(val_mcc)
         early_stopping.step(
@@ -392,14 +394,13 @@ def fit(
             model=model,
             epoch=epoch,
         )
-        
+
         if trial is not None:
             trial.report(val_mcc, step=epoch)
             if trial.should_prune():
                 raise optuna.TrialPruned()
-        
+
         # Log metrics
-        current_lr = optimizer.param_groups[0]["lr"]
         epoch_log = {
             "fold": fold,
             "epoch": epoch,
@@ -425,7 +426,14 @@ def fit(
 
         history.append(epoch_log)
         
-        print(
+        epoch_bar.set_postfix(
+            val_mcc=f"{val_mcc:.4f}",
+            best_mcc=f"{early_stopping.best_score:.4f}",
+            lr=f"{current_lr:.4g}",
+            patience=f"{early_stopping.counter}/{early_stopping.patience}",
+        )
+        
+        tqdm.write(
             f"Epoch {epoch}/{max_epochs}: lr: {current_lr:.4g}\n"
             f"[Train] Loss: {train_loss:.4f} | BAcc: {train_metrics['balanced_accuracy']:.4f} | "
             f"F1(macro): {train_metrics['f1_macro']:.4f} | F1(weighted): {train_metrics['f1_weighted']:.4f} | "
@@ -437,8 +445,10 @@ def fit(
         )
         
         if early_stopping.should_stop:
-            print("Early stopping.")
+            tqdm.write("Early stopping.")
             break
+    
+    epoch_bar.close()
     
     # Load the best model state
     model.load_state_dict(early_stopping.best_state)
@@ -513,8 +523,8 @@ def train_cv(
     fold_results = {}
     fold_history = {}
     # Cross-validation loop
-    for fold in range(1, n_folds + 1):
-        
+    for fold in (cv_bar := tqdm(range(1, n_folds + 1), desc="CV", unit="fold", leave=False)):
+
         print("=" * 60)
         print(f"FOLD {fold}")
         print("=" * 60)
@@ -548,7 +558,12 @@ def train_cv(
         
         fold_results[fold] = final_metrics
         fold_history[fold] = history
-        
+
+        cv_bar.set_postfix(
+            val_mcc=f"{final_metrics['mcc']:.4f}",
+            best_epoch=final_metrics["best_epoch"],
+        )
+
         # Save model
         if save:
             torch.save(

@@ -121,6 +121,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.3**
+    - Added progress bars to training loops.
+
 - **v1.3.2**
     - Fixed bug in `classification/src/training/train.py`.
 
