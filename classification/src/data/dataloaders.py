@@ -89,7 +89,7 @@ def get_dataloaders(
         1. Get Train and Validation split dataframes
         # 2. Compute mean and std from training set  (Mean and std are now computed by image)
         3. Generate Train and Validation sets with transformations
-        4. Generate sampler (WeightedRandomSampler) to handle class imbalance
+        4. Generate class weights to handle class imbalance (used in the loss function)
         5. Generate dataloaders
 
     Parameters
@@ -125,6 +125,9 @@ def get_dataloaders(
             Mean value to normalize
         - std: float
             Std value to normalize
+        - class_weights: torch.Tensor
+            Per-class weights (inverse frequency, normalized to mean = 1) to handle class
+            imbalance in the loss function
     """
     
     # Train / Validation split
@@ -147,21 +150,22 @@ def get_dataloaders(
         transform=get_val_transforms(mean, std, img_size),
     )
     
-    # Oversampling: Weighted Random Sampler to handle class imbalance
+    # Class weights to handle class imbalance (used in the loss function instead of oversampling)
     train_labels = df_train[label_col].map(class_to_idx).values
     class_counts = np.bincount(train_labels, minlength=len(class_to_idx))
     class_weights = 1.0 / np.clip(class_counts, 1, None)
-    sample_weights = class_weights[train_labels]
 
-    sampler = WeightedRandomSampler(
-        weights=torch.as_tensor(sample_weights, dtype=torch.double),
-        num_samples=len(sample_weights),
-        replacement=True,
-    )
+    # Oversampling: Weighted Random Sampler to handle class imbalance
+    # sample_weights = class_weights[train_labels]
+    # sampler = WeightedRandomSampler(
+    #     weights=torch.as_tensor(sample_weights, dtype=torch.double),
+    #     num_samples=len(sample_weights),
+    #     replacement=True,
+    # )
 
     # Dataloaders
     train_loader = DataLoader(
-        train_ds, batch_size=batch_size, sampler=sampler,
+        train_ds, batch_size=batch_size, shuffle=True,
         num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0,
         drop_last=True,
     )
@@ -175,5 +179,6 @@ def get_dataloaders(
         "val_loader": val_loader,
         "mean": mean,
         "std": std,
+        "class_weights": torch.as_tensor(class_weights, dtype=torch.float32),
     }
     

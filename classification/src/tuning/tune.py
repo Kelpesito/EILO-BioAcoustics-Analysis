@@ -62,7 +62,7 @@ def objective(
         1. Select hyperparameters
         2. Build the model
         3. Train the model
-        4. Get objective variable: MCC (Mathew's Correlation Coefficient)
+        4. Get objective variable: macro F1
 
     Hyperparameters:
     - **Model hyperparameters:**
@@ -111,13 +111,13 @@ def objective(
     Returns
     -------
     float
-        Objective variable: MCC (Mathew's Correlation Coefficient)
+        Objective variable: macro F1
     """
     
     set_seed()
     # Model hyperparameters
     depth = trial.suggest_int("depth", 2, 4)
-    base_filters = trial.suggest_categorical("base_filters", [32, 64, 128, 256])
+    base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64])
     alpha_leaky_relu = trial.suggest_float("alpha_leaky_relu", 0.001, 0.3, log=True)
     embedding_dim = trial.suggest_categorical("embedding_dim", [32, 64, 128, 256, 512])
     hidden_dim = trial.suggest_categorical("hidden_dim", [4, 8, 16, 32, 64])
@@ -182,7 +182,7 @@ def objective(
         trial=trial,
     )
     
-    return final_metrics["mcc"]
+    return final_metrics["f1_macro"]
 
 
 def tune(
@@ -266,7 +266,7 @@ def tune(
         show_progress_bar=True,
     )
     
-    print("Best MCC:", study.best_value)
+    print("Best F1 (macro):", study.best_value)
     print("Best params:")
     for param, value in study.best_params.items():
         print(f"{param}: {value}")
