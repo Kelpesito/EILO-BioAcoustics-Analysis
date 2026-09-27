@@ -323,9 +323,10 @@ def fit(
     )
     train_loader = dataloaders["train_loader"]
     val_loader = dataloaders["val_loader"]
-    
+    class_weights = dataloaders["class_weights"].to(device)
+
     # Build the loss function
-    criterion = build_loss_function(**params)
+    criterion = build_loss_function(**params, class_weights=class_weights)
     
     # Build the optimizer
     optimizer = build_optimizer(model=model, **params)
@@ -338,7 +339,7 @@ def fit(
     #     "warmup_epochs": WARMUP_EPOCHS
     # }  # SCHEDULER PARAMS FOR LWU_CA
     scheduler_params = {
-        "mode": "max",
+        "mode": "min",
         "factor": REDUCELR_FACTOR,
         "patience": REDUCELR_PATIENCE,
         "cooldown": REDUCELR_COOLDOWN,
@@ -384,19 +385,19 @@ def fit(
             device=device,
         )
         
-        val_mcc = val_metrics["mcc"]
+        val_f1_macro = val_metrics["f1_macro"]
         current_lr = optimizer.param_groups[0]["lr"]
 
-        # Update learning rate and early stopping
-        scheduler.step(val_mcc)
+        # Update learning rate (on val_loss) and early stopping (on val_f1_macro)
+        scheduler.step(val_metrics["loss"])
         early_stopping.step(
-            score=val_mcc,
+            score=val_f1_macro,
             model=model,
             epoch=epoch,
         )
 
         if trial is not None:
-            trial.report(val_mcc, step=epoch)
+            trial.report(val_f1_macro, step=epoch)
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
@@ -427,8 +428,8 @@ def fit(
         history.append(epoch_log)
         
         epoch_bar.set_postfix(
-            val_mcc=f"{val_mcc:.4f}",
-            best_mcc=f"{early_stopping.best_score:.4f}",
+            val_f1_macro=f"{val_f1_macro:.4f}",
+            best_f1_macro=f"{early_stopping.best_score:.4f}",
             lr=f"{current_lr:.4g}",
             patience=f"{early_stopping.counter}/{early_stopping.patience}",
         )
@@ -560,7 +561,7 @@ def train_cv(
         fold_history[fold] = history
 
         cv_bar.set_postfix(
-            val_mcc=f"{final_metrics['mcc']:.4f}",
+            val_f1_macro=f"{final_metrics['f1_macro']:.4f}",
             best_epoch=final_metrics["best_epoch"],
         )
 

@@ -23,6 +23,7 @@ dataset/full_dataset/
 dataset/good_quality/
 dataset/poor_quality/
 
+classification/classification/
 classification/splits/
 classification/results/
 classification/models/

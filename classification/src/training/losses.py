@@ -50,11 +50,16 @@ class FocalLoss(nn.Module):
         focal_term = (1 - pt) ** self.gamma
         loss = -focal_term * log_pt                          # [B]
 
+        alpha_t = None
         if self.alpha is not None:
             alpha_t = self.alpha.gather(0, targets)          # [B]
             loss = alpha_t * loss
 
         if self.reduction == "mean":
+            # Weighted mean (normalized by the sum of weights used), matching
+            # nn.CrossEntropyLoss(weight=...) behavior, so alpha doesn't rescale the loss/gradient.
+            if alpha_t is not None:
+                return loss.sum() / alpha_t.sum()
             return loss.mean()
         elif self.reduction == "sum":
             return loss.sum()
