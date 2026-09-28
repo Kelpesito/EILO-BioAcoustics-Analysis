@@ -121,6 +121,10 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.4**
+    - Changed some hyperparameter values
+    - Tested hyperparameter tuning code: model trains correctly, not optimal
+
 - **v1.3.3**
     - Added progress bars to training loops.
 
