@@ -51,7 +51,7 @@ classification/
     ├── training/
     │   ├── train.py             ← train/eval loop; single-fold fit() and 5-fold train_cv()
     │   ├── callbacks/
-    │   │   ├── early_stopping.py ← early stopping on validation MCC
+    │   │   ├── early_stopping.py ← early stopping on validation macro F1
     │   │   └── lwu_ca.py          ← linear warmup + cosine annealing LR schedule (alternative, not used by default)
     │   └── losses.py            ← FocalLoss
     ├── tuning/
@@ -128,7 +128,7 @@ The `src/` package implements the model, data pipeline, and training/tuning logi
 | `data` | `transforms.py` | SpecAugment-style augmentation for the training set only: random **circular** temporal shift, time/frequency masking, Gaussian noise |
 | `models` | `cnn2d.py` | `CNNClassifier_MultiClass` — configurable 2D-CNN baseline (stacked `Conv→BatchNorm→LeakyReLU→Dropout` blocks, global-average-pooled embedding, MLP head); serves as the "Baseline" architecture in [stage 4](#️-modify-the-cnn-stage-4) |
 | `training` | `train.py` | Shared train/eval loop — `fit()` (single fold) and `train_cv()` (5-fold CV); see below |
-| `training` | `callbacks/early_stopping.py` | Early stopping on validation MCC |
+| `training` | `callbacks/early_stopping.py` | Early stopping on validation macro F1 |
 | `training` | `callbacks/lwu_ca.py` | Linear warmup + cosine annealing LR schedule (alternative scheduler, not used by default — see [scheduler section](#-learning-rate-scheduler--build_schedulerpy)) |
 | `training` | `losses.py` | `FocalLoss`, for the class-imbalanced label distribution |
 | `tuning` | `tune.py` | Optuna hyperparameter search (`tune()`); see below |
@@ -139,9 +139,9 @@ The three entry points that tie these modules together:
 
 | Function | Scope | What it does | Output |
 |:---------|:------|:--------------|:-------|
-| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping on validation MCC (patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
+| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by validation macro F1 (early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
-| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, LR schedule, weight decay, optimizer, loss + focal gamma), using a TPE sampler and a Hyperband pruner, maximizing validation MCC | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
+| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, initial LR, weight decay, focal gamma; optimizer fixed to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing validation macro F1 | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
 
 ### 🧱 CNN architecture — `cnn2d.py`
 
@@ -184,16 +184,16 @@ Linear → logits                            (num_classes = 7)
 | `"rlrop"` | `torch.optim.lr_scheduler.ReduceLROnPlateau` | ✅ yes — this is what `fit()` currently builds |
 | `"lwu_ca"` | `callbacks/lwu_ca.py` — linear warmup + cosine annealing (`SequentialLR`) | 🟡 available, not wired into `fit()` |
 
-**`fit()` uses `ReduceLROnPlateau`** (`"rlrop"`): the LR is held constant while validation MCC keeps improving, and is cut whenever it plateaus, rather than following a fixed schedule.
+**`fit()` uses `ReduceLROnPlateau`** (`"rlrop"`): the LR is held constant while validation macro F1 keeps improving, and is cut whenever it plateaus, rather than following a fixed schedule.
 
 | Parameter | Value | Behavior |
 |:----------|:------|:---------|
-| `mode` | `"max"` | Watches validation MCC, higher is better |
+| `mode` | `"max"` | Watches validation macro F1, higher is better |
 | `factor` | `0.25` | LR is multiplied by this factor on each plateau |
 | `patience` | `5` epochs | Epochs without improvement (`threshold_mode="abs"`) before cutting the LR |
 | `cooldown` | `2` epochs | Epochs to wait after a cut before resuming plateau-tracking |
 
-`scheduler.step(val_mcc)` is called once per epoch, right after computing validation metrics.
+`scheduler.step(val_f1_macro)` is called once per epoch, right after computing validation metrics.
 
 > `"lwu_ca"` (the previous default) is kept in `callbacks/lwu_ca.py` as a selectable alternative: three phases driven by `lr_max`, `lr_min_ratio` (`lr_min = lr_min_ratio · lr_max`) and `warmup_epochs`:
 > - `LinearLR` warmup (`lr_min` → `lr_max`) up to `warmup_epochs`,
@@ -204,19 +204,19 @@ Linear → logits                            (num_classes = 7)
 
 ### 🎛️ Hyperparameter search space — `tune.py`
 
-`objective()` samples the following hyperparameters for every Optuna trial:
+`objective()` samples the following hyperparameters for every Optuna trial and returns the validation **macro F1** of the trained model (the value the study maximizes):
 
 **Model hyperparameters**
 
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
-| `depth` | `[2, 4]` (int) | Number of `ConvBlock`s |
-| `base_filters` | `{32, 64, 128, 256}` | Filters in the first `ConvBlock`; doubles every block |
+| `depth` | `[2, 5]` (int) | Number of `ConvBlock`s |
+| `base_filters` | `{8, 16, 32, 64}` | Filters in the first `ConvBlock`; doubles every block |
 | `alpha_leaky_relu` | `[0.001, 0.3]` (log) | LeakyReLU negative slope |
-| `embedding_dim` | `{32, 64, 128, 256, 512}` | Size of the pooled feature embedding |
-| `hidden_dim` | `{4, 8, 16, 32, 64}` | Size of the classifier's hidden layer |
-| `dropout_cnn` | `[0.0, 0.5]` | `Dropout2d` inside the `ConvBlock`s |
-| `dropout_fc` | `[0.0, 0.5]` | Dropout inside the classifier head |
+| `embedding_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the pooled feature embedding |
+| `hidden_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the classifier's hidden layer |
+| `dropout_cnn` | `[0.0, 0.2]` | `Dropout2d` inside the `ConvBlock`s |
+| `dropout_fc` | `[0.0, 0.4]` | Dropout inside the classifier head |
 
 **Training hyperparameters**
 
@@ -224,10 +224,10 @@ Linear → logits                            (num_classes = 7)
 |:----------------|:--------------|:------|
 | `batch_size` | `{16, 32, 64}` | |
 | `lr_max` | `[1e-4, 1e-2]` (log) | Initial learning rate passed to the optimizer |
-| `weight_decay` | `[1e-4, 1e-2]` (log) | |
-| `optimizer` | `{adam, adamw, sgd}` | |
-| `loss` | `{ce, fl}` | Cross-entropy vs. `FocalLoss` |
-| `gamma_focal` | `[2.0, 5.0]` | Only sampled when `loss == "fl"` |
+| `weight_decay` | `[1e-5, 1e-3]` (log) | |
+| `optimizer_name` | `adamw` (fixed) | Not tuned; `build_optimizer.py` still supports `adam` / `sgd` |
+| `loss_name` | `fl` (fixed) | Not tuned; always `FocalLoss` (`build_loss.py` still supports `ce`) |
+| `gamma_focal` | `[0.0, 5.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
 
 ---
 

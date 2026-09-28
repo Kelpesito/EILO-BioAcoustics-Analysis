@@ -66,23 +66,23 @@ def objective(
 
     Hyperparameters:
     - **Model hyperparameters:**
-        - depth: int [2, 4]
-        - base_filters: {32, 64, 128, 256}
+        - depth: int [2, 5]
+        - base_filters: {8, 16, 32, 64}
         - alpha_leaky_relu: float [0.001, 0.3] log
-        - embedding_dim: {32, 64, 128, 256, 512}
-        - hidden_dim: {4, 8, 16, 32, 64}
-        - dropout_cnn: float [0.0, 0.5]
-        - dropout_fc: float [0.0, 0.5]
-    
+        - embedding_dim: {32, 64, 128, 256, 512, 1024}
+        - hidden_dim: {32, 64, 128, 256, 512, 1024}
+        - dropout_cnn: float [0.0, 0.2]
+        - dropout_fc: float [0.0, 0.4]
+
     - **Training hyperparameters:**
         - batch_size: {16, 32, 64}
         - lr_max: float [1e-4, 1e-2] log
         # - lr_min_ratio: float [3e-3, 1e-1] log
         # - num_epochs: int [20, 100]
-        - weight_decay: float [1e-4, 1e-2] log
-        - optimizer_name: {"adam", "adaw", "sgd"}
-        - loss_name: {"ce", "fl"}
-        - gamma_focal: float [2.0, 5.0] if loss_name == "fl"
+        - weight_decay: float [1e-5, 1e-3] log
+        - optimizer_name: "adamw" (fixed)
+        - loss_name: "fl" (fixed)
+        - gamma_focal: float [0.0, 5.0]
     
     Parameters
     ----------
@@ -116,24 +116,23 @@ def objective(
     
     set_seed()
     # Model hyperparameters
-    depth = trial.suggest_int("depth", 2, 4)
+    depth = trial.suggest_int("depth", 2, 5)
     base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64])
     alpha_leaky_relu = trial.suggest_float("alpha_leaky_relu", 0.001, 0.3, log=True)
-    embedding_dim = trial.suggest_categorical("embedding_dim", [32, 64, 128, 256, 512])
-    hidden_dim = trial.suggest_categorical("hidden_dim", [4, 8, 16, 32, 64])
-    dropout_cnn = trial.suggest_float("dropout_cnn", 0.0, 0.5)
-    dropout_fc = trial.suggest_float("dropout_fc", 0.0, 0.5)
+    embedding_dim = trial.suggest_categorical("embedding_dim", [32, 64, 128, 256, 512, 1024])
+    hidden_dim = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256, 512, 1024])
+    dropout_cnn = trial.suggest_float("dropout_cnn", 0.0, 0.2)
+    dropout_fc = trial.suggest_float("dropout_fc", 0.0, 0.4)
     
     # Training hyperparameters
     batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
     lr_max = trial.suggest_float("lr_max", 1e-4, 1e-2, log=True)
     # lr_min_ratio = trial.suggest_float("lr_min_ratio", 3e-3, 1e-1, log=True)
     # num_epochs = trial.suggest_int("num_epochs", 20, 100)
-    weight_decay = trial.suggest_float("weight_decay", 1e-4, 1e-2, log=True)
-    optimizer_name = trial.suggest_categorical("optimizer", ["adam", "adamw", "sgd"])
-    loss_name = trial.suggest_categorical("loss", ["ce", "fl"])
-    if loss_name == "fl":
-        gamma_focal = trial.suggest_float("gamma_focal", 2.0, 5.0)
+    weight_decay = trial.suggest_float("weight_decay", 1e-5, 1e-3, log=True)
+    optimizer_name = "adamw"
+    loss_name = "fl"
+    gamma_focal = trial.suggest_float("gamma_focal", 0.0, 5.0)
         
     params = {
         "depth": depth,
@@ -242,7 +241,7 @@ def tune(
         sampler=optuna.samplers.TPESampler(seed=42),
         pruner=optuna.pruners.HyperbandPruner(
             min_resource=10,
-            max_resource=120,
+            max_resource=max_epochs,
             reduction_factor=3,
         ),
         storage=f"sqlite:///{RESULTS_OPTUNA_PATH / study_name / study_name}.db" if save else None,

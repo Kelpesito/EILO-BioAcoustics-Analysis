@@ -339,7 +339,7 @@ def fit(
     #     "warmup_epochs": WARMUP_EPOCHS
     # }  # SCHEDULER PARAMS FOR LWU_CA
     scheduler_params = {
-        "mode": "min",
+        "mode": "max",
         "factor": REDUCELR_FACTOR,
         "patience": REDUCELR_PATIENCE,
         "cooldown": REDUCELR_COOLDOWN,
@@ -388,8 +388,8 @@ def fit(
         val_f1_macro = val_metrics["f1_macro"]
         current_lr = optimizer.param_groups[0]["lr"]
 
-        # Update learning rate (on val_loss) and early stopping (on val_f1_macro)
-        scheduler.step(val_metrics["loss"])
+        # Update learning rate and early stopping (both on val_f1_macro)
+        scheduler.step(val_f1_macro)
         early_stopping.step(
             score=val_f1_macro,
             model=model,
