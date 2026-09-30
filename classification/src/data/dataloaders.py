@@ -126,8 +126,8 @@ def get_dataloaders(
         - std: float
             Std value to normalize
         - class_weights: torch.Tensor
-            Per-class weights (inverse frequency, normalized to mean = 1) to handle class
-            imbalance in the loss function
+            Per-class weights (inverse frequency, not normalized) to handle class imbalance in
+            the loss function
     """
     
     # Train / Validation split

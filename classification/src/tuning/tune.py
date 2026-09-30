@@ -62,27 +62,28 @@ def objective(
         1. Select hyperparameters
         2. Build the model
         3. Train the model
-        4. Get objective variable: macro F1
+        4. Get objective variable: best EMA of validation macro PR-AUC (the same smoothed score
+           that drives ReduceLROnPlateau, EarlyStopping and pruning in `fit`)
 
     Hyperparameters:
     - **Model hyperparameters:**
         - depth: int [2, 5]
-        - base_filters: {8, 16, 32, 64}
+        - base_filters: {8, 16, 32, 64, 128}
         - alpha_leaky_relu: float [0.001, 0.3] log
         - embedding_dim: {32, 64, 128, 256, 512, 1024}
         - hidden_dim: {32, 64, 128, 256, 512, 1024}
-        - dropout_cnn: float [0.0, 0.2]
+        - dropout_cnn: float [0.0, 0.1]
         - dropout_fc: float [0.0, 0.4]
 
     - **Training hyperparameters:**
-        - batch_size: {16, 32, 64}
+        - batch_size: {16, 32, 64, 128}
         - lr_max: float [1e-4, 1e-2] log
         # - lr_min_ratio: float [3e-3, 1e-1] log
         # - num_epochs: int [20, 100]
-        - weight_decay: float [1e-5, 1e-3] log
+        - weight_decay: float [5e-5, 5e-2] log
         - optimizer_name: "adamw" (fixed)
         - loss_name: "fl" (fixed)
-        - gamma_focal: float [0.0, 5.0]
+        - gamma_focal: float [0.0, 3.0]
     
     Parameters
     ----------
@@ -111,28 +112,28 @@ def objective(
     Returns
     -------
     float
-        Objective variable: macro F1
+        Objective variable: best EMA of validation macro PR-AUC
     """
     
     set_seed()
     # Model hyperparameters
     depth = trial.suggest_int("depth", 2, 5)
-    base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64])
+    base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64, 128])
     alpha_leaky_relu = trial.suggest_float("alpha_leaky_relu", 0.001, 0.3, log=True)
     embedding_dim = trial.suggest_categorical("embedding_dim", [32, 64, 128, 256, 512, 1024])
     hidden_dim = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256, 512, 1024])
-    dropout_cnn = trial.suggest_float("dropout_cnn", 0.0, 0.2)
+    dropout_cnn = trial.suggest_float("dropout_cnn", 0.0, 0.1)
     dropout_fc = trial.suggest_float("dropout_fc", 0.0, 0.4)
     
     # Training hyperparameters
-    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64])
+    batch_size = trial.suggest_categorical("batch_size", [16, 32, 64, 128])
     lr_max = trial.suggest_float("lr_max", 1e-4, 1e-2, log=True)
     # lr_min_ratio = trial.suggest_float("lr_min_ratio", 3e-3, 1e-1, log=True)
     # num_epochs = trial.suggest_int("num_epochs", 20, 100)
-    weight_decay = trial.suggest_float("weight_decay", 1e-5, 1e-3, log=True)
+    weight_decay = trial.suggest_float("weight_decay", 5e-5, 5e-2, log=True)
     optimizer_name = "adamw"
     loss_name = "fl"
-    gamma_focal = trial.suggest_float("gamma_focal", 0.0, 5.0)
+    gamma_focal = trial.suggest_float("gamma_focal", 0.0, 3.0)
         
     params = {
         "depth": depth,
@@ -181,7 +182,7 @@ def objective(
         trial=trial,
     )
     
-    return final_metrics["f1_macro"]
+    return final_metrics["best_score_ema"]
 
 
 def tune(
@@ -265,7 +266,7 @@ def tune(
         show_progress_bar=True,
     )
     
-    print("Best F1 (macro):", study.best_value)
+    print("Best score (EMA of macro PR-AUC):", study.best_value)
     print("Best params:")
     for param, value in study.best_params.items():
         print(f"{param}: {value}")

@@ -121,6 +121,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.5**
+    - Modified STFT parameter: new window length `N = 400` samples.
+    - Changed some hyperparameter values.
+    - New monitored score: Exponential Moving Average (EMA) of the validation macro PR-AUC:
+        - New callback `classification/src/training/callbacks/ema.py`.
+
 - **v1.3.4**
     - Changed some hyperparameter values
     - Tested hyperparameter tuning code: model trains correctly, not optimal
