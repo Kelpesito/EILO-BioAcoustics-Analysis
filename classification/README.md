@@ -238,7 +238,7 @@ The best model state kept by early stopping is the one with the highest smoothed
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
 | `depth` | `[2, 5]` (int) | Number of `ConvBlock`s |
-| `base_filters` | `{8, 16, 32, 64, 128}` | Filters in the first `ConvBlock`; doubles every block |
+| `base_filters` | `{8, 16, 32, 64}` | Filters in the first `ConvBlock`; doubles every block |
 | `alpha_leaky_relu` | `[0.001, 0.3]` (log) | LeakyReLU negative slope |
 | `embedding_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the pooled feature embedding |
 | `hidden_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the classifier's hidden layer |
@@ -249,7 +249,7 @@ The best model state kept by early stopping is the one with the highest smoothed
 
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
-| `batch_size` | `{16, 32, 64, 128}` | |
+| `batch_size` | `{16, 32, 64}` | |
 | `lr_max` | `[1e-4, 1e-2]` (log) | Initial learning rate passed to the optimizer |
 | `weight_decay` | `[5e-5, 5e-2]` (log) | Decoupled weight decay (AdamW) |
 | `optimizer_name` | `adamw` (fixed) | Not tuned; `build_optimizer.py` still supports `adam` / `sgd` |
