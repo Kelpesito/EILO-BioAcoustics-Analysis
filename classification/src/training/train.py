@@ -26,6 +26,7 @@ from src.utils.build_scheduler import build_scheduler
 from src.utils.seed import set_seed
 
 from .callbacks.early_stopping import EarlyStopping
+from .callbacks.ema import EMA
 
 
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -33,6 +34,11 @@ DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 WARMUP_EPOCHS = 5
 MAX_EPOCHS = 120
 IMG_SIZE = 224
+
+# Monitored metric (ReduceLROnPlateau, EarlyStopping and Optuna): EMA of validation macro PR-AUC
+MONITOR_METRIC = "pr_auc"
+EMA_ALPHA = 0.5
+MIN_DELTA = 1e-3  # Minimum improvement of the monitored metric (ReduceLROnPlateau and EarlyStopping)
 
 EARLYSTOPPING_PATIENCE = 15
 
@@ -259,6 +265,11 @@ def fit(
     """
     Trains a model.
 
+    The learning rate scheduler (ReduceLROnPlateau), the early stopping and the Optuna pruning are
+    all driven by the same monitored score: the Exponential Moving Average (EMA_ALPHA) of the
+    validation macro PR-AUC (MONITOR_METRIC). The best model state is the one with the highest
+    smoothed score.
+
     Parameters
     ----------
     model: nn.Module
@@ -302,12 +313,14 @@ def fit(
         - val_mcc: float
         - train_pr_auc: float
         - val_pr_auc: float
+        - val_score_ema: float
         - lr: float
         - train_f1_{class}: float
         - val_f1_{class}: float
         - val_support_{class}: int
     final_metrics: dict
-        Final merics evaluation of validation set + best epoch
+        Final merics evaluation of validation set (best model state) + best epoch
+        ("best_epoch") + best smoothed monitored score ("best_score_ema")
     """
     # Get dataloaders for the current fold
     dataloaders = get_dataloaders(
@@ -343,14 +356,18 @@ def fit(
         "factor": REDUCELR_FACTOR,
         "patience": REDUCELR_PATIENCE,
         "cooldown": REDUCELR_COOLDOWN,
+        "threshold": MIN_DELTA,
     }  # SCHEDULER PARAMS FOR RLROP
     scheduler = build_scheduler(optimizer=optimizer, scheduler_name="rlrop", **scheduler_params)
-    
+
     early_stopping = EarlyStopping(
         patience=EARLYSTOPPING_PATIENCE,
         mode="max",
-        min_delta=1e-4,
+        min_delta=MIN_DELTA,
     )
+
+    # Smoothed monitored score
+    ema = EMA(alpha=EMA_ALPHA)
     
     # Training loop
     history = []
@@ -385,19 +402,19 @@ def fit(
             device=device,
         )
         
-        val_f1_macro = val_metrics["f1_macro"]
+        val_score_ema = ema.step(val_metrics[MONITOR_METRIC])
         current_lr = optimizer.param_groups[0]["lr"]
 
-        # Update learning rate and early stopping (both on val_f1_macro)
-        scheduler.step(val_f1_macro)
+        # Update learning rate, early stopping and pruning (all on val_score_ema)
+        scheduler.step(val_score_ema)
         early_stopping.step(
-            score=val_f1_macro,
+            score=val_score_ema,
             model=model,
             epoch=epoch,
         )
 
         if trial is not None:
-            trial.report(val_f1_macro, step=epoch)
+            trial.report(val_score_ema, step=epoch)
             if trial.should_prune():
                 raise optuna.TrialPruned()
 
@@ -417,6 +434,7 @@ def fit(
             "val_mcc": val_metrics["mcc"],
             "train_pr_auc": train_metrics["pr_auc"],
             "val_pr_auc": val_metrics["pr_auc"],
+            "val_score_ema": val_score_ema,
             "lr": current_lr,
         }
         for cls in val_metrics["f1_per_class"]:
@@ -428,8 +446,8 @@ def fit(
         history.append(epoch_log)
         
         epoch_bar.set_postfix(
-            val_f1_macro=f"{val_f1_macro:.4f}",
-            best_f1_macro=f"{early_stopping.best_score:.4f}",
+            val_score_ema=f"{val_score_ema:.4f}",
+            best_score_ema=f"{early_stopping.best_score:.4f}",
             lr=f"{current_lr:.4g}",
             patience=f"{early_stopping.counter}/{early_stopping.patience}",
         )
@@ -441,7 +459,8 @@ def fit(
             f"MCC: {train_metrics['mcc']:.4f} | PR-AUC: {train_metrics['pr_auc']:.4f}\n"
             f"[Val]   Loss: {val_metrics['loss']:.4f} | BAcc: {val_metrics['balanced_accuracy']:.4f} | "
             f"F1(macro): {val_metrics['f1_macro']:.4f} | F1(weighted): {val_metrics['f1_weighted']:.4f} | "
-            f"MCC: {val_metrics['mcc']:.4f} | PR-AUC: {val_metrics['pr_auc']:.4f}\n"
+            f"MCC: {val_metrics['mcc']:.4f} | PR-AUC: {val_metrics['pr_auc']:.4f} | "
+            f"Score (EMA {MONITOR_METRIC}): {val_score_ema:.4f}\n"
             f"[Val per-class F1] {format_per_class(val_metrics['f1_per_class'], val_metrics['support_per_class'])}\n"
         )
         
@@ -464,7 +483,8 @@ def fit(
         device=device,
     )
     final_metrics["best_epoch"] = early_stopping.best_epoch
-    
+    final_metrics["best_score_ema"] = early_stopping.best_score
+
     return history, final_metrics
     
 
@@ -561,6 +581,7 @@ def train_cv(
         fold_history[fold] = history
 
         cv_bar.set_postfix(
+            best_score_ema=f"{final_metrics['best_score_ema']:.4f}",
             val_f1_macro=f"{final_metrics['f1_macro']:.4f}",
             best_epoch=final_metrics["best_epoch"],
         )

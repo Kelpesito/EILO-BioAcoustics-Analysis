@@ -19,8 +19,8 @@ FMIN = 50
 FMAX = 1050
 
 # Espectrograma - STFT
-N = 179  # Samples/window for STFT
-HOP = 10  # Overlap samples for STFT
+N = 400  # Samples/window for STFT
+HOP = 10  # Hop size (samples) for STFT
 NFFT = 2048  # output samples/winndow for FFT
 
 # Imagen de salida
@@ -31,7 +31,7 @@ def calculate_stft(signal: np.ndarray, fs: float) -> np.ndarray:
     """
     Calculates the Short-Time Fourier Transform and computes the spectrogram, in log-frequency and
     dB:
-    - Calculates the STFT (Hann window - 179 samples; overlap - 10 samples; 2048 samples FFT)
+    - Calculates the STFT (Hann window - 400 samples; hop - 10 samples; 2048 samples FFT)
     - Converts absolute scale to dB
     - STFT normalization (max = 0 dB)
     - Crop frequencies [50 - 1050] Hz

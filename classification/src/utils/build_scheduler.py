@@ -28,6 +28,7 @@ def build_scheduler(scheduler_name: str, optimizer: Optimizer, **kwargs) -> LRSc
                 mode=kwargs["mode"],
                 factor=kwargs["factor"],
                 patience=kwargs["patience"],
+                threshold=kwargs.get("threshold", 1e-4),
                 threshold_mode='abs',
                 cooldown=kwargs["cooldown"],
             )

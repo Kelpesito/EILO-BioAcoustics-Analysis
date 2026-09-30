@@ -235,7 +235,7 @@ Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-le
 
 | Parameter | Value |
 |:----------|:------|
-| Window | Hann, **179 samples** |
+| Window | Hann, **400 samples** (100 ms at 4 kHz) |
 | Hop size | **10 samples** |
 | FFT length | **2048** points |
 | Frequency range | **50–1050 Hz** (cropped) |
@@ -243,7 +243,7 @@ Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-le
 | Amplitude scale | **Decibels** (`10·log10`), normalized so the spectrogram's peak is **0 dB** before conversion |
 | Output size | **224 × 224** pixels (resized, vertically flipped) |
 
-> The spectrogram is normalized to its own maximum (`spectrogram / spectrogram.max()`) before the dB conversion, so amplitude is expressed relative to each fragment's peak energy rather than on an absolute scale. The frequency range was narrowed from 50–2000 Hz to 50–1050 Hz to better match the spectral content relevant to this project's target sounds (wheeze/stridor).
+> The spectrogram is normalized to its own maximum (`spectrogram / spectrogram.max()`) before the dB conversion, so amplitude is expressed relative to each fragment's peak energy rather than on an absolute scale. The frequency range was narrowed from 50–2000 Hz to 50–1050 Hz to better match the spectral content relevant to this project's target sounds (wheeze/stridor). The window length was increased from 179 samples (~45 ms) to 400 samples (100 ms), improving frequency resolution (Hann main lobe ≈ 20 Hz instead of ≈ 45 Hz) to better resolve the narrow-band, tonal components of wheezes, rhonchi and stridor. The loss of temporal resolution is acceptable because the transient crackle classes are no longer used (see [step 6](#6️⃣-filter-out-crackle-fragments--filter_datasetpy)).
 
 **Run (one RTF at a time):**
 ```bash

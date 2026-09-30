@@ -14,6 +14,7 @@ The pipeline is currently **a work in progress**. Only the train/val/test split 
 - [1️⃣ Build patient-level data splits — get_splits.py](#1️⃣-build-patient-level-data-splits--get_splitspy)
 - [🏋️ Training and hyperparameter tuning](#️-training-and-hyperparameter-tuning)
     - [🧱 CNN architecture](#-cnn-architecture--cnn2dpy)
+    - [📈 Monitored score](#-monitored-score--ema-of-validation-macro-pr-auc)
     - [📉 Learning rate scheduler](#-learning-rate-scheduler--build_schedulerpy)
     - [🎛️ Hyperparameter search space](#️-hyperparameter-search-space--tunepy)
 - [🧪 Ablation study — Selection of model architecture](#-ablation-study--selection-of-model-architecture)
@@ -44,14 +45,15 @@ classification/
     ├── data/
     │   ├── class_to_idx.py      ← label ↔ index dictionaries (multiclass / hierarchical)
     │   ├── dataset.py           ← ImageDataset: reads a fragment's .tiff RTF + label
-    │   ├── dataloaders.py       ← train/val DataLoaders, per-image normalization, WeightedRandomSampler
+    │   ├── dataloaders.py       ← train/val DataLoaders + inverse-frequency class weights
     │   └── transforms.py        ← SpecAugment-style augmentations (circular shift, time/freq mask, noise)
     ├── models/
     │   └── cnn2d.py             ← configurable 2D-CNN classifier (CNNClassifier_MultiClass)
     ├── training/
     │   ├── train.py             ← train/eval loop; single-fold fit() and 5-fold train_cv()
     │   ├── callbacks/
-    │   │   ├── early_stopping.py ← early stopping on validation macro F1
+    │   │   ├── early_stopping.py ← early stopping on the monitored score
+    │   │   ├── ema.py            ← exponential moving average of the monitored metric
     │   │   └── lwu_ca.py          ← linear warmup + cosine annealing LR schedule (alternative, not used by default)
     │   └── losses.py            ← FocalLoss
     ├── tuning/
@@ -124,11 +126,12 @@ The `src/` package implements the model, data pipeline, and training/tuning logi
 |:-------|:-----|:-----|
 | `data` | `class_to_idx.py` | Label ↔ index dictionaries: `MULTICLASS_IDX` (7 classes), `FILTERED_IDX` (4 classes), and `BINARY_IDX` (`Normal` / `Adventitious`, for the hierarchical setup) |
 | `data` | `dataset.py` | `ImageDataset` — reads a fragment's `.tiff` RTF and its encoded label |
-| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold; normalization is now done **per image** inside `transforms.py` rather than from a precomputed training-fold mean/std, and oversamples via `WeightedRandomSampler` to counter the [class imbalance](../dataset/README.md#-results) |
+| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold; normalization is now done **per image** inside `transforms.py` rather than from a precomputed training-fold mean/std. The [class imbalance](../dataset/README.md#-results-1) is handled in the loss through inverse-frequency class weights (unnormalized; `FocalLoss` divides by the sum of the weights in each batch) rather than by oversampling (`WeightedRandomSampler` is kept commented out) |
 | `data` | `transforms.py` | SpecAugment-style augmentation for the training set only: random **circular** temporal shift, time/frequency masking, Gaussian noise |
 | `models` | `cnn2d.py` | `CNNClassifier_MultiClass` — configurable 2D-CNN baseline (stacked `Conv→BatchNorm→LeakyReLU→Dropout` blocks, global-average-pooled embedding, MLP head); serves as the "Baseline" architecture in [stage 4](#️-modify-the-cnn-stage-4) |
 | `training` | `train.py` | Shared train/eval loop — `fit()` (single fold) and `train_cv()` (5-fold CV); see below |
-| `training` | `callbacks/early_stopping.py` | Early stopping on validation macro F1 |
+| `training` | `callbacks/early_stopping.py` | Early stopping on the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) |
+| `training` | `callbacks/ema.py` | `EMA` — exponential moving average used to smooth the monitored metric across epochs |
 | `training` | `callbacks/lwu_ca.py` | Linear warmup + cosine annealing LR schedule (alternative scheduler, not used by default — see [scheduler section](#-learning-rate-scheduler--build_schedulerpy)) |
 | `training` | `losses.py` | `FocalLoss`, for the class-imbalanced label distribution |
 | `tuning` | `tune.py` | Optuna hyperparameter search (`tune()`); see below |
@@ -139,9 +142,9 @@ The three entry points that tie these modules together:
 
 | Function | Scope | What it does | Output |
 |:---------|:------|:--------------|:-------|
-| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by validation macro F1 (early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
+| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) (EMA of validation macro PR-AUC; early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
-| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, initial LR, weight decay, focal gamma; optimizer fixed to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing validation macro F1 | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
+| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, initial LR, weight decay, focal gamma; optimizer fixed to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
 
 ### 🧱 CNN architecture — `cnn2d.py`
 
@@ -170,10 +173,32 @@ Linear → BatchNorm1d                       (embedding_dim)      ← feature em
 Linear → BatchNorm1d → LeakyReLU → Dropout (hidden_dim)
    │
    ▼
-Linear → logits                            (num_classes = 7)
+Linear → logits                            (num_classes: 7 by default, 4 with FILTERED_IDX)
 ```
 
 `forward_features()` exposes the embedding on its own (before the classifier head), which the later ablation stages (fusion, attention, alternative classifier heads) build on top of.
+
+### 📈 Monitored score — EMA of validation macro PR-AUC
+
+The learning-rate scheduler, early stopping, Optuna pruning and the Optuna objective all use **the same score**: an exponential moving average (`callbacks/ema.py`) of the validation **macro PR-AUC**, updated once per epoch:
+
+```
+score_1 = PR-AUC_1
+score_t = α · PR-AUC_t + (1 − α) · score_{t−1}        (α = EMA_ALPHA = 0.5)
+```
+
+| Constant (`train.py`) | Value | Role |
+|:----------------------|:------|:-----|
+| `MONITOR_METRIC` | `"pr_auc"` | Key of the `evaluate()` metric being smoothed (macro average precision, one-vs-rest) |
+| `EMA_ALPHA` | `0.5` | Smoothing factor (lower = smoother, but lags more) |
+| `MIN_DELTA` | `1e-3` | Minimum absolute improvement of the score, shared by `ReduceLROnPlateau` (`threshold`) and `EarlyStopping` (`min_delta`) |
+
+Why this score:
+
+- **Macro PR-AUC** weights the four classes equally (so the rare `Stridor`/`Rhonchi` count as much as `Normal`), focuses on the positive class of each one-vs-rest problem (so it is not inflated by the ~90% `Normal` majority, unlike ROC-AUC or MCC), and is **threshold-free**: it is computed from probabilities rather than from `argmax` predictions, so it changes smoothly instead of jumping whenever a single minority fragment flips class. Decision thresholds can be tuned afterwards, independently of model selection.
+- **The EMA** damps the remaining epoch-to-epoch noise, which is large because each validation fold contains only 1–2 `Stridor` patients. Without smoothing, early stopping and Optuna would pick lucky spikes (an optimistically biased score), and the scheduler/pruner would react to noise.
+
+The best model state kept by early stopping is the one with the highest smoothed score, and `fit()` returns that value as `final_metrics["best_score_ema"]` (the Optuna objective). The raw per-epoch metrics (including `val_pr_auc` and `val_f1_macro`) are still logged, together with `val_score_ema`, in the training history.
 
 ### 📉 Learning rate scheduler — `build_scheduler.py`
 
@@ -184,16 +209,17 @@ Linear → logits                            (num_classes = 7)
 | `"rlrop"` | `torch.optim.lr_scheduler.ReduceLROnPlateau` | ✅ yes — this is what `fit()` currently builds |
 | `"lwu_ca"` | `callbacks/lwu_ca.py` — linear warmup + cosine annealing (`SequentialLR`) | 🟡 available, not wired into `fit()` |
 
-**`fit()` uses `ReduceLROnPlateau`** (`"rlrop"`): the LR is held constant while validation macro F1 keeps improving, and is cut whenever it plateaus, rather than following a fixed schedule.
+**`fit()` uses `ReduceLROnPlateau`** (`"rlrop"`): the LR is held constant while the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) keeps improving, and is cut whenever it plateaus, rather than following a fixed schedule.
 
 | Parameter | Value | Behavior |
 |:----------|:------|:---------|
-| `mode` | `"max"` | Watches validation macro F1, higher is better |
+| `mode` | `"max"` | Watches the monitored score (EMA of validation macro PR-AUC), higher is better |
 | `factor` | `0.25` | LR is multiplied by this factor on each plateau |
-| `patience` | `5` epochs | Epochs without improvement (`threshold_mode="abs"`) before cutting the LR |
+| `patience` | `5` epochs | Epochs without improvement before cutting the LR |
+| `threshold` | `1e-3` (`MIN_DELTA`, `threshold_mode="abs"`) | Minimum absolute increase of the monitored score to count as an improvement (same value as the early-stopping `min_delta`) |
 | `cooldown` | `2` epochs | Epochs to wait after a cut before resuming plateau-tracking |
 
-`scheduler.step(val_f1_macro)` is called once per epoch, right after computing validation metrics.
+`scheduler.step(val_score_ema)` is called once per epoch, right after computing validation metrics.
 
 > `"lwu_ca"` (the previous default) is kept in `callbacks/lwu_ca.py` as a selectable alternative: three phases driven by `lr_max`, `lr_min_ratio` (`lr_min = lr_min_ratio · lr_max`) and `warmup_epochs`:
 > - `LinearLR` warmup (`lr_min` → `lr_max`) up to `warmup_epochs`,
@@ -204,30 +230,30 @@ Linear → logits                            (num_classes = 7)
 
 ### 🎛️ Hyperparameter search space — `tune.py`
 
-`objective()` samples the following hyperparameters for every Optuna trial and returns the validation **macro F1** of the trained model (the value the study maximizes):
+`objective()` samples the following hyperparameters for every Optuna trial and returns the best **EMA of validation macro PR-AUC** reached during training (the value the study maximizes; see [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc)):
 
 **Model hyperparameters**
 
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
 | `depth` | `[2, 5]` (int) | Number of `ConvBlock`s |
-| `base_filters` | `{8, 16, 32, 64}` | Filters in the first `ConvBlock`; doubles every block |
+| `base_filters` | `{8, 16, 32, 64, 128}` | Filters in the first `ConvBlock`; doubles every block |
 | `alpha_leaky_relu` | `[0.001, 0.3]` (log) | LeakyReLU negative slope |
 | `embedding_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the pooled feature embedding |
 | `hidden_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the classifier's hidden layer |
-| `dropout_cnn` | `[0.0, 0.2]` | `Dropout2d` inside the `ConvBlock`s |
+| `dropout_cnn` | `[0.0, 0.1]` | `Dropout2d` inside the `ConvBlock`s |
 | `dropout_fc` | `[0.0, 0.4]` | Dropout inside the classifier head |
 
 **Training hyperparameters**
 
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
-| `batch_size` | `{16, 32, 64}` | |
+| `batch_size` | `{16, 32, 64, 128}` | |
 | `lr_max` | `[1e-4, 1e-2]` (log) | Initial learning rate passed to the optimizer |
-| `weight_decay` | `[1e-5, 1e-3]` (log) | |
+| `weight_decay` | `[5e-5, 5e-2]` (log) | Decoupled weight decay (AdamW) |
 | `optimizer_name` | `adamw` (fixed) | Not tuned; `build_optimizer.py` still supports `adam` / `sgd` |
 | `loss_name` | `fl` (fixed) | Not tuned; always `FocalLoss` (`build_loss.py` still supports `ce`) |
-| `gamma_focal` | `[0.0, 5.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
+| `gamma_focal` | `[0.0, 3.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
 
 ---
 
