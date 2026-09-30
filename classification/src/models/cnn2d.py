@@ -127,6 +127,7 @@ class CNNClassifier_MultiClass(nn.Module):
         ## Classifier head
         
         self.classifier = nn.Sequential(
+            nn.LeakyReLU(negative_slope=alpha_leaky_relu),
             nn.Linear(embedding_dim, hidden_dim),
             nn.BatchNorm1d(hidden_dim),
             nn.LeakyReLU(negative_slope=alpha_leaky_relu, inplace=True),
