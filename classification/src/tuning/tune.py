@@ -9,6 +9,7 @@ from pathlib import Path
 
 import pandas as pd
 import torch
+from torch.utils.tensorboard import SummaryWriter
 import optuna
 from optuna.study import Study
 from optuna.trial import Trial
@@ -26,6 +27,7 @@ N_TRIALS = 100
 CLASSIFICATION_PATH = Path("classification")
 RESULTS_PATH = CLASSIFICATION_PATH / "results"
 RESULTS_OPTUNA_PATH = RESULTS_PATH / "optuna"
+TENSORBOARD_OPTUNA_PATH = RESULTS_PATH / "tensorboard" / "optuna"
 
 
 def create_folder_structure(study_name: str) -> None:
@@ -43,6 +45,27 @@ def create_folder_structure(study_name: str) -> None:
     RESULTS_PATH.mkdir(exist_ok=True)
     RESULTS_OPTUNA_PATH.mkdir(exist_ok=True)
     (RESULTS_OPTUNA_PATH / study_name).mkdir(exist_ok=True)
+
+
+def log_hparams(writer: SummaryWriter, params: dict, score: float, state: str) -> None:
+    """
+    Writes the hyperparameters of a trial and its score to TensorBoard (HPARAMS tab), in the same
+    run as the trial's training curves.
+
+    Parameters
+    ----------
+    writer: SummaryWriter
+        TensorBoard writer of the trial
+    params: dict
+        Hyperparameters of the trial
+    score: float
+        Best smoothed monitored score reached by the trial
+    state: str
+        Final state of the trial: "complete" or "pruned"
+    """
+    hparams = {k: (v if v is not None else "None") for k, v in params.items()}
+    hparams["state"] = state
+    writer.add_hparams(hparams, {"hparam/best_score_ema": score}, run_name=".")
 
 
 def objective(
@@ -64,6 +87,9 @@ def objective(
         3. Train the model
         4. Get objective variable: best EMA of validation macro PR-AUC (the same smoothed score
            that drives ReduceLROnPlateau, EarlyStopping and pruning in `fit`)
+
+    The training curves and the hyperparameters of the trial (also if pruned) are logged to
+    TensorBoard in classification/results/tensorboard/optuna/{study_name}/trial_{number}.
 
     Hyperparameters:
     - **Model hyperparameters:**
@@ -168,20 +194,30 @@ def objective(
     ).to(device)
 
     # Train the model
-    _, final_metrics = fit(
-        model=model,
-        df=df,
-        origin=origin,
-        fold=fold,
-        df_config=df_config,
-        params=params,
-        num_classes=num_classes,
-        class_to_idx=class_to_idx,
-        max_epochs=max_epochs,
-        device=device,
-        trial=trial,
-    )
-    
+    log_dir = TENSORBOARD_OPTUNA_PATH / trial.study.study_name / f"trial_{trial.number}"
+    with SummaryWriter(log_dir=log_dir) as writer:
+        try:
+            _, final_metrics = fit(
+                model=model,
+                df=df,
+                origin=origin,
+                fold=fold,
+                df_config=df_config,
+                params=params,
+                num_classes=num_classes,
+                class_to_idx=class_to_idx,
+                writer=writer,
+                max_epochs=max_epochs,
+                device=device,
+                trial=trial,
+            )
+        except optuna.TrialPruned:
+            # Best smoothed score reached before pruning (stored by `fit`)
+            log_hparams(writer, params, trial.user_attrs["best_score_ema"], "pruned")
+            raise
+
+        log_hparams(writer, params, final_metrics["best_score_ema"], "complete")
+
     return final_metrics["best_score_ema"]
 
 
