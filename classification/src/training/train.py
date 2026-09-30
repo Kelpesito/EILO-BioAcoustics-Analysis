@@ -14,6 +14,7 @@ import torch
 import torch.nn as nn
 from torch.optim import Optimizer
 from torch.utils.data import DataLoader
+from torch.utils.tensorboard import SummaryWriter
 import optuna
 from optuna.trial import Trial
 from tqdm.auto import tqdm
@@ -49,6 +50,7 @@ REDUCELR_COOLDOWN = 2
 CLASSIFICATION_PATH = Path("classification")
 RESULTS_PATH = CLASSIFICATION_PATH / "results"
 RESULTS_CV_PATH = RESULTS_PATH / "cv"
+TENSORBOARD_CV_PATH = RESULTS_PATH / "tensorboard" / "cv"
 MODELS_PATH = CLASSIFICATION_PATH / "models"
 MODELS_CV_PATH = MODELS_PATH / "cv"
 
@@ -249,6 +251,60 @@ def format_per_class(metrics_dict: dict[str, float], support_dict: dict[str, int
     )
 
 
+def log_epoch(
+    writer: SummaryWriter,
+    epoch: int,
+    train_loss: float,
+    train_metrics: dict,
+    val_metrics: dict,
+    val_score_ema: float,
+    lr: float,
+) -> None:
+    """
+    Writes the metrics of one epoch to TensorBoard. Tags are grouped by metric (section before
+    "/") and split by set:
+    - loss/{train, val}
+    - balanced_accuracy/{train, val}
+    - f1_macro/{train, val}
+    - f1_weighted/{train, val}
+    - mcc/{train, val}
+    - pr_auc/{train, val, val_ema}
+    - f1_per_class_{train, val}/{class}
+    - lr
+
+    Parameters
+    ----------
+    writer: SummaryWriter
+        TensorBoard writer of the current run
+    epoch: int
+        Current epoch (TensorBoard step)
+    train_loss: float
+        Training loss of the epoch
+    train_metrics: dict
+        Training metrics (output of `evaluate`)
+    val_metrics: dict
+        Validation metrics (output of `evaluate`)
+    val_score_ema: float
+        Smoothed monitored score
+    lr: float
+        Learning rate used in the epoch
+    """
+    writer.add_scalar("loss/train", train_loss, epoch)
+    writer.add_scalar("loss/val", val_metrics["loss"], epoch)
+
+    for metric in ["balanced_accuracy", "f1_macro", "f1_weighted", "mcc", "pr_auc"]:
+        writer.add_scalar(f"{metric}/train", train_metrics[metric], epoch)
+        writer.add_scalar(f"{metric}/val", val_metrics[metric], epoch)
+    writer.add_scalar("pr_auc/val_ema", val_score_ema, epoch)
+
+    for cls in val_metrics["f1_per_class"]:
+        writer.add_scalar(f"f1_per_class_train/{cls}", train_metrics["f1_per_class"][cls], epoch)
+        writer.add_scalar(f"f1_per_class_val/{cls}", val_metrics["f1_per_class"][cls], epoch)
+
+    writer.add_scalar("lr", lr, epoch)
+    writer.flush()
+
+
 def fit(
     model: nn.Module,
     df: pd.DataFrame,
@@ -258,6 +314,7 @@ def fit(
     params: dict,
     num_classes: int,
     class_to_idx: dict[str, int],
+    writer: SummaryWriter,
     max_epochs: int = MAX_EPOCHS,
     trial: Trial | None = None,
     device: torch.device = DEVICE
@@ -269,6 +326,9 @@ def fit(
     all driven by the same monitored score: the Exponential Moving Average (EMA_ALPHA) of the
     validation macro PR-AUC (MONITOR_METRIC). The best model state is the one with the highest
     smoothed score.
+
+    The metrics of every epoch are written to TensorBoard through `writer` (see `log_epoch`). The
+    writer is created and closed by the caller.
 
     Parameters
     ----------
@@ -289,6 +349,8 @@ def fit(
         Number of output classes
     class_to_idx: dict[str, int]
         Dictionary relating the original label to ordinal encoding label
+    writer: SummaryWriter
+        TensorBoard writer of the current run (one per trial / fold)
     max_epochs: int, optional
         Number of epochs to train for so long (default = MAX_EPOCHS)
     trial: Trial | None, optional
@@ -405,6 +467,17 @@ def fit(
         val_score_ema = ema.step(val_metrics[MONITOR_METRIC])
         current_lr = optimizer.param_groups[0]["lr"]
 
+        # TensorBoard (before pruning, so the last epoch of a pruned trial is also logged)
+        log_epoch(
+            writer=writer,
+            epoch=epoch,
+            train_loss=train_loss,
+            train_metrics=train_metrics,
+            val_metrics=val_metrics,
+            val_score_ema=val_score_ema,
+            lr=current_lr,
+        )
+
         # Update learning rate, early stopping and pruning (all on val_score_ema)
         scheduler.step(val_score_ema)
         early_stopping.step(
@@ -416,6 +489,7 @@ def fit(
         if trial is not None:
             trial.report(val_score_ema, step=epoch)
             if trial.should_prune():
+                trial.set_user_attr("best_score_ema", early_stopping.best_score)
                 raise optuna.TrialPruned()
 
         # Log metrics
@@ -505,6 +579,9 @@ def train_cv(
     """
     Performs an n-fold Cross-Validation of the model.
 
+    The training of each fold is logged to TensorBoard in
+    classification/results/tensorboard/cv/{model_name}/fold_{fold}.
+
     Parameters
     ----------
     df: pd.DataFrame
@@ -564,18 +641,20 @@ def train_cv(
         ).to(device)
         
         # Train the model
-        history, final_metrics = fit(
-            model=model, 
-            df=df,
-            origin=origin,
-            fold=fold,
-            df_config=df_config,
-            params=params,
-            num_classes=num_classes,
-            class_to_idx=class_to_idx,
-            max_epochs=max_epochs,
-            device=device
-        )
+        with SummaryWriter(log_dir=TENSORBOARD_CV_PATH / model_name / f"fold_{fold}") as writer:
+            history, final_metrics = fit(
+                model=model,
+                df=df,
+                origin=origin,
+                fold=fold,
+                df_config=df_config,
+                params=params,
+                num_classes=num_classes,
+                class_to_idx=class_to_idx,
+                writer=writer,
+                max_epochs=max_epochs,
+                device=device
+            )
         
         fold_results[fold] = final_metrics
         fold_history[fold] = history

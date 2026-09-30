@@ -83,6 +83,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
 | `scipy`           | Numerical computing, signal processing, and the STFT implementation.             |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
+| `tensorboard`     | Logging and visualization of training curves and Optuna trial hyperparameters in the classification pipeline. |
 | `torch`           | Deep-learning framework used to build and train the classification CNN models.   |
 | `torchvision`     | PyTorch computer-vision utilities (image transforms/augmentation) for the classification data pipeline. |
 | `tqdm`            | Progress bars for long-running batch operations in the pipeline scripts.         |
@@ -121,6 +122,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.6**
+    - Implemented tensorboard for logging training processes.
+
 - **v1.3.5**
     - Modified STFT parameter: new window length `N = 400` samples.
     - Changed some hyperparameter values.

@@ -17,6 +17,7 @@ The pipeline is currently **a work in progress**. Only the train/val/test split 
     - [📈 Monitored score](#-monitored-score--ema-of-validation-macro-pr-auc)
     - [📉 Learning rate scheduler](#-learning-rate-scheduler--build_schedulerpy)
     - [🎛️ Hyperparameter search space](#️-hyperparameter-search-space--tunepy)
+    - [📊 TensorBoard logs](#-tensorboard-logs)
 - [🧪 Ablation study — Selection of model architecture](#-ablation-study--selection-of-model-architecture)
     - [🎨 Select 2D representations (stage 1)](#-select-2d-representations-stage-1)
     - [🎵 Select 1D representation (stage 2)](#-select-1d-representation-stage-2)
@@ -142,7 +143,7 @@ The three entry points that tie these modules together:
 
 | Function | Scope | What it does | Output |
 |:---------|:------|:--------------|:-------|
-| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) (EMA of validation macro PR-AUC; early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch | `(history, final_metrics)` |
+| `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) (EMA of validation macro PR-AUC; early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch, to the console and to [TensorBoard](#-tensorboard-logs) (through the `SummaryWriter` passed by the caller) | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
 | `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, initial LR, weight decay, focal gamma; optimizer fixed to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
 
@@ -254,6 +255,40 @@ The best model state kept by early stopping is the one with the highest smoothed
 | `optimizer_name` | `adamw` (fixed) | Not tuned; `build_optimizer.py` still supports `adam` / `sgd` |
 | `loss_name` | `fl` (fixed) | Not tuned; always `FocalLoss` (`build_loss.py` still supports `ce`) |
 | `gamma_focal` | `[0.0, 3.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
+
+### 📊 TensorBoard logs
+
+Every training run is **always** logged to [TensorBoard](https://www.tensorflow.org/tensorboard) (independently of the `save` flag), one run (sub-folder) per Optuna trial or CV fold:
+
+| Caller | Run folder |
+|:-------|:-----------|
+| `tune()` → `objective()` | `classification/results/tensorboard/optuna/<study_name>/trial_<number>/` |
+| `train_cv()` | `classification/results/tensorboard/cv/<model_name>/fold_<k>/` |
+
+The `SummaryWriter` is created (and closed) by the caller and passed to `fit()`, which writes the following scalars every epoch through `log_epoch()` (step = epoch):
+
+| Tag | Content |
+|:----|:--------|
+| `loss/{train, val}` | Focal loss |
+| `balanced_accuracy/…`, `f1_macro/…`, `f1_weighted/…`, `mcc/…` | Global metrics, `train` and `val` |
+| `pr_auc/{train, val, val_ema}` | Macro PR-AUC; `val_ema` is the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) seen by the scheduler, early stopping and pruner |
+| `f1_per_class_{train, val}/<class>` | Per-class F1 |
+| `lr` | Learning rate |
+
+At the end of each Optuna trial, `objective()` also writes its hyperparameters, its final state (`complete` / `pruned`) and its best smoothed score (`hparam/best_score_ema`) with `add_hparams`, in the same run as its curves. Pruned trials are included too: `fit()` stores the best smoothed score reached before pruning as the trial's user attribute `best_score_ema`.
+
+**Open the dashboard** (from the project root, with the virtual environment activated):
+
+```bash
+tensorboard --logdir classification/results/tensorboard
+```
+
+and browse to http://localhost:6006. It refreshes while training runs. Useful tabs:
+
+- **SCALARS** — curves of every run overlaid; filter runs with a regex (e.g. `trial_(3|17)`) and set the *Smoothing* slider to 0 to see `pr_auc/val_ema` exactly as computed (the slider is only a display smoothing).
+- **HPARAMS** — one row per trial (table, parallel coordinates and scatter views) to relate hyperparameters to `best_score_ema`.
+
+> Paths are relative to the working directory: when running from `training.ipynb` (cwd = `classification/`), logs end up under `classification/classification/results/tensorboard/`, next to the Optuna `.db`. Re-using a `<study_name>`/`<model_name>` after deleting its study or results mixes old and new event files in the same run — delete the matching TensorBoard folder too (or use a new name).
 
 ---
 
@@ -369,9 +404,16 @@ classification/
 │   │   └── <model_name>/
 │   │       ├── cv_results.csv     # per-fold final validation metrics
 │   │       └── cv_history.csv     # per-fold, per-epoch metrics
-│   └── optuna/
-│       └── <study_name>/
-│           └── <study_name>.db    # Optuna study storage (when save=True)
+│   ├── optuna/
+│   │   └── <study_name>/
+│   │       └── <study_name>.db    # Optuna study storage (when save=True)
+│   └── tensorboard/               # TensorBoard event files (always written)
+│       ├── optuna/
+│       │   └── <study_name>/
+│       │       └── trial_<n>/     # one run per trial: curves + hyperparameters
+│       └── cv/
+│           └── <model_name>/
+│               └── fold_<k>/      # one run per CV fold
 └── models/
     └── cv/
         └── <model_name>/
