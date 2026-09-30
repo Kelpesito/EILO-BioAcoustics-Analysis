@@ -144,7 +144,7 @@ def objective(
     set_seed()
     # Model hyperparameters
     depth = trial.suggest_int("depth", 2, 5)
-    base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64, 128])
+    base_filters = trial.suggest_categorical("base_filters", [8, 16, 32, 64])
     alpha_leaky_relu = trial.suggest_float("alpha_leaky_relu", 0.001, 0.3, log=True)
     embedding_dim = trial.suggest_categorical("embedding_dim", [32, 64, 128, 256, 512, 1024])
     hidden_dim = trial.suggest_categorical("hidden_dim", [32, 64, 128, 256, 512, 1024])
