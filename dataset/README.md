@@ -33,7 +33,7 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
 
 ## 📂 Repository layout
 
-When you clone the repository, the `dataset/` folder ships with the pipeline scripts and three exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
+When you clone the repository, the `dataset/` folder ships with the pipeline scripts and four exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
 
 ```
 dataset/
@@ -48,6 +48,7 @@ dataset/
 ├── src/
 │   └── calculate_rtf.py         ← RTF functions used by get_rtf.py
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
+├── EDA_filtered.ipynb           ← exploratory analysis of fragments_metadata_filtered.csv
 ├── visualization_signal.ipynb   ← raw record + preprocessing visualization
 └── visualization_fragment.ipynb ← single-fragment + STFT visualization
 ```
@@ -331,7 +332,7 @@ dataset/
 
 ## 📓 Notebooks
 
-The dataset ships with three exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
+The dataset ships with four exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
 
 ### ▶️ How to run
 
@@ -532,7 +533,7 @@ Scatter of fragment duration against patient age, colored by label. The classes 
 
 ### [EDA_filtered.ipynb](EDA_filtered.ipynb) — Exploratory Data Analysis (crackle-filtered)
 
-Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`.
+Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`. It also adds an **Examples** section that plots a grid of random spectrogram examples per label.
 
 #### 📝 Results
 
@@ -695,3 +696,8 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 ![Age vs duration vs label](assets/filtered/age_vs_duration_vs_label.png)
 
 Scatter of fragment duration against patient age, colored by label. The classes overlap substantially in this 2D space, so age and duration alone do not cleanly separate the labels.
+
+- **Spectrogram examples:**
+![Spectrogram examples](assets/filtered/spectrogram_examples.png)
+
+Four randomly sampled fragments per label, loaded directly from the `spectrogram/{id}.tiff` images written by [step 5](#5️⃣-compute-timefrequency-representations--get_rtfpy) — i.e. exactly the input seen by the classification models. Each subplot shows the 4-second pre-processed window (time axis) over the 50–1050 Hz log-frequency range, with a common color scale (−70 to 0 dB, relative to each fragment's peak). Fragments shorter than 4 s appear repeated within the window because of the cyclic padding applied in [pre_process](#fragment-pre-processing-pre_process).

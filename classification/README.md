@@ -145,7 +145,7 @@ The three entry points that tie these modules together:
 |:---------|:------|:--------------|:-------|
 | `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) (EMA of validation macro PR-AUC; early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch, to the console and to [TensorBoard](#-tensorboard-logs) (through the `SummaryWriter` passed by the caller) | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
-| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (batch size, initial LR, weight decay, focal gamma; optimizer fixed to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
+| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (initial LR, weight decay, focal gamma; batch size fixed to 32, optimizer to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
 
 ### 🧱 CNN architecture — `cnn2d.py`
 
@@ -238,7 +238,7 @@ The best model state kept by early stopping is the one with the highest smoothed
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
 | `depth` | `[2, 5]` (int) | Number of `ConvBlock`s |
-| `base_filters` | `{8, 16, 32, 64}` | Filters in the first `ConvBlock`; doubles every block |
+| `base_filters` | `{8, 16, 32}` | Filters in the first `ConvBlock`; doubles every block |
 | `alpha_leaky_relu` | `[0.001, 0.3]` (log) | LeakyReLU negative slope |
 | `embedding_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the pooled feature embedding |
 | `hidden_dim` | `{32, 64, 128, 256, 512, 1024}` | Size of the classifier's hidden layer |
@@ -249,12 +249,12 @@ The best model state kept by early stopping is the one with the highest smoothed
 
 | Hyperparameter | Search space | Notes |
 |:----------------|:--------------|:------|
-| `batch_size` | `{16, 32, 64}` | |
-| `lr_max` | `[1e-4, 1e-2]` (log) | Initial learning rate passed to the optimizer |
+| `batch_size` | `32` (fixed) | Not tuned |
+| `lr_max` | `[5e-5, 1e-3]` (log) | Initial learning rate passed to the optimizer |
 | `weight_decay` | `[5e-5, 5e-2]` (log) | Decoupled weight decay (AdamW) |
 | `optimizer_name` | `adamw` (fixed) | Not tuned; `build_optimizer.py` still supports `adam` / `sgd` |
 | `loss_name` | `fl` (fixed) | Not tuned; always `FocalLoss` (`build_loss.py` still supports `ce`) |
-| `gamma_focal` | `[0.0, 3.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
+| `gamma_focal` | `[0.0, 4.0]` | Always sampled, since the loss is fixed to focal (`gamma = 0` ≡ weighted cross-entropy) |
 
 ### 📊 TensorBoard logs
 

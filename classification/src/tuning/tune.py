@@ -94,7 +94,7 @@ def objective(
     Hyperparameters:
     - **Model hyperparameters:**
         - depth: int [2, 5]
-        - base_filters: {8, 16, 32, 64}
+        - base_filters: {8, 16, 32}
         - alpha_leaky_relu: float [0.001, 0.3] log
         - embedding_dim: {32, 64, 128, 256, 512, 1024}
         - hidden_dim: {32, 64, 128, 256, 512, 1024}
@@ -102,14 +102,14 @@ def objective(
         - dropout_fc: float [0.0, 0.4]
 
     - **Training hyperparameters:**
-        - batch_size: {16, 32, 64}
-        - lr_max: float [1e-4, 1e-2] log
+        - batch_size: 32 (fixed)
+        - lr_max: float [5e-5, 1e-3] log
         # - lr_min_ratio: float [3e-3, 1e-1] log
         # - num_epochs: int [20, 100]
         - weight_decay: float [5e-5, 5e-2] log
         - optimizer_name: "adamw" (fixed)
         - loss_name: "fl" (fixed)
-        - gamma_focal: float [0.0, 3.0]
+        - gamma_focal: float [0.0, 4.0]
     
     Parameters
     ----------

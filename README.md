@@ -122,6 +122,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.7**
+    - Added examples to `EDA_filtered.ipynb`
+
 - **v1.3.6**
     - Implemented tensorboard for logging training processes.
 
