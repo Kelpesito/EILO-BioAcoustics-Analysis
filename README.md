@@ -53,6 +53,21 @@ Activate the virtual environment
 # source .venv/bin/activate   # Linux / macOS
 ```
 
+#### Alternative: Install with `pip`
+
+If you prefer not to use `uv`, the dependencies are also exported to `requirements.txt` (generated with `uv export --format requirements-txt --no-hashes`). Create and activate a virtual environment with Python 3.14, then install them with `pip`:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate    # Windows (PowerShell / cmd)
+# source .venv/bin/activate   # Linux / macOS
+
+pip install -r requirements.txt
+pip install torch==2.13.0+cu126 torchvision==0.28.0+cu126 --extra-index-url https://download.pytorch.org/whl/cu126
+```
+
+The `--extra-index-url` points `pip` to the PyTorch CUDA 12.6 wheels, matching the index configured for `uv` in `pyproject.toml`.
+
 ### 3. External data source (optional)
 
 The data preparation pipeline expects a clone of the [SPRSound](https://github.com/SJTU-YONGFU-RESEARCH-GRP/SPRSound) repository. This is only required if you intend to regenerate the dataset locally. The pipeline scripts and notebooks can be inspected and reviewed without it.
@@ -99,6 +114,7 @@ EILO-BioAcoustics-Analysis/
 ├── .python-version
 ├── README.md
 ├── pyproject.toml
+├── requirements.txt
 ├── uv.lock
 ├── dataset/
 │   └── README.md
@@ -122,6 +138,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.8**
+    - Added `requirements.txt`.
+
 - **v1.3.7**
     - Added examples to `EDA_filtered.ipynb`.
 
