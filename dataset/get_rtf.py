@@ -26,6 +26,8 @@ Execution:
 
 
 import argparse
+from functools import partial
+from multiprocessing import Pool
 from pathlib import Path
 import os
 import random
@@ -40,6 +42,7 @@ from src.calculate_rtf import calculate_rtf
 
 SEGMENT_DURATION = 4  # seconds
 SEED = 42  # Base seed for the random window selection (per-fragment seed: SEED + fragment id)
+CHUNKSIZE = 32  # Fragments sent to each worker per batch
 
 # Representaciones Tiempo-Frecuencia disponibles
 RTFS = ["STFT"]
@@ -142,7 +145,7 @@ def process_file(file: str, rtf_type: str, path: Path) -> None:
 def get_RTFs(rtf_type: str, path: Path) -> None:
     """
     For each fragment, it calculates the desired rtf and saves them in the corresponding folder as
-    .tiff.
+    .tiff. The fragments are processed in parallel, one per worker process.
 
     Parameters
     ----------
@@ -151,8 +154,13 @@ def get_RTFs(rtf_type: str, path: Path) -> None:
     path: Path
         The folder path for the RTF images
     """
-    for file in tqdm(os.listdir(FRAGMENTS_PATH), desc=f"Generating {rtf_type}"):
-        process_file(file, rtf_type, path)
+    files = os.listdir(FRAGMENTS_PATH)
+    worker = partial(process_file, rtf_type=rtf_type, path=path)
+
+    with Pool() as pool:  # As many workers as CPU cores
+        results = pool.imap_unordered(worker, files, chunksize=CHUNKSIZE)
+        for _ in tqdm(results, total=len(files), desc=f"Generating {rtf_type}"):
+            pass
 
     
 def main():

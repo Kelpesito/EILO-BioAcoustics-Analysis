@@ -216,7 +216,7 @@ For each fragment `.wav`, this step first **pre-processes** the signal to a fixe
 
 Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **4-second** window before the RTF is computed:
 
-- **Duration < 4 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 4 s, then a random 4-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model.
+- **Duration < 4 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 4 s, then a random 4-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model. The random window is seeded per fragment (`SEED + fragment id`), so the output is reproducible regardless of the processing order.
 - **Duration > 4 s → most-energetic window:** the signal is passed through an energy filter (`signal² ` convolved with a 4-second moving-sum kernel) and the 4-second window with the highest cumulative energy is selected, on the assumption that this window best captures the annotated event rather than surrounding silence/background.
 - **Normalization:** in both cases, the resulting 4-second segment is z-score normalized (subtract mean, divide by standard deviation) before being handed to `calculate_rtf`.
 
@@ -263,6 +263,8 @@ dataset/dataset/
 └── wsst/               # Wavelet Synchrosqueezed STFT (planned)
     └── {id}.tiff
 ```
+
+> Fragments are processed in parallel with `multiprocessing` (one worker process per CPU core), since each fragment is independent and the cost is dominated by the RTF computation.
 
 > The `-t` flag selects the representation.
 > New RTFs can be added by implementing a `calculate_<name>(signal, fs)` function in `src/calculate_rtf.py` and registering it in the `CALCULATE_RTF` dict.
