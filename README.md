@@ -138,6 +138,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.9**
+    - Towards the parallelization of the file `dataset/get_rtf.py`:
+        - Reproducibility in cyclic padding
+        - Moved the per-fragment processing into a new function `process_file`.
+
 - **v1.3.8**
     - Added `requirements.txt`.
 

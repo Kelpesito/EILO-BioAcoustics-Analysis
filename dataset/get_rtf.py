@@ -39,6 +39,7 @@ from src.calculate_rtf import calculate_rtf
 
 
 SEGMENT_DURATION = 4  # seconds
+SEED = 42  # Base seed for the random window selection (per-fragment seed: SEED + fragment id)
 
 # Representaciones Tiempo-Frecuencia disponibles
 RTFS = ["STFT"]
@@ -74,14 +75,14 @@ def create_folder(rtf_type: str) -> Path:
     return path
 
 
-def pre_process(signal, fs):
+def pre_process(signal, fs, rng: random.Random):
     duration = len(signal)/fs
     if duration < 4:  # Cyclic padding
         n_rep = int(np.ceil(SEGMENT_DURATION/duration))  # Number of repetitions to fill more than 4 seconds
         cyclic = np.tile(signal, n_rep)  # Make repetitions of the signal
 
         # Select randomly a 4-seconds window
-        start = random.randint(0, len(cyclic))
+        start = rng.randint(0, len(cyclic)-1)
         end = start + SEGMENT_DURATION*fs
         pre_signal_idx = np.arange(start, end) % len(cyclic)
         pre_signal = cyclic[pre_signal_idx]
@@ -107,37 +108,52 @@ def pre_process(signal, fs):
 
 
 
+def process_file(file: str, rtf_type: str, path: Path) -> None:
+    """
+    Calculates the desired rtf of a single fragment and saves it in the corresponding folder as
+    .tiff.
+
+    Parameters
+    ----------
+    file: str
+        Fragment file name (.wav), relative to FRAGMENTS_PATH
+    rtf_type: str
+        The desired RTF type to generate
+    path: Path
+        The folder path for the RTF images
+    """
+    name = Path(file).stem
+    wav_file = FRAGMENTS_PATH / file
+
+    # Open file .wav
+    signal, fs = sf.read(wav_file)
+
+    # Pre-process fragment (seeded per fragment: reproducible regardless of processing order)
+    rng = random.Random(SEED + int(name))
+    pre_signal = pre_process(signal, fs, rng)
+
+    # Calculate RTF
+    rtf = calculate_rtf(rtf_type, pre_signal, fs)
+
+    # Save RTF
+    tifffile.imwrite(f"{path / name}.tiff", rtf)
+
+
 def get_RTFs(rtf_type: str, path: Path) -> None:
     """
     For each fragment, it calculates the desired rtf and saves them in the corresponding folder as
     .tiff.
-    
+
     Parameters
     ----------
     rtf_type: str
         The desired RTF type to generate
     path: Path
-        The folder path for the RTF images 
+        The folder path for the RTF images
     """
     for file in tqdm(os.listdir(FRAGMENTS_PATH), desc=f"Generating {rtf_type}"):
-        try:
-            name = Path(file).stem
-            wav_file = FRAGMENTS_PATH / file
-            
-            # Open file .wav
-            signal, fs = sf.read(wav_file)
+        process_file(file, rtf_type, path)
 
-            # Pre-process fragment
-            pre_signal = pre_process(signal, fs)
-            
-            # Calculate RTF
-            rtf = calculate_rtf(rtf_type, pre_signal, fs)
-            
-            # Save RTF
-            tifffile.imwrite(f"{path / name}.tiff", rtf)
-        except:
-            print(name)
-        
     
 def main():
     print()
