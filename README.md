@@ -138,6 +138,10 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.11**
+    - Tested parallelization: Works well
+    - Changed parallelization's chunck size to 1, before 32.
+
 - **v1.3.10**
     - Parallelized `dataset/get_rtf.py` with `multiprocessing` (one worker process per CPU core).
 

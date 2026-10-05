@@ -42,7 +42,7 @@ from src.calculate_rtf import calculate_rtf
 
 SEGMENT_DURATION = 4  # seconds
 SEED = 42  # Base seed for the random window selection (per-fragment seed: SEED + fragment id)
-CHUNKSIZE = 32  # Fragments sent to each worker per batch
+CHUNKSIZE = 1  # Fragments sent to each worker per batch
 
 # Representaciones Tiempo-Frecuencia disponibles
 RTFS = ["STFT"]
