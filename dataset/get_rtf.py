@@ -4,6 +4,7 @@ get_rtf.py
 DATASET PREPARATION PIPELINE (5/6)
 ----------------------------------
 Generates a folder with the desired Time-Frequency Representation (RTF) of each fragment.
+Heart sounds (S1/S2) are first attenuated (see src/remove_heart_sounds.py).
 If duration < 4 seconds:
     - Cyclic padding: Add the same signal n times until duration > 4 seconds
     - Select randomly a 4-second segment
@@ -38,6 +39,7 @@ import soundfile as sf
 import tifffile
 
 from src.calculate_rtf import calculate_rtf
+from src.remove_heart_sounds import remove_heart_sounds
 
 
 SEGMENT_DURATION = 4  # seconds
@@ -79,6 +81,10 @@ def create_folder(rtf_type: str) -> Path:
 
 
 def pre_process(signal, fs, rng: random.Random):
+    # Filter cardiac sounds
+    signal = remove_heart_sounds(signal, fs)
+
+    # Duration normalization
     duration = len(signal)/fs
     if duration < 4:  # Cyclic padding
         n_rep = int(np.ceil(SEGMENT_DURATION/duration))  # Number of repetitions to fill more than 4 seconds
@@ -102,7 +108,7 @@ def pre_process(signal, fs, rng: random.Random):
         fin = i_max
         pre_signal = signal[ini:fin]
 
-    # Normalization
+    # Standardization
     mu = pre_signal.mean()
     sigma = pre_signal.std()
     pre_signal = (pre_signal - mu) / sigma
