@@ -94,6 +94,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner). |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
 | `plotly`          | Interactive plotting in the visualization notebooks.                             |
+| `pywavelets`      | Stationary Wavelet Transform (SWT) used by the heart sound removal step of the dataset pipeline. |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
 | `scipy`           | Numerical computing, signal processing, and the STFT implementation.             |
@@ -138,6 +139,13 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.3.12**
+    - New pre-processing step in `dataset/get_rtf.py`: heart sound (S1/S2) removal before the duration normalization:
+        - New module `dataset/src/remove_heart_sounds.py`: adaptive wavelet filter (`soundwaveletSWT`, SWT `db4`) with a long-event protection.
+        - Local reference computed every 5 ms and interpolated: ×17 faster.
+    - New notebook `dataset/cardio_soundwaveletSWT.ipynb` (development and tests of the filter).
+    - Added the heart sound removal to `dataset/visualization_fragment.ipynb`.
+
 - **v1.3.11**
     - Tested parallelization: Works well
     - Changed parallelization's chunck size to 1, before 32.

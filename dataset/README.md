@@ -28,12 +28,13 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
         - [📝 Results](#-results)
     - [EDA_filtered.ipynb — Exploratory Data Analysis (crackle-filtered)](#eda_filteredipynb--exploratory-data-analysis-crackle-filtered)
         - [📝 Results](#-results-1)
+    - [cardio_soundwaveletSWT.ipynb — Heart sound removal filter](#cardio_soundwaveletswtipynb--heart-sound-removal-filter)
 
 ---
 
 ## 📂 Repository layout
 
-When you clone the repository, the `dataset/` folder ships with the pipeline scripts and four exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
+When you clone the repository, the `dataset/` folder ships with the pipeline scripts and five exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
 
 ```
 dataset/
@@ -46,11 +47,13 @@ dataset/
 ├── get_rtf.py                   ← step 5
 ├── filter_dataset.py            ← step 6
 ├── src/
-│   └── calculate_rtf.py         ← RTF functions used by get_rtf.py
+│   ├── calculate_rtf.py         ← RTF functions used by get_rtf.py
+│   └── remove_heart_sounds.py   ← heart sound removal used by get_rtf.py
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
 ├── EDA_filtered.ipynb           ← exploratory analysis of fragments_metadata_filtered.csv
 ├── visualization_signal.ipynb   ← raw record + preprocessing visualization
-└── visualization_fragment.ipynb ← single-fragment + STFT visualization
+├── visualization_fragment.ipynb ← single-fragment pre-processing + STFT visualization
+└── cardio_soundwaveletSWT.ipynb ← development of the heart sound removal filter
 ```
 
 ---
@@ -210,11 +213,32 @@ python dataset/get_fragments.py
 
 ### 5️⃣ Compute time–frequency representations — [get_rtf.py](get_rtf.py)
 
-For each fragment `.wav`, this step first **pre-processes** the signal to a fixed 4-second duration, then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
+For each fragment `.wav`, this step first **pre-processes** the signal (heart sound removal and normalization to a fixed 4-second duration), then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
 
 #### Fragment pre-processing (`pre_process`)
 
-Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **4-second** window before the RTF is computed:
+**1. Heart sound removal** (see [remove_heart_sounds](src/remove_heart_sounds.py)): heart sounds (S1/S2) are present in every class — `Normal` included — so they carry no class information, but they are short, loud, low-frequency events that can dominate the spectrogram. They are attenuated with an adaptive wavelet filter (`soundwaveletSWT`, inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)):
+
+1. The signal is decomposed with the **Stationary Wavelet Transform** (SWT, `db4`) until the approximation is below ~15 Hz (7 detail levels at 4 kHz).
+2. For each level, the **envelope** (smoothed Hilbert magnitude) is compared with a **local reference**: the median of the envelope between 0.1 and 0.4 s at each side of every sample (the central ±0.1 s are excluded so the event itself does not raise its own reference).
+3. Where the envelope exceeds **K = 5** times the reference, an event is detected (mask widened 10 ms at each side).
+4. **Long-event protection** (project modification): detected events longer than **120 ms** at any level are not heart sounds (S1/S2 last ≲ 90 ms) but adventitious or respiratory sounds — their time span (±50 ms) is protected at **all** levels, since the same stridor/wheeze/rhonchus breaks into short pieces in the low-frequency levels. Events touching the fragment borders are also protected (their real duration is unknown).
+5. The remaining events are attenuated down to **1.5 times** the reference (background level), with a smoothed gain to avoid clicks.
+6. The signal is reconstructed with the detail levels only (the < 15 Hz component is removed).
+
+| Parameter | Value | Role |
+|:----------|:------|:-----|
+| `K` | 5 | Detection threshold (times the local reference) |
+| `G_FAC` | 1.5 | Attenuation level (times the local reference) |
+| `REF_INNER` / `REF_OUTER` | 0.1 / 0.4 s | Local reference window at each side of the sample |
+| `MAX_EVENT` | 0.12 s | Maximum duration of a heart sound event (longer events are protected) |
+| `PROTECT_MARGIN` | 0.05 s | Widening of the protected zone |
+| `EDGE` | 0.02 s | Events closer than this to the fragment borders are protected |
+| `REF_STEP` | 5 ms | The reference is computed every 5 ms and linearly interpolated (×17 faster, negligible difference); `None` → exact, at every sample |
+
+> Without the long-event protection, the original filter also removed most short adventitious sounds . With it, these sounds are preserved while S1/S2 are still removed. Known limitations: heart sounds overlapping in time with a respiratory or adventitious sound are kept, and crackles are not protected (they are as short as S1/S2) — which only affects the crackle component of `Wheeze+Crackle`, since crackle classes are dropped in [step 6](#6️⃣-filter-out-crackle-fragments--filter_datasetpy). The development and tests are in [cardio_soundwaveletSWT.ipynb](#cardio_soundwaveletswtipynb--heart-sound-removal-filter).
+
+**2. Duration normalization:** fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **4-second** window before the RTF is computed:
 
 - **Duration < 4 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 4 s, then a random 4-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model. The random window is seeded per fragment (`SEED + fragment id`), so the output is reproducible regardless of the processing order.
 - **Duration > 4 s → most-energetic window:** the signal is passed through an energy filter (`signal² ` convolved with a 4-second moving-sum kernel) and the 4-second window with the highest cumulative energy is selected, on the assumption that this window best captures the annotated event rather than surrounding silence/background.
@@ -244,7 +268,7 @@ Fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-le
 | Amplitude scale | **Decibels** (`10·log10`), normalized so the spectrogram's peak is **0 dB** before conversion |
 | Output size | **224 × 224** pixels (resized, vertically flipped) |
 
-> The spectrogram is normalized to its own maximum (`spectrogram / spectrogram.max()`) before the dB conversion, so amplitude is expressed relative to each fragment's peak energy rather than on an absolute scale. The frequency range was narrowed from 50–2000 Hz to 50–1050 Hz to better match the spectral content relevant to this project's target sounds (wheeze/stridor). The window length was increased from 179 samples (~45 ms) to 400 samples (100 ms), improving frequency resolution (Hann main lobe ≈ 20 Hz instead of ≈ 45 Hz) to better resolve the narrow-band, tonal components of wheezes, rhonchi and stridor. The loss of temporal resolution is acceptable because the transient crackle classes are no longer used (see [step 6](#6️⃣-filter-out-crackle-fragments--filter_datasetpy)).
+> The spectrogram is normalized to its own maximum (`spectrogram / spectrogram.max()`) before the dB conversion, so amplitude is expressed relative to each fragment's peak energy rather than on an absolute scale. 
 
 **Run (one RTF at a time):**
 ```bash
@@ -334,7 +358,7 @@ dataset/
 
 ## 📓 Notebooks
 
-The dataset ships with four exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
+The dataset ships with five exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
 
 ### ▶️ How to run
 
@@ -346,7 +370,11 @@ Visualizes one full record end-to-end: loads a `.wav` and its companion `.json` 
 
 ### [visualization_fragment.ipynb](visualization_fragment.ipynb) — Single fragment + STFT
 
-Visualizes a single fragment from `dataset/audio/`: plots the raw waveform and the STFT spectrogram that the pipeline writes to `spectrogram/<id>.tiff`, both as an interactive heatmap and as the final 224×224 preview.
+Visualizes a single fragment from `dataset/audio/` through the whole `pre_process` of step 5: plots the raw waveform, the [heart sound removal](#fragment-pre-processing-pre_process) (original vs. filtered signal, removed component and the level-by-level SWT decomposition with envelopes, thresholds and gains), the duration normalization (cyclic padding or most-energetic window) and standardization, and finally the STFT spectrogram that the pipeline writes to `spectrogram/<id>.tiff`, both as an interactive heatmap and as the final 224×224 preview.
+
+### [cardio_soundwaveletSWT.ipynb](cardio_soundwaveletSWT.ipynb) — Heart sound removal filter
+
+Development notebook of the [heart sound removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script) and its adaptation to the project (`remove_heart_sounds`, same code as `src/remove_heart_sounds.py`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, normalized to 0 dB), plus the level-by-level SWT decomposition. Setting `REF_STEP = None` and passing `max_event=None` reproduces the original algorithm exactly, for comparison.
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 
