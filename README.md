@@ -139,9 +139,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.1**
+    - Changed support `n` to prevalence `p` in PR-AUC per class to epoch log during training.
+
 - **v1.4.0**
-    - Added PR-AUC per class to epoch log during training
-    - Improved hyperparameter tuning logs in TensorBoard
+    - Added PR-AUC per class to epoch log during training.
+    - Improved hyperparameter tuning logs in TensorBoard.
 
 - **v1.3.12**
     - New pre-processing step in `dataset/get_rtf.py`: heart sound (S1/S2) removal before the duration normalization:
