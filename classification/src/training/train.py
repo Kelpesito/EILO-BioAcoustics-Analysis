@@ -233,7 +233,11 @@ def evaluate(
     return metrics
 
 
-def format_per_class(metrics_dict: dict[str, float], support_dict: dict[str, int]) -> str:
+def format_per_class(
+    metrics_dict: dict[str, float],
+    support_dict: dict[str, int],
+    show_prevalence: bool = False,
+) -> str:
     """
     Helper function to write metrics by class.
 
@@ -244,14 +248,20 @@ def format_per_class(metrics_dict: dict[str, float], support_dict: dict[str, int
     support_dict: dict[str, int]
         Dictionary where the keys are the names of each class and the values are the number of rows
         of that class
+    show_prevalence: bool
+        If True, report the class prevalence p = n / N (the PR-AUC of a random classifier) instead
+        of the support n
 
     Returns
     -------
     str
         The formatted verbose to report the metric by class
     """
+    total = sum(support_dict.values())
     return " | ".join(
-        f"{cls}: {metrics_dict[cls]:.2f} (n={support_dict[cls]})"
+        f"{cls}: {metrics_dict[cls]:.2f} (p={support_dict[cls] / total:.3f})"
+        if show_prevalence
+        else f"{cls}: {metrics_dict[cls]:.2f} (n={support_dict[cls]})"
         for cls in metrics_dict
     )
 
@@ -548,7 +558,7 @@ def fit(
             f"MCC: {val_metrics['mcc']:.4f} | PR-AUC: {val_metrics['pr_auc']:.4f} | "
             f"Score (EMA {MONITOR_METRIC}): {val_score_ema:.4f}\n"
             f"[Val per-class F1] {format_per_class(val_metrics['f1_per_class'], val_metrics['support_per_class'])}\n"
-            f"[Val per-class PR-AUC] {format_per_class(val_metrics['pr_auc_per_class'], val_metrics['support_per_class'])}\n"
+            f"[Val per-class PR-AUC] {format_per_class(val_metrics['pr_auc_per_class'], val_metrics['support_per_class'], show_prevalence=True)}\n"
         )
         
         if early_stopping.should_stop:
