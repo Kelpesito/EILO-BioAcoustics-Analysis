@@ -156,6 +156,55 @@ class AddGaussianNoise:
         return tensor + noise
 
 
+def get_deterministic_transforms(
+        mean: float | None,
+        std: float | None,
+        img_size: int = IMG_SIZE
+    ) -> transforms.Compose:
+    """
+    Returns the deterministic transformations (same output for the same image at every epoch):
+    ToTensor + Resize + Normalize
+
+    Parameters
+    ----------
+    mean: float | None
+        Mean value to normalize
+    std: float | None
+        Std value to normalize
+    img_size: int, optional
+        Image size (default = IMG_SIZE)
+
+    Returns
+    -------
+    transforms.Compose
+        The transormations to apply
+    """
+    return transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Resize((img_size, img_size)),
+        Normalize(mean=mean, std=std),
+    ])
+
+
+def get_augmentation_transforms() -> transforms.Compose:
+    """
+    Returns the random transformations (Data Augmentation) for training sets. They expect a tensor
+    as input (output of `get_deterministic_transforms`):
+    TemporalShift + TimeMask + FreqMask + AddGaussianNoise
+
+    Returns
+    -------
+    transforms.Compose
+        The transormations to apply
+    """
+    return transforms.Compose([
+        TemporalShift(p=0.5),
+        TimeMask(max_width=0.1, p=0.5),
+        FreqMask(max_height=0.1, p=0.5),
+        AddGaussianNoise(std_range=(0.01, 0.1), p=0.5),
+    ])
+
+
 def get_train_transforms(
         mean: float | None,
         std: float | None,
@@ -183,13 +232,8 @@ def get_train_transforms(
         The transormations to apply
     """
     return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((img_size, img_size)),
-        Normalize(mean=mean, std=std),
-        TemporalShift(p=0.5),
-        TimeMask(max_width=0.1, p=0.5),
-        FreqMask(max_height=0.1, p=0.5),
-        AddGaussianNoise(std_range=(0.01, 0.1), p=0.5),
+        get_deterministic_transforms(mean, std, img_size),
+        get_augmentation_transforms(),
     ])
 
 
@@ -206,14 +250,10 @@ def get_val_transforms(mean: float | None, std: float | None, img_size: int = IM
         Std value to normalize
     img_size: int, optional
         Image size (default = IMG_SIZE)
-        
+
     Returns
     -------
     transforms.Compose
         The transormations to apply
     """
-    return transforms.Compose([
-        transforms.ToTensor(),
-        transforms.Resize((img_size, img_size)),
-        Normalize(mean=mean, std=std),
-    ])
+    return get_deterministic_transforms(mean, std, img_size)

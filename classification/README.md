@@ -45,7 +45,7 @@ classification/
 └── src/                         ← model definitions, data pipeline, training & tuning logic
     ├── data/
     │   ├── class_to_idx.py      ← label ↔ index dictionaries (multiclass / hierarchical)
-    │   ├── dataset.py           ← ImageDataset: reads a fragment's .tiff RTF + label
+    │   ├── dataset.py           ← ImageDataset (reads .tiff per item) / CachedImageDataset (in-memory cache)
     │   ├── dataloaders.py       ← train/val DataLoaders + inverse-frequency class weights
     │   └── transforms.py        ← SpecAugment-style augmentations (circular shift, time/freq mask, noise)
     ├── models/
@@ -126,9 +126,9 @@ The `src/` package implements the model, data pipeline, and training/tuning logi
 | Module | File | Role |
 |:-------|:-----|:-----|
 | `data` | `class_to_idx.py` | Label ↔ index dictionaries: `MULTICLASS_IDX` (7 classes), `FILTERED_IDX` (4 classes), and `BINARY_IDX` (`Normal` / `Adventitious`, for the hierarchical setup) |
-| `data` | `dataset.py` | `ImageDataset` — reads a fragment's `.tiff` RTF and its encoded label |
-| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold; normalization is now done **per image** inside `transforms.py` rather than from a precomputed training-fold mean/std. The [class imbalance](../dataset/README.md#-results-1) is handled in the loss through inverse-frequency class weights (unnormalized; `FocalLoss` divides by the sum of the weights in each batch) rather than by oversampling (`WeightedRandomSampler` is kept commented out) |
-| `data` | `transforms.py` | SpecAugment-style augmentation for the training set only: random **circular** temporal shift, time/frequency masking, Gaussian noise |
+| `data` | `dataset.py` | `ImageDataset` — reads a fragment's `.tiff` RTF and its encoded label. `CachedImageDataset` — loads every image into memory once with the deterministic transforms already applied; only the augmentations run per item |
+| `data` | `dataloaders.py` | Builds train/val `DataLoader`s for a given CV fold; normalization is now done **per image** inside `transforms.py` rather than from a precomputed training-fold mean/std. The [class imbalance](../dataset/README.md#-results-1) is handled in the loss through inverse-frequency class weights (unnormalized; `FocalLoss` divides by the sum of the weights in each batch) rather than by oversampling (`WeightedRandomSampler` is kept commented out). `cache=True` (default) uses `CachedImageDataset` |
+| `data` | `transforms.py` | Deterministic transforms (`ToTensor` + `Resize` + per-image `Normalize`) and SpecAugment-style augmentation for the training set only: random **circular** temporal shift, time/frequency masking, Gaussian noise |
 | `models` | `cnn2d.py` | `CNNClassifier_MultiClass` — configurable 2D-CNN baseline (stacked `Conv→BatchNorm→LeakyReLU→Dropout` blocks, global-average-pooled embedding, MLP head); serves as the "Baseline" architecture in [stage 4](#️-modify-the-cnn-stage-4) |
 | `training` | `train.py` | Shared train/eval loop — `fit()` (single fold) and `train_cv()` (5-fold CV); see below |
 | `training` | `callbacks/early_stopping.py` | Early stopping on the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) |

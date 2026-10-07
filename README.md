@@ -139,6 +139,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.2**
+    - Allocation of precomputed tensors in memory:
+        - New `CachedImageDataset` in `classification/src/data/dataset.py`: images are loaded into memory once with the deterministic transforms already applied; only the augmentations run per item (~3× faster data loading per epoch).
+        - Split `classification/src/data/transforms.py` into deterministic (`get_deterministic_transforms`) and random (`get_augmentation_transforms`) transforms.
+        - New `cache` argument in `get_dataloaders` (default `True`). With cache, the validation `DataLoader` runs without workers.
+
 - **v1.4.1**
     - Changed support `n` to prevalence `p` in PR-AUC per class to epoch log during training.
 
