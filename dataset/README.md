@@ -374,7 +374,7 @@ Visualizes a single fragment from `dataset/audio/` through the whole `pre_proces
 
 ### [cardio_soundwaveletSWT.ipynb](cardio_soundwaveletSWT.ipynb) — Heart sound removal filter
 
-Development notebook of the [heart sound removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script) and its adaptation to the project (`remove_heart_sounds`, same code as `src/remove_heart_sounds.py`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, normalized to 0 dB), plus the level-by-level SWT decomposition. Setting `REF_STEP = None` and passing `max_event=None` reproduces the original algorithm exactly, for comparison.
+Development notebook of the [heart sound removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script) and its adaptation to the project (`remove_heart_sounds`, same code as `src/remove_heart_sounds.py`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, normalized to 0 dB), plus the level-by-level SWT decomposition. Setting `REF_STEP = None` and passing `max_event=None` to the notebook's `remove_heart_sounds` reproduces the original algorithm exactly, for comparison (in `src/remove_heart_sounds.py` the equivalent is setting the constants `REF_STEP = None` and `MAX_EVENT = None`).
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 

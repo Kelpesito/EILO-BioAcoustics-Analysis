@@ -182,6 +182,8 @@ def evaluate(
             Evaluation macro PR-AUC
         - f1_per_class: dict
             Evaluation F1 score for each class
+        - pr_auc_per_class: dict
+            Evaluation PR-AUC (one-vs-rest average precision) for each class
         - support_per_class: dict
             Support value for each class
     """
@@ -214,14 +216,17 @@ def evaluate(
         y_true, y_pred, labels=list(range(num_classes)), zero_division=0
     )
 
+    pr_auc_per_class = average_precision_score(np.eye(num_classes)[y_true], y_prob, average=None)
+
     metrics = {
         "loss": total_loss / len(loader.dataset),
         "balanced_accuracy": balanced_accuracy_score(y_true, y_pred),
         "f1_macro": f1_score(y_true, y_pred, average="macro", zero_division=0),
         "f1_weighted": f1_score(y_true, y_pred, average="weighted", zero_division=0),
         "mcc": matthews_corrcoef(y_true, y_pred),
-        "pr_auc": average_precision_score(np.eye(num_classes)[y_true], y_prob, average="macro"),
+        "pr_auc": pr_auc_per_class.mean(),
         "f1_per_class": dict(zip(labels_order, f1_per_class)),
+        "pr_auc_per_class": dict(zip(labels_order, pr_auc_per_class)),
         "support_per_class": dict(zip(labels_order, support)),
     }
 
@@ -270,6 +275,7 @@ def log_epoch(
     - mcc/{train, val}
     - pr_auc/{train, val, val_ema}
     - f1_per_class_{train, val}/{class}
+    - pr_auc_per_class_{train, val}/{class}
     - lr
 
     Parameters
@@ -300,6 +306,8 @@ def log_epoch(
     for cls in val_metrics["f1_per_class"]:
         writer.add_scalar(f"f1_per_class_train/{cls}", train_metrics["f1_per_class"][cls], epoch)
         writer.add_scalar(f"f1_per_class_val/{cls}", val_metrics["f1_per_class"][cls], epoch)
+        writer.add_scalar(f"pr_auc_per_class_train/{cls}", train_metrics["pr_auc_per_class"][cls], epoch)
+        writer.add_scalar(f"pr_auc_per_class_val/{cls}", val_metrics["pr_auc_per_class"][cls], epoch)
 
     writer.add_scalar("lr", lr, epoch)
     writer.flush()
@@ -379,6 +387,8 @@ def fit(
         - lr: float
         - train_f1_{class}: float
         - val_f1_{class}: float
+        - train_pr_auc_{class}: float
+        - val_pr_auc_{class}: float
         - val_support_{class}: int
     final_metrics: dict
         Final merics evaluation of validation set (best model state) + best epoch
@@ -515,6 +525,8 @@ def fit(
             safe_cls = cls.replace(" ", "_").replace("+", "_")
             epoch_log[f"train_f1_{safe_cls}"] = train_metrics["f1_per_class"][cls]
             epoch_log[f"val_f1_{safe_cls}"] = val_metrics["f1_per_class"][cls]
+            epoch_log[f"train_pr_auc_{safe_cls}"] = train_metrics["pr_auc_per_class"][cls]
+            epoch_log[f"val_pr_auc_{safe_cls}"] = val_metrics["pr_auc_per_class"][cls]
             epoch_log[f"val_support_{safe_cls}"] = val_metrics["support_per_class"][cls]
 
         history.append(epoch_log)
@@ -536,6 +548,7 @@ def fit(
             f"MCC: {val_metrics['mcc']:.4f} | PR-AUC: {val_metrics['pr_auc']:.4f} | "
             f"Score (EMA {MONITOR_METRIC}): {val_score_ema:.4f}\n"
             f"[Val per-class F1] {format_per_class(val_metrics['f1_per_class'], val_metrics['support_per_class'])}\n"
+            f"[Val per-class PR-AUC] {format_per_class(val_metrics['pr_auc_per_class'], val_metrics['support_per_class'])}\n"
         )
         
         if early_stopping.should_stop:
