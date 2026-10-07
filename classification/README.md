@@ -273,6 +273,7 @@ The `SummaryWriter` is created (and closed) by the caller and passed to `fit()`,
 | `balanced_accuracy/…`, `f1_macro/…`, `f1_weighted/…`, `mcc/…` | Global metrics, `train` and `val` |
 | `pr_auc/{train, val, val_ema}` | Macro PR-AUC; `val_ema` is the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) seen by the scheduler, early stopping and pruner |
 | `f1_per_class_{train, val}/<class>` | Per-class F1 |
+| `pr_auc_per_class_{train, val}/<class>` | Per-class PR-AUC (one-vs-rest average precision) |
 | `lr` | Learning rate |
 
 At the end of each Optuna trial, `objective()` also writes its hyperparameters, its final state (`complete` / `pruned`) and its best smoothed score (`hparam/best_score_ema`) with `add_hparams`, in the same run as its curves. Pruned trials are included too: `fit()` stores the best smoothed score reached before pruning as the trial's user attribute `best_score_ema`.
@@ -286,7 +287,7 @@ tensorboard --logdir classification/results/tensorboard
 and browse to http://localhost:6006. It refreshes while training runs. Useful tabs:
 
 - **SCALARS** — curves of every run overlaid; filter runs with a regex (e.g. `trial_(3|17)`) and set the *Smoothing* slider to 0 to see `pr_auc/val_ema` exactly as computed (the slider is only a display smoothing).
-- **HPARAMS** — one row per trial (table, parallel coordinates and scatter views) to relate hyperparameters to `best_score_ema`.
+- **HPARAMS** — one row per trial (table, parallel coordinates and scatter views) to relate hyperparameters to `best_score_ema`. The score is also written as the hparam column `best_score_ema`, because on Windows TensorBoard leaves the metric column empty. All hyperparameters are logged, but TensorBoard only shows the first 5 by default: tick the rest in the *Hyperparameters* list of the left panel.
 
 > Paths are relative to the working directory: when running from `training.ipynb` (cwd = `classification/`), logs end up under `classification/classification/results/tensorboard/`, next to the Optuna `.db`. Re-using a `<study_name>`/`<model_name>` after deleting its study or results mixes old and new event files in the same run — delete the matching TensorBoard folder too (or use a new name).
 

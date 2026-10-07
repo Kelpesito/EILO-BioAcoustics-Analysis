@@ -50,7 +50,8 @@ def create_folder_structure(study_name: str) -> None:
 def log_hparams(writer: SummaryWriter, params: dict, score: float, state: str) -> None:
     """
     Writes the hyperparameters of a trial and its score to TensorBoard (HPARAMS tab), in the same
-    run as the trial's training curves.
+    run as the trial's training curves. The score is written both as the metric
+    `hparam/best_score_ema` and as the hparam column `best_score_ema`.
 
     Parameters
     ----------
@@ -65,6 +66,9 @@ def log_hparams(writer: SummaryWriter, params: dict, score: float, state: str) -
     """
     hparams = {k: (v if v is not None else "None") for k, v in params.items()}
     hparams["state"] = state
+    # Also as an hparam column: on Windows the HPARAMS tab does not show the metric values
+    # (TensorBoard builds the run name with os.path.join -> "trial_x\\" never matches the run)
+    hparams["best_score_ema"] = score
     writer.add_hparams(hparams, {"hparam/best_score_ema": score}, run_name=".")
 
 
