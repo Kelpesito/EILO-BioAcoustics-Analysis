@@ -11,8 +11,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 from torchvision import transforms as T
 
-from .dataset import ImageDataset
-from .transforms import get_train_transforms, get_val_transforms
+from .dataset import CachedImageDataset, ImageDataset
+from .transforms import (
+    get_augmentation_transforms, get_deterministic_transforms, get_train_transforms, get_val_transforms
+)
 
 
 NUM_WORKERS = 4
@@ -83,12 +85,13 @@ def get_dataloaders(
     label_col: str = "label",
     fold_col: str = "fold",
     img_size: int = IMG_SIZE,
+    cache: bool = True,
 ) -> dict:
     """
     Get training and validation dataloaders from dataframe:
         1. Get Train and Validation split dataframes
         # 2. Compute mean and std from training set  (Mean and std are now computed by image)
-        3. Generate Train and Validation sets with transformations
+        3. Generate Train and Validation sets with transformations (cached in memory if `cache`)
         4. Generate class weights to handle class imbalance (used in the loss function)
         5. Generate dataloaders
 
@@ -112,6 +115,11 @@ def get_dataloaders(
         Name of the column with the fold numbers (default = "fold")
     img_size: int, optional
         Objective img_size (default = IMG_SIZE)
+    cache: bool, optional
+        Whether to cache the images in memory, with the deterministic transformations already
+        applied (CachedImageDataset), or to read them from disk in each item (ImageDataset).
+        If True, the validation dataloader runs in the main process (num_workers = 0)
+        (default = True)
     
     Returns
     -------
@@ -141,14 +149,25 @@ def get_dataloaders(
     mean, std = None, None
 
     # Train and validation datasets with transformations
-    train_ds = ImageDataset(
-        df_train, origin, class_to_idx, image_col, label_col,
-        transform=get_train_transforms(mean, std, img_size),
-    )
-    val_ds = ImageDataset(
-        df_val, origin, class_to_idx, image_col, label_col,
-        transform=get_val_transforms(mean, std, img_size),
-    )
+    if cache:
+        train_ds = CachedImageDataset(
+            df_train, origin, class_to_idx, image_col, label_col,
+            pre_transform=get_deterministic_transforms(mean, std, img_size),
+            transform=get_augmentation_transforms(),
+        )
+        val_ds = CachedImageDataset(
+            df_val, origin, class_to_idx, image_col, label_col,
+            pre_transform=get_deterministic_transforms(mean, std, img_size),
+        )
+    else:
+        train_ds = ImageDataset(
+            df_train, origin, class_to_idx, image_col, label_col,
+            transform=get_train_transforms(mean, std, img_size),
+        )
+        val_ds = ImageDataset(
+            df_val, origin, class_to_idx, image_col, label_col,
+            transform=get_val_transforms(mean, std, img_size),
+        )
     
     # Class weights to handle class imbalance (used in the loss function instead of oversampling)
     train_labels = df_train[label_col].map(class_to_idx).values
@@ -164,6 +183,10 @@ def get_dataloaders(
     # )
 
     # Dataloaders
+    # Train keeps workers to parallelize the Data Augmentation (the cached tensor is shared with
+    # the workers, not copied). A cached validation set has no per-item work left, so workers
+    # would only add overhead (process spawn, IPC of batches)
+    val_workers = 0 if cache else NUM_WORKERS
     train_loader = DataLoader(
         train_ds, batch_size=batch_size, shuffle=True,
         num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0,
@@ -171,7 +194,7 @@ def get_dataloaders(
     )
     val_loader = DataLoader(
         val_ds, batch_size=batch_size, shuffle=False,
-        num_workers=NUM_WORKERS, pin_memory=True, persistent_workers=NUM_WORKERS > 0
+        num_workers=val_workers, pin_memory=True, persistent_workers=val_workers > 0
     )
 
     return {
