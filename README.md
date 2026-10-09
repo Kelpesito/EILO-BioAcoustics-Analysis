@@ -139,6 +139,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.3**
+    - Towards duration-based filtering of the fragments: new section *Duration-based filtering* in `dataset/EDA_filtered.ipynb`:
+        - Fragments kept (globally and by label) as a function of the minimum / maximum duration thresholds.
+        - Table of fragments kept for each combination of thresholds and detail for some concrete thresholds (`duration_filter_summary`).
+        - Duration distribution by label after the filter.
+
 - **v1.4.2**
     - Allocation of precomputed tensors in memory:
         - New `CachedImageDataset` in `classification/src/data/dataset.py`: images are loaded into memory once with the deterministic transforms already applied; only the augmentations run per item (~3× faster data loading per epoch).
