@@ -93,11 +93,11 @@ def pre_process(signal, fs, rng: random.Random):
         # Select randomly a 4-seconds window
         start = rng.randint(0, len(cyclic)-1)
         end = start + SEGMENT_DURATION*fs
-        pre_signal_idx = np.arange(start, end) % len(cyclic)
+        pre_signal_idx = (np.arange(start, end) % len(cyclic)).astype(int)
         pre_signal = cyclic[pre_signal_idx]
 
     else:  # Select the most energetic window (4 seconds)
-        N = SEGMENT_DURATION*fs
+        N = int(SEGMENT_DURATION*fs)
 
         # Energy filter
         energy = np.convolve(signal**2, np.ones(N), mode="full")

@@ -11,8 +11,12 @@ wavelet-based adaptive filter for removing ECG interference in EMGdi signals"):
     - Events above K times the reference are attenuated down to the background level
     - Reconstruction with the details only (the < 15 Hz component is removed)
 
-Modification: protection of long events. Detected events longer than MAX_EVENT (at any level) or
-touching the fragment borders are not heart sounds (stridor, wheezes, rhonchi...) and are kept.
+Modifications:
+    - Protection of long events. Detected events longer than MAX_EVENT at a band (protected at that
+      band and +- PROTECT_LEVELS) or closer than EDGE to the fragment borders are not heart sounds
+      (stridor, wheezes, rhonchi...) and are kept.
+    - Band splitting. The levels in SPLIT_LEVELS are split into 2 half-bands (stationary wavelet
+      packet), each one processed as one more level.
 """
 
 
@@ -42,10 +46,18 @@ MASK_DILATION = 0.02  # s. Mask widening (10 ms at each side)
 GAIN_SMOOTH = 0.005  # s. Gain smoothing
 BLOCK_SIZE = 2000  # Samples per block when computing the reference
 REF_STEP = 0.005  # s. The reference is computed every REF_STEP and interpolated (None -> every sample, exact)
-# Protection of adventitious sounds (set MAX_EVENT = None to reproduce the original algorithm)
-MAX_EVENT = 0.12  # s. Detected events longer than this (at any level) are not heart sounds (S1/S2 <~90 ms)
-PROTECT_MARGIN = 0.05  # s. Widening of the protected zone around the long events
-EDGE = 0.02  # s. Events touching the fragment borders (real duration unknown) are also protected
+# Protection of adventitious sounds (MAX_EVENT = None, SPLIT_LEVELS = None and REF_STEP = None -> original algorithm)
+MAX_EVENT = 0.12  # s. Detected events longer than this are not heart sounds (S1/S2 <~90 ms)
+PROTECT_LEVELS = 0  # A long event at band l protects bands l-PROTECT_LEVELS..l+PROTECT_LEVELS (None -> all bands)
+# PROTECT_LEVELS: in the low levels the long SWT filters merge close short impulses into one long event
+#   - None -> a long event at any band protects ALL bands
+#   - 0    -> only the band where the long event is detected
+#   - 1    -> that band and the adjacent ones (an adventitious sound spans neighbouring bands)
+PROTECT_MARGIN = 0.0  # s. Widening of the protected zone around the long events and the events at the borders
+EDGE = 0.0  # s. Events closer than EDGE to the fragment borders (real duration unknown) are also protected (0 -> no)
+# Band splitting (stationary wavelet packet): each level in SPLIT_LEVELS is split into 2 half-bands
+SPLIT_LEVELS = [3, 4, 5]  # 62-500 Hz in half-octaves -> 10 bands. e.g. range(1, 8) -> 14 bands (None -> no split)
+# With split levels, PROTECT_LEVELS counts bands (half-octaves), not levels
 EPS = np.finfo(float).eps
 
 
@@ -108,16 +120,17 @@ def local_reference(env: np.ndarray, lb: int, ub: int, step: int = 1) -> np.ndar
 def protect_long_events(mask: np.ndarray, levels, fs: float, N: int) -> np.ndarray:
     """
     Removes from the detection mask the events that are not heart sounds:
-    - Events longer than MAX_EVENT at any level -> their time span (+- PROTECT_MARGIN) is protected
-      at ALL levels (adventitious sounds split into short pieces in the low bands)
-    - Events touching the fragment borders (EDGE) -> protected (their real duration is unknown)
+    - Events longer than MAX_EVENT at band l -> their time span (+- PROTECT_MARGIN) is protected
+      at bands l-PROTECT_LEVELS..l+PROTECT_LEVELS (None -> at ALL bands)
+    - Events closer than EDGE to the fragment borders -> protected at ALL bands (their real duration
+      is unknown)
 
     Parameters
     ----------
     mask: np.ndarray
-        Detection mask (levels x samples, padded). Row 0 = level 1
+        Detection mask (bands x samples, padded). Row 0 = band 1 (without split, bands = levels)
     levels: iterable of int
-        Processed detail levels (1..n)
+        Processed bands (1..n_bands)
     fs: float
         Sample frequency
     N: int
@@ -132,19 +145,29 @@ def protect_long_events(mask: np.ndarray, levels, fs: float, N: int) -> np.ndarr
     max_len = round(MAX_EVENT*fs)
     edge = round(EDGE*fs)
 
-    # Protected time spans (union over levels)
-    protected = np.zeros(mask.shape[1], dtype=bool)
+    margin = np.ones(2*round(PROTECT_MARGIN*fs) + 1, dtype=bool)
+
+    # Protected time spans: long events (per band) and events at the borders (union over bands)
+    long_span = np.zeros(mask.shape, dtype=bool)  # Row l-1: long events detected at band l
+    border_span = np.zeros(mask.shape[1], dtype=bool)
     for level in levels:
         lab, n_events = label(mask[level - 1])
         if n_events == 0:
             continue
         long_ids = np.where(np.bincount(lab.ravel()) > max_len)[0][1:]  # [1:] -> skip background (0)
-        border_ids = np.unique(np.concatenate((lab[:edge], lab[N - edge:])))
-        protected |= np.isin(lab, np.union1d(long_ids, border_ids[border_ids > 0]))
-    protected = binary_dilation(protected, np.ones(2*round(PROTECT_MARGIN*fs) + 1, dtype=bool))
+        border_ids = np.unique(np.concatenate((lab[:edge], lab[N - edge:N])))  # [N - edge:N] -> padding excluded
+        long_span[level - 1] = binary_dilation(np.isin(lab, long_ids), margin)
+        border_span |= np.isin(lab, border_ids[border_ids > 0])
+    border_span = binary_dilation(border_span, margin)
 
-    # Events overlapping a protected span are discarded (at every level)
+    # Events overlapping a protected span are discarded: long events of the bands within
+    # +- PROTECT_LEVELS of the current one, events at the borders at every band
     for level in levels:
+        if PROTECT_LEVELS is None:
+            neighbours = list(levels)
+        else:
+            neighbours = [l for l in levels if abs(l - level) <= PROTECT_LEVELS]
+        protected = border_span | long_span[[l - 1 for l in neighbours]].any(axis=0)
         lab, _ = label(mask[level - 1])
         hit = np.unique(lab[protected])
         mask[level - 1] &= ~np.isin(lab, hit[hit > 0])
@@ -173,17 +196,139 @@ def iswt_details(details: np.ndarray) -> np.ndarray:
     return pywt.iswt(coeffs, WAVELET)
 
 
+def split_level(detail: np.ndarray, level: int) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Splits the detail coefficients of a SWT level into 2 half-bands (one more SWT step with the
+    filters dilated to that level, as in the stationary wavelet packet transform). The level
+    [fs/2^(level+1), fs/2^level] is split at its center frequency.
+    The low-pass branch of a detail contains its UPPER half and the high-pass branch its LOWER half
+    (frequency order of the wavelet packets). norm=True -> tight frame (see merge_level).
+
+    Parameters
+    ----------
+    detail: np.ndarray
+        Detail coefficients of the level
+    level: int
+        SWT level (1..n) of the detail
+
+    Returns
+    -------
+    upper: np.ndarray
+        Coefficients of the upper half-band
+    lower: np.ndarray
+        Coefficients of the lower half-band
+    """
+    (upper, lower), = pywt.swt(detail, WAVELET, level=1, start_level=level, norm=True)
+    return upper, lower
+
+
+def merge_level(upper: np.ndarray, lower: np.ndarray, level: int) -> np.ndarray:
+    """
+    Inverse of split_level (pywt.iswt does not accept start_level). The split is a tight frame of
+    circular filters, so its inverse is its adjoint: circular correlation with the impulse response
+    of each branch (computed with the FFT).
+
+    Parameters
+    ----------
+    upper: np.ndarray
+        Coefficients of the upper half-band
+    lower: np.ndarray
+        Coefficients of the lower half-band
+    level: int
+        SWT level (1..n) of the detail
+
+    Returns
+    -------
+    detail: np.ndarray
+        Detail coefficients of the level
+    """
+    impulse = np.zeros(len(upper))
+    impulse[0] = 1
+    h_upper, h_lower = split_level(impulse, level)
+    detail = (np.conj(np.fft.fft(h_upper))*np.fft.fft(upper)
+              + np.conj(np.fft.fft(h_lower))*np.fft.fft(lower))
+
+    return np.real(np.fft.ifft(detail))
+
+
+def split_bands(detail: np.ndarray, fs: float, split_levels) -> tuple[np.ndarray, list[dict]]:
+    """
+    Builds the bands to process: the SWT levels, with the levels in split_levels split into 2
+    half-bands. Bands ordered from high to low frequency (as the levels).
+
+    Parameters
+    ----------
+    detail: np.ndarray
+        Detail coefficients (levels x samples). Row 0 = level 1
+    fs: float
+        Sample frequency
+    split_levels: iterable of int or None
+        Levels (1..n) to split. None -> no split (bands = levels)
+
+    Returns
+    -------
+    bands: np.ndarray
+        Coefficients of each band (bands x samples)
+    info: list of dict
+        For each band: level, part ("full", "upper" or "lower") and frequency range (f_low, f_high)
+    """
+    split_levels = set() if split_levels is None else set(split_levels)
+    bands, info = [], []
+    for level in range(1, detail.shape[0] + 1):
+        f_low, f_high = fs/2**(level + 1), fs/2**level
+        if level in split_levels:
+            upper, lower = split_level(detail[level - 1], level)
+            f_mid = (f_low + f_high) / 2
+            bands += [upper, lower]
+            info += [dict(level=level, part="upper", f_low=f_mid, f_high=f_high),
+                     dict(level=level, part="lower", f_low=f_low, f_high=f_mid)]
+        else:
+            bands.append(detail[level - 1])
+            info.append(dict(level=level, part="full", f_low=f_low, f_high=f_high))
+
+    return np.array(bands), info
+
+
+def merge_bands(bands: np.ndarray, info: list[dict]) -> np.ndarray:
+    """
+    Inverse of split_bands: detail coefficients of each SWT level from the bands.
+
+    Parameters
+    ----------
+    bands: np.ndarray
+        Coefficients of each band (bands x samples)
+    info: list of dict
+        Band information (see split_bands)
+
+    Returns
+    -------
+    detail: np.ndarray
+        Detail coefficients (levels x samples). Row 0 = level 1
+    """
+    n_levels = info[-1]["level"]
+    detail = np.zeros((n_levels, bands.shape[1]))
+    for b, band in enumerate(info):
+        if band["part"] == "full":
+            detail[band["level"] - 1] = bands[b]
+        elif band["part"] == "upper":  # Always followed by its lower half
+            detail[band["level"] - 1] = merge_level(bands[b], bands[b + 1], band["level"])
+
+    return detail
+
+
 def remove_heart_sounds(signal: np.ndarray, fs: float, levels=None):
     """
     Attenuates heart sounds in a respiratory sound signal:
     - Decomposes the signal with the SWT (db4) until the approximation is below ~15 Hz
-    - For each detail level, computes its envelope and compares it with a reference level (median
-      of the envelope between 0.1 and 0.4 s at each side of the sample)
+    - Splits the levels in SPLIT_LEVELS into 2 half-bands (stationary wavelet packet)
+    - For each band, computes its envelope and compares it with a reference level (median of the
+      envelope between 0.1 and 0.4 s at each side of the sample)
     - Where the envelope exceeds K times the reference, an event is detected
-    - Events longer than MAX_EVENT (at any level) or touching the borders are protected: they are
-      adventitious/respiratory sounds, not heart sounds
+    - Events longer than MAX_EVENT (protected at that band and +- PROTECT_LEVELS) or closer than
+      EDGE to the borders are protected: they are adventitious/respiratory sounds, not heart sounds
     - The remaining events are attenuated down to the background level
-    - Reconstructs the signal using only the details -> the < 15 Hz component is removed
+    - Merges the split levels back and reconstructs the signal using only the details -> the
+      < 15 Hz component is removed
 
     Parameters
     ----------
@@ -192,7 +337,7 @@ def remove_heart_sounds(signal: np.ndarray, fs: float, levels=None):
     fs: float
         Sample frequency
     levels: iterable of int, optional
-        Detail levels (1..n) to process. By default, all of them
+        SWT levels (1..n) to process (all their bands, if split). By default, all of them
 
     Returns
     -------
@@ -212,8 +357,9 @@ def remove_heart_sounds(signal: np.ndarray, fs: float, levels=None):
     l_gain = round(GAIN_SMOOTH*fs)
     ref_step = 1 if REF_STEP is None else max(1, round(REF_STEP*fs))
 
-    # SWT needs a length multiple of 2^n_levels -> symmetric padding
-    n_tot = int(np.ceil(N / 2**n_levels)) * 2**n_levels
+    # SWT needs a length multiple of 2^n_levels (2^(n_levels+1) to split the levels) -> symmetric padding
+    n_pow = n_levels + 1 if SPLIT_LEVELS else n_levels
+    n_tot = int(np.ceil(N / 2**n_pow)) * 2**n_pow
     n_pad = n_tot - N
     padded = np.concatenate((signal, signal[N - n_pad:][::-1]))
 
@@ -221,13 +367,19 @@ def remove_heart_sounds(signal: np.ndarray, fs: float, levels=None):
     coeffs = pywt.swt(padded, WAVELET, level=n_levels)
     detail = np.array([cD for _, cD in coeffs[::-1]])
 
-    detail_filtered = detail.copy()
-    envelope = np.zeros((n_levels, n_tot))
-    reference = np.full((n_levels, n_tot), np.nan)
-    gain = np.ones((n_levels, n_tot))
-    mask = np.zeros((n_levels, n_tot), dtype=bool)
+    # Bands to process: the levels, some of them split into 2 half-bands. From here on, "level" is
+    # a band index (1..n_bands); without split, bands = levels
+    detail, band_info = split_bands(detail, fs, SPLIT_LEVELS)
+    n_bands = len(band_info)
+    levels = [b + 1 for b, band in enumerate(band_info) if band["level"] in levels]
 
-    for i in range(n_levels):
+    detail_filtered = detail.copy()
+    envelope = np.zeros((n_bands, n_tot))
+    reference = np.full((n_bands, n_tot), np.nan)
+    gain = np.ones((n_bands, n_tot))
+    mask = np.zeros((n_bands, n_tot), dtype=bool)
+
+    for i in range(n_bands):
         envelope[i] = uniform_filter1d(np.abs(hilbert(detail[i])), l_env)
 
     # Detection mask (dilated)
@@ -252,7 +404,7 @@ def remove_heart_sounds(signal: np.ndarray, fs: float, levels=None):
         gain[i] = uniform_filter1d(g, l_gain)
         detail_filtered[i] = detail[i]*gain[i]
 
-    # Reconstruction only with the details
-    clean = iswt_details(detail_filtered)[:N]
+    # Reconstruction only with the details (split levels merged back first)
+    clean = iswt_details(merge_bands(detail_filtered, band_info))[:N]
 
     return clean

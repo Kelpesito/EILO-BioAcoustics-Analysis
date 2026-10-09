@@ -139,6 +139,13 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.4**
+    - Heart sound removal (`dataset/src/remove_heart_sounds.py`):
+        - Long-event protection per band: a long event (> `MAX_EVENT`) only protects its band and the `PROTECT_LEVELS` adjacent ones (now `0`), before all levels.
+        - Band splitting (stationary wavelet packet): the levels in `SPLIT_LEVELS` (now 3, 4 and 5, 62–500 Hz) are split into 2 half-bands → 10 bands
+        - Border protection disabled (`EDGE = 0`, before 0.02 s) and no widening of the protected zones (`PROTECT_MARGIN = 0`, before 0.05 s).
+    - STFT normalization (`dataset/src/calculate_rtf.py`): the spectrogram is now normalized to its maximum within 50–1050 Hz (before, over the whole frequency range).
+
 - **v1.4.3**
     - Towards duration-based filtering of the fragments: new section *Duration-based filtering* in `dataset/EDA_filtered.ipynb`:
         - Fragments kept (globally and by label) as a function of the minimum / maximum duration thresholds.
