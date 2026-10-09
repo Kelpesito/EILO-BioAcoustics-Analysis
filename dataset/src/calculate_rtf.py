@@ -53,16 +53,17 @@ def calculate_stft(signal: np.ndarray, fs: float) -> np.ndarray:
     stft = ShortTimeFFT(hann(N), HOP, fs, mfft=NFFT, scale_to="psd")
     spectrogram = stft.spectrogram(signal)
     f = stft.f
-    spectrogram_dB = 10*np.log10(spectrogram/spectrogram.max() + EPS)  # Convertir a dB
     
     # Crop frequencies
     mask = (f >= FMIN) & (f <= FMAX)
     f_masked = f[mask]
-    spectrogram_masked = spectrogram_dB[mask]
+    spectrogram_masked = spectrogram[mask]
+
+    spectrogram_dB = 10*np.log10(spectrogram_masked/spectrogram_masked.max() + EPS)  # Convertir a dB
     
     # log frequency
     f_log = np.geomspace(f_masked.min(), f_masked.max(), len(f_masked))
-    S_log = interp1d(f_masked, spectrogram_masked, axis=0, kind="linear")(f_log)
+    S_log = interp1d(f_masked, spectrogram_dB, axis=0, kind="linear")(f_log)
     
     return S_log
 
