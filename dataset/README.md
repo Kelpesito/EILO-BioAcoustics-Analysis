@@ -563,7 +563,9 @@ Scatter of fragment duration against patient age, colored by label. The classes 
 
 ### [EDA_filtered.ipynb](EDA_filtered.ipynb) — Exploratory Data Analysis (crackle-filtered)
 
-Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`. It also adds an **Examples** section that plots a grid of random spectrogram examples per label.
+Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`. It also adds:
+- a **duration-based filtering** study: how many fragments (globally and by label) would be kept if fragments shorter than a minimum duration and/or longer than a maximum duration were removed (*work in progress*, the filter is not applied in the pipeline yet),
+- an **Examples** section that plots a grid of random spectrogram examples per label.
 
 #### 📝 Results
 
@@ -647,6 +649,51 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 |           Median          |  1.74  |  0.97  |   1.67  |   1.55  |
 |             Q3            |  2.25  |  1.83  |   2.30  |   2.39  |
 |            max            |  9.27  |  6.12  |   4.38  |   5.71  |
+
+- **Duration-based filtering** (*work in progress*):
+
+A fragment is kept if `d_min <= duration <= d_max` (inclusive thresholds). 99.0% of the fragments last ≤ 4 s (percentiles 90/95/98/99: 2.72 / 3.07 / 3.58 / 3.97 s), so the 4-second window of [step 5](#fragment-pre-processing-pre_process) only crops ~1% of them.
+
+![Fragments kept after duration-based filtering](assets/filtered/duration_filter_kept.png)
+
+Percentage of fragments kept as a function of the minimum (left) and maximum (right) duration threshold. The dotted line marks the 4-second window. The minimum threshold hits `Wheeze` much harder than the other labels: with `d_min = 0.5 s`, 19.1% of the wheezes are removed vs. 1.2% of the `Normal` fragments.
+
+| Min (s) | Max (s) | Normal | Wheeze | Rhonchi | Stridor | Total |
+|:-------:|:-------:|:------:|:------:|:-------:|:-------:|:-----:|
+|    -    |    -    | 18772 (100.0%) | 1808 (100.0%) | 217 (100.0%) | 74 (100.0%) | 20871 (100.0%) |
+|    -    |   3.0   | 17601 (93.8%) | 1786 (98.8%) | 201 (92.6%) | 66 (89.2%) | 19654 (94.2%) |
+|    -    |   4.0   | 18581 (99.0%) | 1803 (99.7%) | 215 (99.1%) | 73 (98.6%) | 20672 (99.0%) |
+|  0.25   |    -    | 18766 (100.0%) | 1790 (99.0%) | 217 (100.0%) | 74 (100.0%) | 20847 (99.9%) |
+|  0.25   |   4.0   | 18575 (99.0%) | 1785 (98.7%) | 215 (99.1%) | 73 (98.6%) | 20648 (98.9%) |
+|   0.5   |    -    | 18538 (98.8%) | 1462 (80.9%) | 209 (96.3%) | 72 (97.3%) | 20281 (97.2%) |
+|   0.5   |   3.0   | 17367 (92.5%) | 1440 (79.6%) | 193 (88.9%) | 64 (86.5%) | 19064 (91.3%) |
+|   0.5   |   4.0   | 18347 (97.7%) | 1457 (80.6%) | 207 (95.4%) | 71 (95.9%) | 20082 (96.2%) |
+|  0.75   |    -    | 17909 (95.4%) | 1085 (60.0%) | 186 (85.7%) | 70 (94.6%) | 19250 (92.2%) |
+|   1.0   |    -    | 16649 (88.7%) | 884 (48.9%) | 155 (71.4%) | 54 (73.0%) | 17742 (85.0%) |
+
+The notebook shows the full table (`d_min` ∈ {-, 0.25, 0.5, 0.75, 1.0} s × `d_max` ∈ {-, 2, 2.5, 3, 3.5, 4, 5, 6} s).
+
+Detail for `d_min = 0.5 s`, `d_max = 3 s` (19064 fragments kept, 91.34%; 912 of 920 patients):
+
+| Label | Fragments | Kept | Kept (%) | Proportion (%) | Proportion kept (%) | Adventitious proportion (%) | Adventitious proportion kept (%) |
+|:-----:|:---------:|:----:|:--------:|:--------------:|:-------------------:|:---------------------------:|:--------------------------------:|
+| Normal  | 18772 | 17367 | 92.52 | 89.94 | 91.10 | - | - |
+| Wheeze  | 1808  | 1440  | 79.65 | 8.66  | 7.55  | 86.14 | 84.86 |
+| Rhonchi | 217   | 193   | 88.94 | 1.04  | 1.01  | 10.34 | 11.37 |
+| Stridor | 74    | 64    | 86.49 | 0.35  | 0.34  | 3.53  | 3.77  |
+| **Total** | 20871 | 19064 | 91.34 | 100 | 100 | - | - |
+
+![Fragment duration (filtered)](assets/filtered/duration_distribution_class_filtered.png)
+
+| **Metric / Duration (s)** | Normal | Wheeze | Rhonchi | Stridor |
+|:-------------------------:|:------:|:------:|:-------:|:-------:|
+|            Mean           |  1.73  |  1.35  |   1.63  |   1.57  |
+|            std            |  0.57  |  0.65  |   0.71  |   0.68  |
+|            min            |  0.50  |  0.50  |   0.50  |   0.61  |
+|             Q1            |  1.29  |  0.73  |   0.95  |   0.95  |
+|           Median          |  1.70  |  1.26  |   1.62  |   1.22  |
+|             Q3            |  2.14  |  1.93  |   2.23  |   2.24  |
+|            max            |  3.00  |  2.98  |   2.98  |   2.71  |
 
 - **Fragments per record:**
 ![Fragments per record](assets/filtered/fragments_record_distribution.png)
