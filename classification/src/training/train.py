@@ -585,6 +585,42 @@ def fit(
     return history, final_metrics
     
 
+def flatten_metrics(metrics: dict) -> dict:
+    """
+    Flattens the per-class dictionaries of a metrics dictionary (output of `evaluate`, or
+    `final_metrics` of `fit`) into scalar entries, with the same column names as the history:
+    - f1_per_class -> f1_{class}
+    - pr_auc_per_class -> pr_auc_{class}
+    - support_per_class -> support_{class}
+
+    Parameters
+    ----------
+    metrics: dict
+        Metrics dictionary, with scalar values and per-class dictionaries
+
+    Returns
+    -------
+    dict
+        Metrics dictionary with scalar values only
+    """
+    per_class_prefixes = {
+        "f1_per_class": "f1",
+        "pr_auc_per_class": "pr_auc",
+        "support_per_class": "support",
+    }
+
+    flat = {}
+    for key, value in metrics.items():
+        if key in per_class_prefixes:
+            for cls, cls_value in value.items():
+                safe_cls = cls.replace(" ", "_").replace("+", "_")
+                flat[f"{per_class_prefixes[key]}_{safe_cls}"] = cls_value
+        else:
+            flat[key] = value
+
+    return flat
+
+
 def train_cv(
     df: pd.DataFrame,
     df_config: dict[str, str],
@@ -597,7 +633,7 @@ def train_cv(
     in_channels: int = 1,
     num_classes: int = 7,
     device: torch.device = DEVICE,
-    save: bool = True,
+    save: bool = False,
 ):
     """
     Performs an n-fold Cross-Validation of the model.
@@ -632,8 +668,16 @@ def train_cv(
         The device object ("cuda" or "cpu") (default = DEVICE)
     save: bool, optional
         Whether to save models and results or not (default = False)
+
+    Returns
+    -------
+    results_df: pd.DataFrame
+        Final validation metrics of each fold (best model state), one row per fold, with the
+        per-class metrics flattened (see `flatten_metrics`). Saved as cv_results.csv
+    history_df: pd.DataFrame
+        Epoch logs of every fold (see `fit`), one row per (fold, epoch). Saved as cv_history.csv
     """
-    
+
     set_seed()
     if device is None:
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -641,8 +685,8 @@ def train_cv(
     if save:
         create_folder_structure(model_name=model_name)
         
-    fold_results = {}
-    fold_history = {}
+    fold_results = []
+    fold_history = []
     # Cross-validation loop
     for fold in (cv_bar := tqdm(range(1, n_folds + 1), desc="CV", unit="fold")):
 
@@ -679,8 +723,8 @@ def train_cv(
                 device=device
             )
         
-        fold_results[fold] = final_metrics
-        fold_history[fold] = history
+        fold_results.append({"fold": fold, **flatten_metrics(final_metrics)})
+        fold_history.extend(history)  # Each epoch log already has its "fold"
 
         cv_bar.set_postfix(
             best_score_ema=f"{final_metrics['best_score_ema']:.4f}",
@@ -695,15 +739,18 @@ def train_cv(
                 f"{MODELS_CV_PATH}/{model_name}/{model_name}_fold_{fold}.pt"
             )
             
-    results_df = pd.DataFrame(fold_results).T
+    # One row per fold (final metrics) / one row per (fold, epoch) (history)
+    results_df = pd.DataFrame(fold_results)
     history_df = pd.DataFrame(fold_history)
-    
-    if save:   
+
+    if save:
         results_df.to_csv(f"{RESULTS_CV_PATH}/{model_name}/cv_results.csv", index=False)
         history_df.to_csv(f"{RESULTS_CV_PATH}/{model_name}/cv_history.csv", index=False)
-        
+
+    summary_df = results_df.drop(columns="fold").agg(["mean", "std"]).T
     print("\nFINAL CV RESULTS")
-    print(results_df.mean())
-    print(results_df.std())
+    print(summary_df.to_string())
     print()
+
+    return results_df, history_df
         
