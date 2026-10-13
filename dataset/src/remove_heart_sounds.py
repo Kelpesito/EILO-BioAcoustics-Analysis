@@ -251,7 +251,7 @@ def merge_level(upper: np.ndarray, lower: np.ndarray, level: int) -> np.ndarray:
     return np.real(np.fft.ifft(detail))
 
 
-def split_bands(detail: np.ndarray, fs: float, split_levels) -> tuple[np.ndarray, list[dict]]:
+def split_bands(detail: np.ndarray, fs: float, split_levels: list[int] | None) -> tuple[np.ndarray, list[dict]]:
     """
     Builds the bands to process: the SWT levels, with the levels in split_levels split into 2
     half-bands. Bands ordered from high to low frequency (as the levels).
@@ -262,7 +262,7 @@ def split_bands(detail: np.ndarray, fs: float, split_levels) -> tuple[np.ndarray
         Detail coefficients (levels x samples). Row 0 = level 1
     fs: float
         Sample frequency
-    split_levels: iterable of int or None
+    split_levels: list[int] | None
         Levels (1..n) to split. None -> no split (bands = levels)
 
     Returns

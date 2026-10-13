@@ -573,10 +573,9 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 #### 📝 Results
 
 - **Descriptive parameters**:
-    - Number of segments: 20871 (84.92%)
-    - Number of patients: 920 (96.03%)
-    - Total recorded time: 20h 48 min 39.85 s
-    - Corpus duration: 10 h 15 min 7.04 s (86.31%)
+    - Number of segments: 19064 (77.57%)
+    - Number of patients: 912 (95.20%)
+    - Corpus duration: 8 h 59 min 7.51 s (75.65%)
 <br/><br/>
 
 - **Label distribution:**
@@ -585,11 +584,11 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 |     Category     | Proportion | Relative fraction |
 |:----------------:|:----------:|:----------:|
 | **Normal**       |            |            |
-|      Normal      |    89.9%   |    100%    |
+|      Normal      |    91.1%   |    100%    |
 | **Adventitious** |            |            |
-|      Wheeze      |    8.7%    |    86.1%   |
-|      Rhonchi     |    1.0%    |    10.3%   |
-|      Stridor     |    0.4%    |    3.53%   |
+|      Wheeze      |    7.6%    |    84.9%   |
+|      Rhonchi     |    1.0%    |    11.4%   |
+|      Stridor     |    0.3%    |    3.77%   |
 
 - **Age distribution:**
 ![Age distribution](assets/filtered/age_patient_distribution.png)
@@ -608,24 +607,24 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 
 | Metric | Age (years) |
 |:------:|:-----------:|
-|  Mean  |     5.14    |
-|   std  |     3.14    |
-|   min  |       0     |
+|  Mean  |     5.09    |
+|   std  |     3.08    |
+|   min  |       0.1   |
 |   Q1   |     3.2     |
 | Median |     4.6     |
-|   Q3   |     6.9     |
+|   Q3   |     6.8     |
 |   max  |      55     |
 
 ![Age distribution by label](assets/filtered/age_distribution_class.png)
 
 | **Metric / Age (years)** | Normal | Wheeze | Rhonchi | Stridor |
 |:------------------------:|:------:|:------:|:-------:|:-------:|
-|           Mean           |  5.37  |  3.05  |   3.72  |   1.47  |
-|            std           |  3.09  |  2.84  |   2.20  |   1.71  |
-|            min           |    0   |   0.2  |   0.5   |   0.2   |
-|            Q1            |   3.4  |   1    |    2    |   0.5   |
-|          Median          |    5   |   2    |   3.1   |   1.3   |
-|            Q3            |    7   |   4.1  |   4.3   |   1.5   |
+|           Mean           |  5.27  |  3.16  |   3.71  |   1.49  |
+|            std           |  3.04  |  2.81  |   2.28  |   1.83  |
+|            min           |    0.1 |   0.2  |   0.5   |   0.2   |
+|            Q1            |   3.4  |   1.3  |    2    |   0.5   |
+|          Median          |    4.9 |   2.2  |   3.1   |   1     |
+|            Q3            |    6.9 |   4.1  |   4.3   |   1.5   |
 |            max           |   55   |  14.6  |   11.7  |   10.3  |
 
 - **Fragment duration:**
@@ -633,69 +632,24 @@ Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the cr
 
 | Metric | Duration (s) |
 |:------:|:------------:|
-|  Mean  |     1.77    |
-|   std  |     0.76     |
-|   min  |     0.13     |
-|   Q1   |     1.24     |
-| Median |     1.71     |
-|   Q3   |     2.22     |
-|   max  |     9.27     |
+|  Mean  |     1.70     |
+|   std  |     0.59     |
+|   min  |     0.50     |
+|   Q1   |     1.26     |
+| Median |     1.68     |
+|   Q3   |     2.13     |
+|   max  |     3.00     |
 
 ![Fragment duration](assets/filtered/duration_distribution_class.png)
 
 | **Metric / Duration (s)** | Normal | Wheeze | Rhonchi | Stridor |
 |:-------------------------:|:------:|:------:|:-------:|:-------:|
-|            Mean           |  1.82  |  1.19  |   1.71  |   1.78  |
-|            std            |  0.74  |  0.75  |   0.85  |   1.00  |
-|            min            |  0.20  |  0.13  |   0.27  |   0.33  |
-|             Q1            |  1.31  |  0.56  |   0.93  |   0.96  |
-|           Median          |  1.74  |  0.97  |   1.67  |   1.55  |
-|             Q3            |  2.25  |  1.83  |   2.30  |   2.39  |
-|            max            |  9.27  |  6.12  |   4.38  |   5.71  |
-
-- **Duration-based filtering** (*work in progress*):
-
-A fragment is kept if `d_min <= duration <= d_max` (inclusive thresholds). 99.0% of the fragments last ≤ 4 s (percentiles 90/95/98/99: 2.72 / 3.07 / 3.58 / 3.97 s), so the 4-second window of [step 5](#fragment-pre-processing-pre_process) only crops ~1% of them.
-
-![Fragments kept after duration-based filtering](assets/filtered/duration_filter_kept.png)
-
-Percentage of fragments kept as a function of the minimum (left) and maximum (right) duration threshold. The dotted line marks the 4-second window. The minimum threshold hits `Wheeze` much harder than the other labels: with `d_min = 0.5 s`, 19.1% of the wheezes are removed vs. 1.2% of the `Normal` fragments.
-
-| Min (s) | Max (s) | Normal | Wheeze | Rhonchi | Stridor | Total |
-|:-------:|:-------:|:------:|:------:|:-------:|:-------:|:-----:|
-|    -    |    -    | 18772 (100.0%) | 1808 (100.0%) | 217 (100.0%) | 74 (100.0%) | 20871 (100.0%) |
-|    -    |   3.0   | 17601 (93.8%) | 1786 (98.8%) | 201 (92.6%) | 66 (89.2%) | 19654 (94.2%) |
-|    -    |   4.0   | 18581 (99.0%) | 1803 (99.7%) | 215 (99.1%) | 73 (98.6%) | 20672 (99.0%) |
-|  0.25   |    -    | 18766 (100.0%) | 1790 (99.0%) | 217 (100.0%) | 74 (100.0%) | 20847 (99.9%) |
-|  0.25   |   4.0   | 18575 (99.0%) | 1785 (98.7%) | 215 (99.1%) | 73 (98.6%) | 20648 (98.9%) |
-|   0.5   |    -    | 18538 (98.8%) | 1462 (80.9%) | 209 (96.3%) | 72 (97.3%) | 20281 (97.2%) |
-|   0.5   |   3.0   | 17367 (92.5%) | 1440 (79.6%) | 193 (88.9%) | 64 (86.5%) | 19064 (91.3%) |
-|   0.5   |   4.0   | 18347 (97.7%) | 1457 (80.6%) | 207 (95.4%) | 71 (95.9%) | 20082 (96.2%) |
-|  0.75   |    -    | 17909 (95.4%) | 1085 (60.0%) | 186 (85.7%) | 70 (94.6%) | 19250 (92.2%) |
-|   1.0   |    -    | 16649 (88.7%) | 884 (48.9%) | 155 (71.4%) | 54 (73.0%) | 17742 (85.0%) |
-
-The notebook shows the full table (`d_min` ∈ {-, 0.25, 0.5, 0.75, 1.0} s × `d_max` ∈ {-, 2, 2.5, 3, 3.5, 4, 5, 6} s).
-
-Detail for `d_min = 0.5 s`, `d_max = 3 s` (19064 fragments kept, 91.34%; 912 of 920 patients):
-
-| Label | Fragments | Kept | Kept (%) | Proportion (%) | Proportion kept (%) | Adventitious proportion (%) | Adventitious proportion kept (%) |
-|:-----:|:---------:|:----:|:--------:|:--------------:|:-------------------:|:---------------------------:|:--------------------------------:|
-| Normal  | 18772 | 17367 | 92.52 | 89.94 | 91.10 | - | - |
-| Wheeze  | 1808  | 1440  | 79.65 | 8.66  | 7.55  | 86.14 | 84.86 |
-| Rhonchi | 217   | 193   | 88.94 | 1.04  | 1.01  | 10.34 | 11.37 |
-| Stridor | 74    | 64    | 86.49 | 0.35  | 0.34  | 3.53  | 3.77  |
-| **Total** | 20871 | 19064 | 91.34 | 100 | 100 | - | - |
-
-![Fragment duration (filtered)](assets/filtered/duration_distribution_class_filtered.png)
-
-| **Metric / Duration (s)** | Normal | Wheeze | Rhonchi | Stridor |
-|:-------------------------:|:------:|:------:|:-------:|:-------:|
-|            Mean           |  1.73  |  1.35  |   1.63  |   1.57  |
-|            std            |  0.57  |  0.65  |   0.71  |   0.68  |
+|            Mean           |  1.73  |  1.34  |   1.63  |   1.57  |
+|            std            |  0.57  |  0.65  |   0.70  |   0.67  |
 |            min            |  0.50  |  0.50  |   0.50  |   0.61  |
 |             Q1            |  1.29  |  0.73  |   0.95  |   0.95  |
 |           Median          |  1.70  |  1.26  |   1.62  |   1.22  |
-|             Q3            |  2.14  |  1.93  |   2.23  |   2.24  |
+|             Q3            |  2.14  |  1.93  |   2.22  |   2.24  |
 |            max            |  3.00  |  2.98  |   2.98  |   2.71  |
 
 - **Fragments per record:**
@@ -703,27 +657,27 @@ Detail for `d_min = 0.5 s`, `d_max = 3 s` (19064 fragments kept, 91.34%; 912 of 
 
 | Number of fragments per record | Count | Proportion (%) |
 |:------------------------------:|:-----:|:--------------:|
-|               1                |  748  |      13.65     |
-|               2                |  904  |      16.50     |
-|               3                |  1123 |      20.49     |
-|               4                |  998  |      18.21     |
-|               5                |   646 |      11.79     |
-|               6                |   464 |      8.47      |
-|               7                |   268 |      4.89      |
-|               8                |   153 |      2.79      |
-|               9                |   86  |      1.57      |
-|               ≥10              |   90  |      1.64      |
+|               1                |  867  |      16.55     |
+|               2                |  941  |      17.96     |
+|               3                |  1036 |      19.78     |
+|               4                |  901  |      17.20     |
+|               5                |   522 |      9.97      |
+|               6                |   425 |      8.11      |
+|               7                |   250 |      4.77      |
+|               8                |   147 |      2.81      |
+|               9                |   75  |      1.43      |
+|               ≥10              |   74  |      1.41      |
 
 
 | Metric | Fragments per record  |
 |:------:|:---------------------:|
-|  Mean  |          3.81         |
-|   std  |          2.22         |
+|  Mean  |          3.64         |
+|   std  |          2.18         |
 |   min  |           1           |
 |   Q1   |           2           |
 | Median |           3           |
 |   Q3   |           5           |
-|   max  |          24           |
+|   max  |          20           |
 
 - **Records per patient**
 ![Records per patient](assets/filtered/records_patient_distribution.png)
@@ -744,27 +698,27 @@ Detail for `d_min = 0.5 s`, `d_max = 3 s` (19064 fragments kept, 91.34%; 912 of 
 
 | Metric | Fragments per patient |
 |:------:|:---------------------:|
-|  Mean  |          22.69        |
-|   std  |          26.25        |
+|  Mean  |          20.90        |
+|   std  |          24.75        |
 |   min  |           1           |
-|   Q1   |           7           |
-| Median |           15          |
-|   Q3   |           29          |
-|   max  |          295          |
+|   Q1   |           6           |
+| Median |           14          |
+|   Q3   |           27          |
+|   max  |          277          |
 
 - **Labels per patient:**
 ![Labels per patient](assets/filtered/labels_patient_distribution.png)
 
 | Number of labels per patient | Count | Proportion (%) |
 |:----------------------------:|:-----:|:--------------:|
-|               1              |  764  |      83.04     |
-|               2              |  141  |      15.33     |
-|               3              |   15  |      1.63      |
+|               1              |  770  |      84.43     |
+|               2              |  128  |      14.04     |
+|               3              |   14  |      1.54      |
 
 | Metric | Number of labels per patient |
 |:------:|:----------------------------:|
-|  Mean  |              1.19             |
-|   std  |              0.43             |
+|  Mean  |              1.17            |
+|   std  |              0.42            |
 |   min  |               1              |
 |   Q1   |               1              |
 | Median |               1              |
@@ -779,5 +733,3 @@ Scatter of fragment duration against patient age, colored by label. The classes 
 
 - **Spectrogram examples:**
 ![Spectrogram examples](assets/filtered/spectrogram_examples.png)
-
-Four randomly sampled fragments per label, loaded directly from the `spectrogram/{id}.tiff` images written by [step 5](#5️⃣-compute-timefrequency-representations--get_rtfpy) — i.e. exactly the input seen by the classification models. Each subplot shows the 4-second pre-processed window (time axis) over the 50–1050 Hz log-frequency range, with a common color scale (−70 to 0 dB, relative to each fragment's peak). Fragments shorter than 4 s appear repeated within the window because of the cyclic padding applied in [pre_process](#fragment-pre-processing-pre_process).
