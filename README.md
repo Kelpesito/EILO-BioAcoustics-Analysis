@@ -139,6 +139,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.5**
+    - Duration-based filered database: 
+        - Rejected fragments outside [0.5, 3] seconds of duration.
+    - Removed `Duration-based filtering` section from `dataset/EDA_filtered.ipynb`.
+
 - **v1.4.4**
     - Heart sound removal (`dataset/src/remove_heart_sounds.py`):
         - Long-event protection per band: a long event (> `MAX_EVENT`) only protects its band and the `PROTECT_LEVELS` adjacent ones (now `0`), before all levels.
