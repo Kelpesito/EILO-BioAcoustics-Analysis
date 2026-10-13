@@ -131,14 +131,20 @@ EILO-BioAcoustics-Analysis/
 
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
-| `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
+| `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, label and duration filtering, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
+| `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits, training and hyperparameter tuning (Optuna) of a baseline 2D-CNN, and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
 
 ---
 
 ## 📝 Changelog
+- **v1.5.0**
+    - New script `classification/hyperparameter_tuning.py` (step 2 of the classification pipeline): hyperparameter tuning of the model with Optuna.
+    - Segment duration (`dataset/get_rtf.py`): fragments are now normalized to 2 seconds (before, 4 seconds):
+        - If < 2 seconds, cyclic padding.
+        - If >= 2 seconds, choose the most energetic window.
+
 - **v1.4.6**
     - Updated `classification/data_splits.ipynb`.
 

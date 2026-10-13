@@ -2,7 +2,7 @@
 
 This folder contains the **classification pipeline** for the **EILO-BioAcoustics-Analysis** project. It takes the fragment-level audio and time–frequency representations prepared by the [📊 Dataset pipeline](../dataset/README.md) and trains models to classify pediatric respiratory sounds.
 
-The pipeline is currently **a work in progress**. Only the train/val/test split stage is in place; the ablation study and the hierarchical-classification experiments are planned but not yet implemented (see [📋 Status](#-status) for a per-stage checklist).
+The pipeline is currently **a work in progress**. The train/val/test split and the hyperparameter tuning of the baseline 2D-CNN are in place; the ablation study and the hierarchical-classification experiments are planned but not yet implemented (see [📋 Status](#-status) for a per-stage checklist).
 
 ---
 
@@ -12,6 +12,7 @@ The pipeline is currently **a work in progress**. Only the train/val/test split 
 - [⚙️ Quickstart](#️-quickstart)
 - [🔁 Pipeline overview](#-pipeline-overview)
 - [1️⃣ Build patient-level data splits — get_splits.py](#1️⃣-build-patient-level-data-splits--get_splitspy)
+- [2️⃣ Tune the hyperparameters — hyperparameter_tuning.py](#2️⃣-tune-the-hyperparameters--hyperparameter_tuningpy)
 - [🏋️ Training and hyperparameter tuning](#️-training-and-hyperparameter-tuning)
     - [🧱 CNN architecture](#-cnn-architecture--cnn2dpy)
     - [📈 Monitored score](#-monitored-score--ema-of-validation-macro-pr-auc)
@@ -34,13 +35,14 @@ The pipeline is currently **a work in progress**. Only the train/val/test split 
 
 ## 📂 Repository layout
 
-When you clone the repository, the `classification/` folder ships with the split-generation script/notebook, the `training.ipynb` notebook, and the full `src/` package (model, data, training and tuning code) — but no generated splits, results, or trained models. After running the steps below, see [📁 Final folder layout](#-final-folder-layout) for what ends up in this directory.
+When you clone the repository, the `classification/` folder ships with the split-generation script/notebook, the hyperparameter-tuning script, the `training.ipynb` notebook, and the full `src/` package (model, data, training and tuning code) — but no generated splits, results, or trained models. After running the steps below, see [📁 Final folder layout](#-final-folder-layout) for what ends up in this directory.
 
 ```
 classification/
 ├── README.md                    ← this file
 ├── get_splits.py                ← step 1
 ├── data_splits.ipynb            ← interactive version of step 1
+├── hyperparameter_tuning.py     ← step 2
 ├── training.ipynb               ← hyperparameter tuning + cross-validation (work in progress)
 └── src/                         ← model definitions, data pipeline, training & tuning logic
     ├── data/
@@ -77,6 +79,9 @@ From the project root, after running the [📊 Dataset pipeline](../dataset/READ
 ```bash
 # 1. Build patient-level train/val/test splits
 python classification/get_splits.py
+
+# 2. Tune the hyperparameters of the 2D-CNN (-s saves the Optuna study and its figures)
+python classification/hyperparameter_tuning.py -t STFT -s
 ```
 
 The ablation stages below are not yet implemented. Each one will take the output of the previous one plus `fragments_metadata.csv` and is designed to be runnable independently for ablation purposes.
@@ -87,10 +92,11 @@ The ablation stages below are not yet implemented. Each one will take the output
 
 | Step | Script | Input | Output |
 |:----:|:-------|:------|:-------|
-| **1** | `get_splits.py` | `fragments_metadata.csv` | `splits/splits.csv` |
+| **1** | `get_splits.py` | `fragments_metadata_filtered.csv` | `splits/splits.csv` |
+| **2** | `hyperparameter_tuning.py` | `splits/splits.csv`, `dataset/dataset/spectrogram/*.tiff` | `results/tensorboard/optuna/`, `results/optuna/` (with `-s`) |
 | **?** | *(planned)* | — | — |
 
-Only the data-split step is implemented. The remaining stages of the pipeline are still being defined — see [🧪 Ablation study](#-ablation-study--selection-of-model-architecture) for the current design sketch.
+Only the data-split and hyperparameter-tuning steps are implemented. The remaining stages of the pipeline are still being defined — see [🧪 Ablation study](#-ablation-study--selection-of-model-architecture) for the current design sketch.
 
 ---
 
@@ -116,6 +122,49 @@ python classification/get_splits.py
 **Notebook equivalent:** `data_splits.ipynb` performs the same operation interactively, with the additional ability to inspect split statistics and patient-distribution histograms before saving.
 
 > The splits produced here are the canonical input for every downstream training step.
+
+---
+
+## 2️⃣ Tune the hyperparameters — `hyperparameter_tuning.py`
+
+Searches the hyperparameters of the baseline 2D-CNN with [Optuna](https://optuna.org/), taking as input one of the time–frequency representations (RTFs) produced by the [📊 Dataset pipeline](../dataset/README.md). It is the command-line entry point of `tune()` (see [🏋️ Training and hyperparameter tuning](#️-training-and-hyperparameter-tuning) for the model, the monitored score, the [search space](#️-hyperparameter-search-space--tunepy) and the pruner):
+
+1. Loads `splits/splits.csv`.
+2. Creates an Optuna study named after the RTF (e.g. `STFT`) and runs `N_TRIALS` trials. Each trial trains a 4-class model (`FILTERED_IDX`: `Normal`, `Wheeze`, `Rhonchi`, `Stridor`) on folds 2–5 and validates it on **fold 1**; the test set (fold `-1`) is never used. The objective is the best EMA of the validation macro PR-AUC.
+3. With `-s`, saves the study and its Optuna figures.
+
+| Argument | Description |
+|:---------|:------------|
+| `-t`, `--type` | RTF used as input of the model (required). Available: `STFT` (reads `dataset/dataset/spectrogram/`) |
+| `-s`, `--save` | Save the Optuna study (SQLite) and its figures. Without it, only the TensorBoard logs are written |
+
+| Constant | Value | Role |
+|:---------|:------|:-----|
+| `N_TRIALS` | `5` | Number of trials of the study (`tune()` defaults to 100) |
+| `DF_CONFIG` | `id` / `label` / `fold` | Columns of `splits.csv` with the image name, the label and the fold |
+
+**Requires:** `classification/splits/splits.csv` (step 1) and `dataset/dataset/spectrogram/{id}.tiff` ([dataset step 5](../dataset/README.md)).
+
+**Generates:**
+```
+classification/results/
+├── tensorboard/optuna/<type>/trial_<n>/   # always: curves + hyperparameters of each trial
+└── optuna/<type>/                         # only with -s
+    ├── <type>.db                          # Optuna study (SQLite)
+    └── figures/
+        └── {optimization_history, param_importances, intermediate_values,
+             parallel_coordinate, slice}.{png, svg, html}
+```
+
+The parallel-coordinate and slice plots only show the 5 most important hyperparameters. The `.png`/`.svg` exports use `kaleido`; the `.html` files are the interactive versions.
+
+**Run:**
+```bash
+python classification/hyperparameter_tuning.py -t STFT        # TensorBoard logs only
+python classification/hyperparameter_tuning.py -t STFT -s     # + study and figures
+```
+
+> With `-s`, if `<type>.db` already exists the study is **resumed**: the new trials are added to the stored ones. To start from scratch, delete `results/optuna/<type>/` and the matching `results/tensorboard/optuna/<type>/` folder.
 
 ---
 
@@ -145,7 +194,7 @@ The three entry points that tie these modules together:
 |:---------|:------|:--------------|:-------|
 | `fit()` | 1 CV fold | Trains one model with a `ReduceLROnPlateau` LR schedule and early stopping, both driven by the [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) (EMA of validation macro PR-AUC; early-stopping patience 15); logs loss, balanced accuracy, macro/weighted F1, MCC, macro PR-AUC and per-class F1/support every epoch, to the console and to [TensorBoard](#-tensorboard-logs) (through the `SummaryWriter` passed by the caller) | `(history, final_metrics)` |
 | `train_cv()` | 5 CV folds | Repeats `fit()` over every fold defined in `splits.csv` | Per-fold weights + `cv_results.csv` / `cv_history.csv` under `classification/{models,results}/cv/<model_name>/` |
-| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (initial LR, weight decay, focal gamma; batch size fixed to 32, optimizer to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`) |
+| `tune()` | 1 fold (default) | Wraps `fit()` in an [Optuna](https://optuna.org/) study (`objective()`) that searches model hyperparameters (depth, filters, embedding/hidden size, dropout, LeakyReLU slope) and training hyperparameters (initial LR, weight decay, focal gamma; batch size fixed to 32, optimizer to AdamW and loss to focal loss), using a TPE sampler (seed 42) and a Hyperband pruner (`min_resource=10`, `max_resource=max_epochs`, 120 by default, `reduction_factor=3`), maximizing the best [monitored score](#-monitored-score--ema-of-validation-macro-pr-auc) reached during training (also reported to the pruner every epoch) | `Study` (+ SQLite storage under `classification/results/optuna/<study_name>/` when `save=True`). Run from the command line with [`hyperparameter_tuning.py`](#2️⃣-tune-the-hyperparameters--hyperparameter_tuningpy) |
 
 ### 🧱 CNN architecture — `cnn2d.py`
 
@@ -289,7 +338,7 @@ and browse to http://localhost:6006. It refreshes while training runs. Useful ta
 - **SCALARS** — curves of every run overlaid; filter runs with a regex (e.g. `trial_(3|17)`) and set the *Smoothing* slider to 0 to see `pr_auc/val_ema` exactly as computed (the slider is only a display smoothing).
 - **HPARAMS** — one row per trial (table, parallel coordinates and scatter views) to relate hyperparameters to `best_score_ema`. The score is also written as the hparam column `best_score_ema`, because on Windows TensorBoard leaves the metric column empty. All hyperparameters are logged, but TensorBoard only shows the first 5 by default: tick the rest in the *Hyperparameters* list of the left panel.
 
-> Paths are relative to the working directory: when running from `training.ipynb` (cwd = `classification/`), logs end up under `classification/classification/results/tensorboard/`, next to the Optuna `.db`. Re-using a `<study_name>`/`<model_name>` after deleting its study or results mixes old and new event files in the same run — delete the matching TensorBoard folder too (or use a new name).
+> Paths are relative to the working directory: `hyperparameter_tuning.py` is run from the project root, so its logs end up under `classification/results/tensorboard/`; when running from `training.ipynb` (cwd = `classification/`), they end up under `classification/classification/results/tensorboard/`, next to the Optuna `.db`. Re-using a `<study_name>`/`<model_name>` after deleting its study or results mixes old and new event files in the same run — delete the matching TensorBoard folder too (or use a new name).
 
 ---
 
@@ -394,20 +443,21 @@ The hierarchical formulation leverages the binary `category` field already prese
 
 ## 📁 Final folder layout
 
-After running the data-split step and, optionally, training/tuning, the relevant outputs are (compare with [📂 Repository layout](#-repository-layout) to see what ships with the repo vs. what the pipeline produces):
+After running the data-split and hyperparameter-tuning steps and, optionally, cross-validation, the relevant outputs are (compare with [📂 Repository layout](#-repository-layout) to see what ships with the repo vs. what the pipeline produces):
 
 ```
 classification/
 ├── splits/                 ← step 1 (get_splits.py / data_splits.ipynb)
 │   └── splits.csv                 # id, name (patient), label, category, fold ∈ {-1, 1…5}
-├── results/                ← training / tuning (src/training/train.py, src/tuning/tune.py)
+├── results/                ← step 2 (hyperparameter_tuning.py) / cross-validation (src/training/train.py)
 │   ├── cv/
 │   │   └── <model_name>/
 │   │       ├── cv_results.csv     # per-fold final validation metrics
 │   │       └── cv_history.csv     # per-fold, per-epoch metrics
 │   ├── optuna/
 │   │   └── <study_name>/
-│   │       └── <study_name>.db    # Optuna study storage (when save=True)
+│   │       ├── <study_name>.db    # Optuna study storage (when save=True / -s)
+│   │       └── figures/           # Optuna figures (.png, .svg, .html), step 2 with -s
 │   └── tensorboard/               # TensorBoard event files (always written)
 │       ├── optuna/
 │       │   └── <study_name>/
@@ -421,7 +471,7 @@ classification/
             └── <model_name>_fold_{1..5}.pt   # trained weights, one per CV fold
 ```
 
-`splits.csv` is fold `-1` for the held-out test set and `1`–`5` for the train/val cross-validation folds (see [step 1](#1️⃣-build-patient-level-data-splits--get_splitspy)). `results/` and `models/` are only created once `train_cv()` or `tune()` is run, and `<model_name>`/`<study_name>` are chosen per experiment (e.g. one per ablation-study configuration).
+`splits.csv` is fold `-1` for the held-out test set and `1`–`5` for the train/val cross-validation folds (see [step 1](#1️⃣-build-patient-level-data-splits--get_splitspy)). `results/` and `models/` are only created once `train_cv()` or `tune()` is run, and `<model_name>`/`<study_name>` are chosen per experiment (e.g. one per ablation-study configuration); `hyperparameter_tuning.py` uses the RTF type as `<study_name>` (e.g. `STFT`).
 
 ---
 
@@ -433,7 +483,7 @@ Interactive counterpart to [`get_splits.py`](#1️⃣-build-patient-level-data-s
 
 ### [training.ipynb](training.ipynb) — Hyperparameter tuning and cross-validation *(work in progress)*
 
-Drives the [training and hyperparameter tuning](#️-training-and-hyperparameter-tuning) infrastructure in `src/`: loads `splits/splits.csv`, then runs an Optuna study via `tune()` over a chosen input representation (e.g. `STFT` spectrograms). It is **not yet finished** — the hyperparameter-tuning and cross-validation (`train_cv()`) stages it is meant to host have not been tested end-to-end. Once validated, it will be converted into a runnable Python script, following the same pattern as `get_splits.py`/`data_splits.ipynb`.
+Drives the [training and hyperparameter tuning](#️-training-and-hyperparameter-tuning) infrastructure in `src/`: loads `splits/splits.csv`, then runs an Optuna study via `tune()` over a chosen input representation (e.g. `STFT` spectrograms). The hyperparameter-tuning part now has its script counterpart, [`hyperparameter_tuning.py`](#2️⃣-tune-the-hyperparameters--hyperparameter_tuningpy) (step 2), following the same pattern as `get_splits.py`/`data_splits.ipynb`. The notebook is **not yet finished** — the cross-validation (`train_cv()`) stage it is meant to host has not been tested end-to-end and has no script yet.
 
 ---
 
@@ -444,7 +494,8 @@ This folder is a **work in progress**. The checklist below tracks the pipeline s
 **Pipeline steps:**
 
 - [x] **Step 1 — Data splits** (`get_splits.py` + `data_splits.ipynb`)
-- [ ] **Step 2 — Ablation study**
+- [x] **Step 2 — Hyperparameter tuning** (`hyperparameter_tuning.py`)
+- [ ] **Step 3 — Ablation study**
 
 **Ablation study — per stage:**
 
