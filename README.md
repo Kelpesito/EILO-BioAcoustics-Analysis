@@ -139,6 +139,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.4.6**
+    - Updated `classification/data_splits.ipynb`.
+
 - **v1.4.5**
     - Duration-based filered database: 
         - Rejected fragments outside [0.5, 3] seconds of duration.
