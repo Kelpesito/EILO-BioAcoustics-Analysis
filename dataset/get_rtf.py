@@ -5,12 +5,12 @@ DATASET PREPARATION PIPELINE (5/6)
 ----------------------------------
 Generates a folder with the desired Time-Frequency Representation (RTF) of each fragment.
 Heart sounds (S1/S2) are first attenuated (see src/remove_heart_sounds.py).
-If duration < 4 seconds:
-    - Cyclic padding: Add the same signal n times until duration > 4 seconds
-    - Select randomly a 4-second segment
-If duration > 4 seconds:
+If duration < 2 seconds (SEGMENT_DURATION):
+    - Cyclic padding: Add the same signal n times until duration > 2 seconds
+    - Select randomly a 2-second segment
+If duration >= 2 seconds:
     - Pass through an energy filter
-    - Select the 4-second window with the most energy
+    - Select the 2-second window with the most energy
  
 Requires (4/5):
     dataset/dataset/audio/{x}.wav
@@ -42,7 +42,7 @@ from src.calculate_rtf import calculate_rtf
 from src.remove_heart_sounds import remove_heart_sounds
 
 
-SEGMENT_DURATION = 4  # seconds
+SEGMENT_DURATION = 2.0  # seconds
 SEED = 42  # Base seed for the random window selection (per-fragment seed: SEED + fragment id)
 CHUNKSIZE = 1  # Fragments sent to each worker per batch
 
@@ -86,17 +86,17 @@ def pre_process(signal, fs, rng: random.Random):
 
     # Duration normalization
     duration = len(signal)/fs
-    if duration < 4:  # Cyclic padding
-        n_rep = int(np.ceil(SEGMENT_DURATION/duration))  # Number of repetitions to fill more than 4 seconds
+    if duration < SEGMENT_DURATION:  # Cyclic padding
+        n_rep = int(np.ceil(SEGMENT_DURATION/duration))  # Number of repetitions to fill more than SEGMENT_DURATION
         cyclic = np.tile(signal, n_rep)  # Make repetitions of the signal
 
-        # Select randomly a 4-seconds window
+        # Select randomly a SEGMENT_DURATION window
         start = rng.randint(0, len(cyclic)-1)
         end = start + SEGMENT_DURATION*fs
         pre_signal_idx = (np.arange(start, end) % len(cyclic)).astype(int)
         pre_signal = cyclic[pre_signal_idx]
 
-    else:  # Select the most energetic window (4 seconds)
+    else:  # Select the most energetic window (SEGMENT_DURATION)
         N = int(SEGMENT_DURATION*fs)
 
         # Energy filter

@@ -18,7 +18,7 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
     - [5️⃣ Compute time–frequency representations — get_rtf.py]()
         - [Fragment pre-processing (pre_process)](#fragment-pre-processing-pre_process)
         - [⚙️ RTF configurarion](#rtf-configurarion-see-calculate_rtf)
-    - [6️⃣ Filter out crackle fragments — filter_dataset.py](#6️⃣-filter-out-crackle-fragments--filter_datasetpy)
+    - [6️⃣ Filter fragments by label and duration — filter_dataset.py](#6️⃣-filter-fragments-by-label-and-duration--filter_datasetpy)
 - [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
     - [▶️ How to run](#-how-to-run)
@@ -75,7 +75,7 @@ python dataset/get_rtf.py -t STFT
 python dataset/filter_dataset.py
 ```
 
-The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/fragments_metadata.csv` (or, with crackle fragments removed, `dataset/fragments_metadata_filtered.csv`) are the canonical input for downstream training.
+The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/fragments_metadata.csv` (or, with crackle fragments and too short / too long fragments removed, `dataset/fragments_metadata_filtered.csv`) are the canonical input for downstream training.
 
 ---
 
@@ -92,7 +92,7 @@ The resulting `dataset/dataset/spectrogram/*.tiff` files together with `dataset/
 
 Each step depends on the outputs of the previous ones, so they must be run in order. Step 6 is a fork rather than a continuation: it does not feed step 5, it filters the same `fragments_metadata.csv` that step 4 produces, in parallel to it.
 
-> Because step 6 only depends on step 4's output (`fragments_metadata.csv`), it can be run right after step 4 — before step 5 — if you only need the filtered label set and not the spectrograms yet, or if you want the RTF of the filtered dataset, directly.
+> Because step 6 only depends on step 4's output (`fragments_metadata.csv`), it can be run right after step 4 — before step 5 — if you only need the filtered fragment list and not the spectrograms yet, or if you want the RTF of the filtered dataset, directly.
 
 ---
 
@@ -213,7 +213,7 @@ python dataset/get_fragments.py
 
 ### 5️⃣ Compute time–frequency representations — [get_rtf.py](get_rtf.py)
 
-For each fragment `.wav`, this step first **pre-processes** the signal (heart sound removal and normalization to a fixed 4-second duration), then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
+For each fragment `.wav`, this step first **pre-processes** the signal (heart sound removal and normalization to a fixed 2-second duration), then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
 
 #### Fragment pre-processing (`pre_process`)
 
@@ -239,13 +239,15 @@ For each fragment `.wav`, this step first **pre-processes** the signal (heart so
 | `SPLIT_LEVELS` | [3, 4, 5] | SWT levels split into 2 half-bands; `None` → no split (7 bands) |
 | `REF_STEP` | 5 ms | The reference is computed every 5 ms and linearly interpolated (×17 faster, negligible difference); `None` → exact, at every sample |
 
-> Without the long-event protection, the original filter also removed most short adventitious sounds. With it, these sounds are preserved while S1/S2 are still removed. Known limitations: heart sounds overlapping in time with a respiratory or adventitious sound are kept, and crackles are not protected (they are as short as S1/S2) — which only affects the crackle component of `Wheeze+Crackle`, since crackle classes are dropped in [step 6](#6️⃣-filter-out-crackle-fragments--filter_datasetpy). The half-bands have a worse time resolution than their level (≈2× longer equivalent filter) and, with `db4`, they overlap; in a first test on a few fragments, the band splitting removes more energy from some adventitious fragments (e.g. one `Wheeze`: 53% → 70%), which is still under review. The development and tests are in [cardio_soundwaveletSWT.ipynb](#cardio_soundwaveletswtipynb--heart-sound-removal-filter).
+> Without the long-event protection, the original filter also removed most short adventitious sounds. With it, these sounds are preserved while S1/S2 are still removed. Known limitations: heart sounds overlapping in time with a respiratory or adventitious sound are kept, and crackles are not protected (they are as short as S1/S2) — which only affects the crackle component of `Wheeze+Crackle`, since crackle classes are dropped in [step 6](#6️⃣-filter-fragments-by-label-and-duration--filter_datasetpy). The half-bands have a worse time resolution than their level (≈2× longer equivalent filter) and, with `db4`, they overlap; in a first test on a few fragments, the band splitting removes more energy from some adventitious fragments (e.g. one `Wheeze`: 53% → 70%), which is still under review. The development and tests are in [cardio_soundwaveletSWT.ipynb](#cardio_soundwaveletswtipynb--heart-sound-removal-filter).
 
-**2. Duration normalization:** fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **4-second** window before the RTF is computed:
+**2. Duration normalization:** fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **2-second** window (`SEGMENT_DURATION`) before the RTF is computed:
 
-- **Duration < 4 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 4 s, then a random 4-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model. The random window is seeded per fragment (`SEED + fragment id`), so the output is reproducible regardless of the processing order.
-- **Duration > 4 s → most-energetic window:** the signal is passed through an energy filter (`signal² ` convolved with a 4-second moving-sum kernel) and the 4-second window with the highest cumulative energy is selected, on the assumption that this window best captures the annotated event rather than surrounding silence/background.
-- **Normalization:** in both cases, the resulting 4-second segment is z-score normalized (subtract mean, divide by standard deviation) before being handed to `calculate_rtf`.
+- **Duration < 2 s → cyclic padding:** the signal is tiled end-to-end enough times to exceed 2 s, then a random 2-second window is cropped from the tiled signal (wrapping around cyclically). This avoids the discontinuities of zero-padding and avoids always exposing the same phase of the fragment to the model. The random window is seeded per fragment (`SEED + fragment id`), so the output is reproducible regardless of the processing order.
+- **Duration ≥ 2 s → most-energetic window:** the signal is passed through an energy filter (`signal²` convolved with a 2-second moving-sum kernel) and the 2-second window with the highest cumulative energy is selected, on the assumption that this window best captures the annotated event rather than surrounding silence/background.
+- **Normalization:** in both cases, the resulting 2-second segment is z-score normalized (subtract mean, divide by standard deviation) before being handed to `calculate_rtf`.
+
+> In the filtered dataset (0.5–3 s, see [EDA_filtered results](#-results-1)) the median fragment lasts 1.68 s, so with a 2-second window 68.2% of the fragments are cyclically padded (`Normal` 67.4%, `Wheeze` 78.8%, `Rhonchi` 59.1%, `Stridor` 62.5%) and the rest are cropped to their most energetic 2 seconds.
 
 **Available RTFs:**
 
@@ -299,13 +301,17 @@ dataset/dataset/
 
 ---
 
-### 6️⃣ Filter out crackle fragments — [filter_dataset.py](filter_dataset.py)
+### 6️⃣ Filter fragments by label and duration — [filter_dataset.py](filter_dataset.py)
 
-Reads `fragments_metadata.csv` and writes a filtered copy with crackle-related fragments removed:
+Reads `fragments_metadata.csv` and writes a filtered copy, applying two filters in order:
+
+**1. Label filter** — crackle-related fragments are removed:
 
 - Drops `Fine Crackle` and `Coarse Crackle` fragments entirely.
 - Collapses `Wheeze+Crackle` into `Wheeze` (keeps the wheeze component, discards the crackle component).
 - Leaves all other labels unchanged.
+
+**2. Duration filter** — only the fragments with `D_MIN <= duration <= D_MAX` (inclusive) are kept, with `D_MIN = 0.5 s` and `D_MAX = 3.0 s` (`duration_mask`; a threshold set to `None` is not applied).
 
 > Only depends on step 4, so it can be run right after `get_fragments.py` — before `get_rtf.py` (step 5) — if you don't need the spectrograms yet.
 
@@ -566,9 +572,7 @@ Scatter of fragment duration against patient age, colored by label. The classes 
 
 ### [EDA_filtered.ipynb](EDA_filtered.ipynb) — Exploratory Data Analysis (crackle-filtered)
 
-Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the crackle-filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, and `Wheeze+Crackle` is collapsed into `Wheeze`. It also adds:
-- a **duration-based filtering** study: how many fragments (globally and by label) would be kept if fragments shorter than a minimum duration and/or longer than a maximum duration were removed (*work in progress*, the filter is not applied in the pipeline yet),
-- an **Examples** section that plots a grid of random spectrogram examples per label.
+Repeats the [EDA.ipynb](#edaipynb--exploratory-data-analysis) analysis on the filtered dataset produced by `filter_dataset.py`: `Fine Crackle` and `Coarse Crackle` fragments are removed, `Wheeze+Crackle` is collapsed into `Wheeze`, and only the fragments lasting between 0.5 and 3 s are kept. It also adds an **Examples** section that plots a grid of random spectrogram examples per label.
 
 #### 📝 Results
 
