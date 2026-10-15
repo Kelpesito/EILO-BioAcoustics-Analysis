@@ -139,6 +139,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v1.5.1**
+    - New duration normalization applied.
+
 - **v1.5.0**
     - New script `classification/hyperparameter_tuning.py` (step 2 of the classification pipeline): hyperparameter tuning of the model with Optuna.
     - Segment duration (`dataset/get_rtf.py`): fragments are now normalized to 2 seconds (before, 4 seconds):
