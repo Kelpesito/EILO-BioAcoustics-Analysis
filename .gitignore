@@ -13,6 +13,7 @@ wheels/
 *.wav
 *.tiff
 *.csv
+*.sbatch
 
 # Data
 SPRSound/

@@ -28,7 +28,7 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
         - [📝 Results](#-results)
     - [EDA_filtered.ipynb — Exploratory Data Analysis (crackle-filtered)](#eda_filteredipynb--exploratory-data-analysis-crackle-filtered)
         - [📝 Results](#-results-1)
-    - [cardio_soundwaveletSWT.ipynb — Heart sound removal filter](#cardio_soundwaveletswtipynb--heart-sound-removal-filter)
+    - [denoise_soundwaveletSWT.ipynb — Transient removal filter](#denoise_soundwaveletswtipynb--transient-removal-filter)
 
 ---
 
@@ -48,12 +48,12 @@ dataset/
 ├── filter_dataset.py            ← step 6
 ├── src/
 │   ├── calculate_rtf.py         ← RTF functions used by get_rtf.py
-│   └── remove_heart_sounds.py   ← heart sound removal used by get_rtf.py
+│   └── remove_heart_sounds.py   ← transient removal used by get_rtf.py (previous version, see step 5)
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
 ├── EDA_filtered.ipynb           ← exploratory analysis of fragments_metadata_filtered.csv
 ├── visualization_signal.ipynb   ← raw record + preprocessing visualization
 ├── visualization_fragment.ipynb ← single-fragment pre-processing + STFT visualization
-└── cardio_soundwaveletSWT.ipynb ← development of the heart sound removal filter
+└── denoise_soundwaveletSWT.ipynb ← development of the transient removal filter
 ```
 
 ---
@@ -213,33 +213,55 @@ python dataset/get_fragments.py
 
 ### 5️⃣ Compute time–frequency representations — [get_rtf.py](get_rtf.py)
 
-For each fragment `.wav`, this step first **pre-processes** the signal (heart sound removal and normalization to a fixed 2-second duration), then computes one or more **time–frequency representations (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
+For each fragment `.wav`, this step first **pre-processes** the signal (transient removal and normalization to a fixed 2-second duration), then computes a **time–frequency representation (RTFs)** and stores each as a 224×224 `.tiff` image suitable for CNN-based models. Each RTF is written to its own subfolder so they can be used independently for ablations or multi-view training.
 
 #### Fragment pre-processing (`pre_process`)
 
-**1. Heart sound removal** (see [remove_heart_sounds](src/remove_heart_sounds.py)): heart sounds (S1/S2) are present in every class — `Normal` included — so they carry no class information, but they are short, loud, low-frequency events that can dominate the spectrogram. They are attenuated with an adaptive wavelet filter (`soundwaveletSWT`, inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)):
+**1. Transient removal** (see [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter)): some fragments contain **clicks, crackles and other short broadband transients** (impulsive noise, e.g. stethoscope friction or saturation of the original recording) loud enough to mask the respiratory sound, or to fake one. The goal of this step is to attenuate those transients **without damaging the respiratory, adventitious or heart sounds** (heart sounds are not a target: they are present in every class, `Normal` included). The filter is a modification of `soundwaveletSWT`, an adaptive wavelet filter originally designed to attenuate heart sounds (inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)):
 
-1. The signal is decomposed with the **Stationary Wavelet Transform** (SWT, `db4`) until the approximation is below ~15 Hz (7 detail levels at 4 kHz, one octave each).
-2. **Band splitting** (project modification): levels 3, 4 and 5 (62–500 Hz, where heart sounds and rhonchi overlap) are split into 2 half-bands each with one more SWT step on the detail coefficients, using the filters dilated to that level (*stationary wavelet packet*). This gives **10 bands**: 1000–2000 · 500–1000 · 375–500 · 250–375 · 188–250 · 125–188 · 94–125 · 62–94 · 31–62 · 16–31 Hz. The split is a tight frame, so it is inverted exactly (with its adjoint, via FFT) before the inverse SWT. From here on, every band is processed as a level.
-3. For each band, the **envelope** (smoothed Hilbert magnitude) is compared with a **local reference**: the median of the envelope between 0.1 and 0.4 s at each side of every sample (the central ±0.1 s are excluded so the event itself does not raise its own reference).
-4. Where the envelope exceeds **K = 5** times the reference, an event is detected (mask widened 10 ms at each side).
-5. **Long-event protection** (project modification): detected events longer than **120 ms** in a band are not heart sounds (S1/S2 last ≲ 90 ms) but adventitious or respiratory sounds, so they are kept. The protection only applies to the band where the long event is detected (`PROTECT_LEVELS = 0`): in the low bands the long SWT filters merge close, short impulses (e.g. clicks) into a single "long" event, and protecting it in all bands kept those impulses everywhere.
-6. The remaining events are attenuated down to **1.5 times** the reference (background level), with a smoothed gain to avoid clicks.
-7. The split levels are merged back and the signal is reconstructed with the detail levels only (the < 15 Hz component is removed).
+1. **Decomposition:** the signal is decomposed with the **Stationary Wavelet Transform** (SWT, `db4`) until the approximation is below ~15 Hz (7 detail levels at 4 kHz, one octave each). Levels 3, 4 and 5 (62–500 Hz) are split into 2 half-bands each with one more SWT step on the detail coefficients, using the filters dilated to that level (*stationary wavelet packet*). This gives **10 bands**: 1000–2000 · 500–1000 · 375–500 · 250–375 · 188–250 · 125–188 · 94–125 · 62–94 · 31–62 · 16–31 Hz. The split is a tight frame, so it is inverted exactly (with its adjoint, via FFT) before the inverse SWT.
+2. **Detection per band:** the **envelope** of each band (smoothed Hilbert magnitude) is compared with a **local reference**: the median of the envelope between 0.1 and 0.4 s at each side of every sample (the central ±0.1 s are excluded so the event itself does not raise its own reference). Where the envelope exceeds **K = 8** times the reference, an event is detected (mask widened 10 ms at each side).
+3. **Long-event protection:** detected events longer than **120 ms** (`MAX_EVENT`) in a band are respiratory or adventitious sounds (clicks, crackles and S1/S2 are shorter), so they are kept. The protection only applies to the band where the long event is detected (`PROTECT_LEVELS = 0`): in the low bands the long SWT filters merge close, short impulses into a single "long" event, and protecting it in all bands kept those impulses everywhere.
+4. **Classification of the candidates:** each time span with detections left (union over bands) is a candidate. For each one, four features are measured:
+    - **Bands and intensity:** number of bands with a detection, and median / maximum over the bands of the peak envelope / reference ratio.
+    - **Peak width:** time around the maximum of each band's envelope within **20 dB** of it. Unlike the time above the threshold, it does not grow with the intensity of the event (a very strong click takes long to fall below the threshold, but its peak is still narrow).
+    - **Impulsiveness `z`:** |prediction error| / local robust scale, with a robust AR(20) model of the signal (Huber IRLS; AR click detector of Godsill, Rayner & Cappé, 1997, *Digital Audio Restoration*, §3.2.1). Not computed on saturated samples.
+    - **Isolation:** peak of the full-band envelope / background **before and after** the event (median over 0.1 s on each side; the stronger side is used). The onset of a wheeze or a stridor only stands out over what comes before it; a click or a crackle stands out over both sides.
+
+    A candidate is a transient (to be removed) if it meets any of these rules:
+
+    | Rule | Bands | Intensity (envelope / reference) | Peak width | Other |
+    |:-----|:-----:|:---------:|:----------:|:------|
+    | **Broadband click** | ≥ 6 | median ≥ 12 | median ≤ 65 ms | — |
+    | **Impulsive click** (few bands, e.g. only the high ones) | — | > 30 in a band ≥ 500 Hz | median ≤ 100 ms | `z` > 30, isolation ≥ 5 |
+    | **Isolated transient** (e.g. a crackle, even in a single band) | — | max ≥ 12 | max ≤ 45 ms | isolation ≥ 10 |
+
+    Candidates closer than 10 ms to the fragment borders only count if also `z` > 12, since their real duration is unknown (e.g. an adventitious sound cut by the annotation). All the other detections (heart sounds, bursts of adventitious sounds, …) are discarded, i.e. kept in the signal.
+5. **Attenuation:** inside each transient (±20 ms, since each `db4` band has a different delay), the reference is the **immediate background** (median envelope in the 50 ms before and after, if lower than the 0.1–0.4 s reference, which can include a nearby loud sound), and **every band** that stands out **3 times** over it is attenuated, not only the bands detected with `K`. The envelope is brought down to **1.5 times** the reference (background level), with a smoothed gain to avoid new clicks.
+6. **Reconstruction:** the split levels are merged back and the signal is reconstructed with the detail levels only (the < 15 Hz component is removed).
 
 | Parameter | Value | Role |
 |:----------|:------|:-----|
-| `K` | 5 | Detection threshold (times the local reference) |
-| `G_FAC` | 1.5 | Attenuation level (times the local reference) |
+| `K` | 8 | Detection threshold (times the local reference) |
+| `G_FAC` | 1.5 | Attenuation level (times the reference) |
 | `REF_INNER` / `REF_OUTER` | 0.1 / 0.4 s | Local reference window at each side of the sample |
-| `MAX_EVENT` | 0.12 s | Maximum duration of a heart sound event (longer events are protected); `None` → no protection |
-| `PROTECT_LEVELS` | 0 | A long event in band *l* protects bands *l* ± `PROTECT_LEVELS`; `None` → all bands |
-| `PROTECT_MARGIN` | 0 s | Widening of the protected zones |
-| `EDGE` | 0 s | Events closer than this to the fragment borders are protected (their real duration is unknown); 0 → disabled |
-| `SPLIT_LEVELS` | [3, 4, 5] | SWT levels split into 2 half-bands; `None` → no split (7 bands) |
 | `REF_STEP` | 5 ms | The reference is computed every 5 ms and linearly interpolated (×17 faster, negligible difference); `None` → exact, at every sample |
+| `SPLIT_LEVELS` | [3, 4, 5] | SWT levels split into 2 half-bands; `None` → no split (7 bands) |
+| `MAX_EVENT` | 0.12 s | Events longer than this are protected (respiratory/adventitious sounds); `None` → no protection |
+| `PROTECT_LEVELS` | 0 | A long event in band *l* protects bands *l* ± `PROTECT_LEVELS`; `None` → all bands |
+| `CLICK_ONLY` | `True` | Only the candidates classified as transients are attenuated; `False` → every detected event (original behavior, which also removes heart sounds) |
+| `MIN_BANDS` / `R_MED` / `MAX_WIDTH` | 6 / 12 / 65 ms | Broadband click rule |
+| `Z_CLICK` / `R_CLICK` / `F_CLICK` / `MAX_WIDTH_IMPULSIVE` / `ISOLATION_IMPULSIVE` | 30 / 30 / 500 Hz / 100 ms / 5 | Impulsive click rule |
+| `R_TRANSIENT` / `MAX_WIDTH_TRANSIENT` / `ISOLATION` / `ISO_WIN` | 12 / 45 ms / 10 / 0.1 s | Isolated transient rule |
+| `EDGE_CLICK` / `Z_EDGE` | 10 ms / 12 | Candidates at the fragment borders also need `z` > `Z_EDGE` |
+| `K_ATTENUATE` / `SPAN_MARGIN` / `LOCAL_BG` | 3 / 20 ms / 50 ms | Attenuation inside a transient |
+| `AR_ORDER` / `Z_WIN` | 20 / 0.1 s | AR model and local scale of the impulsiveness score |
 
-> Without the long-event protection, the original filter also removed most short adventitious sounds. With it, these sounds are preserved while S1/S2 are still removed. Known limitations: heart sounds overlapping in time with a respiratory or adventitious sound are kept, and crackles are not protected (they are as short as S1/S2) — which only affects the crackle component of `Wheeze+Crackle`, since crackle classes are dropped in [step 6](#6️⃣-filter-fragments-by-label-and-duration--filter_datasetpy). The half-bands have a worse time resolution than their level (≈2× longer equivalent filter) and, with `db4`, they overlap; in a first test on a few fragments, the band splitting removes more energy from some adventitious fragments (e.g. one `Wheeze`: 53% → 70%), which is still under review. The development and tests are in [cardio_soundwaveletSWT.ipynb](#cardio_soundwaveletswtipynb--heart-sound-removal-filter).
+> No single feature works alone: after the 70–1900 Hz band-pass filter many clear clicks have `z` = 5–8, like wheeze bursts, and bursts of wheeze, stridor and rhonchi are also broadband, but have peak widths of 78–190 ms or a median intensity ≤ 12.
+
+> **Known limitations:** a click inside a long sound (e.g. within a stridor) is protected, and weak crackles or clicks (< ~12× their band background, or not isolated) are missed.
+
+> ⚠️ The new algorithm is developed in [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) and is **not yet ported to the pipeline**: `src/remove_heart_sounds.py` (used by `get_rtf.py`) and `visualization_fragment.ipynb` still implement the previous version (every detected event attenuated, `K = 5`, `MAX_EVENT = 0.12 s`).
 
 **2. Duration normalization:** fragment durations vary (see [EDA results](#-results)), but RTFs need a fixed-length input, so every fragment is brought to a fixed **2-second** window (`SEGMENT_DURATION`) before the RTF is computed:
 
@@ -379,11 +401,11 @@ Visualizes one full record end-to-end: loads a `.wav` and its companion `.json` 
 
 ### [visualization_fragment.ipynb](visualization_fragment.ipynb) — Single fragment + STFT
 
-Visualizes a single fragment from `dataset/audio/` through the whole `pre_process` of step 5: plots the raw waveform, the [heart sound removal](#fragment-pre-processing-pre_process) (original vs. filtered signal, removed component and the band-by-band SWT decomposition with envelopes, thresholds and gains), the duration normalization (cyclic padding or most-energetic window) and standardization, and finally the STFT spectrogram that the pipeline writes to `spectrogram/<id>.tiff`, both as an interactive heatmap and as the final 224×224 preview.
+Visualizes a single fragment from `dataset/audio/` through the whole `pre_process` of step 5: plots the raw waveform, the [transient removal](#fragment-pre-processing-pre_process) (still the previous version of the filter; original vs. filtered signal, removed component and the band-by-band SWT decomposition with envelopes, thresholds and gains), the duration normalization (cyclic padding or most-energetic window) and standardization, and finally the STFT spectrogram that the pipeline writes to `spectrogram/<id>.tiff`, both as an interactive heatmap and as the final 224×224 preview.
 
-### [cardio_soundwaveletSWT.ipynb](cardio_soundwaveletSWT.ipynb) — Heart sound removal filter
+### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
-Development notebook of the [heart sound removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script) and its adaptation to the project (`remove_heart_sounds`, same code as `src/remove_heart_sounds.py`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, normalized to 0 dB), plus the band-by-band SWT decomposition. In the notebook, `remove_heart_sounds` also accepts `split_levels` to try other band splittings (e.g. `range(1, 8)` → 14 bands). Setting `REF_STEP = None` and passing `max_event=None` and `split_levels=None` to the notebook's `remove_heart_sounds` reproduces the original algorithm exactly, for comparison (in `src/remove_heart_sounds.py` the equivalent is setting the constants `REF_STEP = None`, `MAX_EVENT = None` and `SPLIT_LEVELS = None`).
+Development notebook of the [transient removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script, which attenuates heart sounds) and its adaptation to the project (`remove_noise`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, linear power normalized to its maximum), plus the band-by-band SWT decomposition with envelopes, thresholds, gains and the component removed in each band. `remove_noise(signal, fs)` returns the filtered signal (same length); with `return_details=True` it also returns the intermediate results used by the plots. It also accepts `split_levels` to try other band splittings (e.g. `range(1, 8)` → 14 bands) and `max_event` to change the long-event protection. Setting `CLICK_ONLY = False`, `K = 5` and `REF_STEP = None` and passing `max_event=None` and `split_levels=None` reproduces the original algorithm exactly, for comparison.
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 
@@ -422,7 +444,7 @@ Each section includes visualizations and descriptive statistics to characterize 
 |   Fine Crackle   |    14.4%   |    60.8%   |
 |      Wheeze      |    6.1%    |    25.9%   |
 |  Wheeze+Crackle  |    1.2%    |    5.22%   |
-|      Rhonchi      |    0.9%    |    3.74%   |
+|      Rhonchi     |    0.9%    |    3.74%   |
 |  Coarse Crackle  |    0.7%    |    3.05%   |
 |      Stridor     |    0.3%    |    1.27%   |
 
