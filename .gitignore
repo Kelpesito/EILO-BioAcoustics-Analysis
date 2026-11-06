@@ -30,3 +30,5 @@ classification/results/
 classification/models/
 
 ICBHI/dataset/
+
+denoising/evaluation_denoise.ipynb

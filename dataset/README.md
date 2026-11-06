@@ -34,7 +34,7 @@ The pipeline is implemented as **6 ordered, independent scripts** that build on 
 
 ## 📂 Repository layout
 
-When you clone the repository, the `dataset/` folder ships with the pipeline scripts and five exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
+When you clone the repository, the `dataset/` folder ships with the pipeline scripts and four exploratory notebooks — but no data. After running the full pipeline, see [📂 Final folder layout](#-final-folder-layout) for what ends up in this directory.
 
 ```
 dataset/
@@ -52,9 +52,10 @@ dataset/
 ├── EDA.ipynb                    ← exploratory analysis of fragments_metadata.csv
 ├── EDA_filtered.ipynb           ← exploratory analysis of fragments_metadata_filtered.csv
 ├── visualization_signal.ipynb   ← raw record + preprocessing visualization
-├── visualization_fragment.ipynb ← single-fragment pre-processing + STFT visualization
-└── denoise_soundwaveletSWT.ipynb ← development of the transient removal filter
+└── visualization_fragment.ipynb ← single-fragment pre-processing + STFT visualization
 ```
+
+The development of the transient removal filter (`denoise_soundwaveletSWT.ipynb` and its evaluation) lives in [`denoising/`](../denoising/).
 
 ---
 
@@ -389,7 +390,7 @@ dataset/
 
 ## 📓 Notebooks
 
-The dataset ships with five exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
+The dataset ships with four exploratory / visualization notebooks alongside the pipeline scripts (see [📂 Repository layout](#-repository-layout)). They are **read-only documentation and exploration** — running them does not modify the pipeline outputs. 
 
 ### ▶️ How to run
 
@@ -402,10 +403,6 @@ Visualizes one full record end-to-end: loads a `.wav` and its companion `.json` 
 ### [visualization_fragment.ipynb](visualization_fragment.ipynb) — Single fragment + STFT
 
 Visualizes a single fragment from `dataset/audio/` through the whole `pre_process` of step 5: plots the raw waveform, the [transient removal](#fragment-pre-processing-pre_process) (still the previous version of the filter; original vs. filtered signal, removed component and the band-by-band SWT decomposition with envelopes, thresholds and gains), the duration normalization (cyclic padding or most-energetic window) and standardization, and finally the STFT spectrogram that the pipeline writes to `spectrogram/<id>.tiff`, both as an interactive heatmap and as the final 224×224 preview.
-
-### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
-
-Development notebook of the [transient removal](#fragment-pre-processing-pre_process) step. Contains the original `soundwaveletSWT` code (Python port of a MATLAB script, which attenuates heart sounds) and its adaptation to the project (`remove_noise`), with an example on a single fragment: original vs. filtered signal, removed component and spectrograms before/after (50–1050 Hz, linear power normalized to its maximum), plus the band-by-band SWT decomposition with envelopes, thresholds, gains and the component removed in each band. `remove_noise(signal, fs)` returns the filtered signal (same length); with `return_details=True` it also returns the intermediate results used by the plots. It also accepts `split_levels` to try other band splittings (e.g. `range(1, 8)` → 14 bands) and `max_event` to change the long-event protection. Setting `CLICK_ONLY = False`, `K = 5` and `REF_STEP = None` and passing `max_event=None` and `split_levels=None` reproduces the original algorithm exactly, for comparison.
 
 ### [EDA.ipynb](EDA.ipynb) — Exploratory Data Analysis
 
