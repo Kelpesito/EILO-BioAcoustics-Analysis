@@ -89,15 +89,15 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `ipywidgets`      | Interactive widgets for Jupyter notebooks (e.g. progress bars, interactive controls). |
 | `jupyter`         | Notebook environment used to run the project's `.ipynb` notebooks.               |
 | `kaleido`         | Static image export engine for `Plotly` figures.                                   |
-| `matplotlib`      | Static plotting for exploratory analysis and visualisation notebooks.             |
+| `matplotlib`      | Static plotting for exploratory analysis and visualisation notebooks |
 | `nbformat`        | Parsing and validating Jupyter notebook structure (`.ipynb`).                    |
 | `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner). |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
-| `plotly`          | Interactive plotting in the visualization notebooks.                             |
-| `pywavelets`      | Stationary Wavelet Transform (SWT) used by the heart sound removal step of the dataset pipeline. |
+| `plotly`          | Interactive plotting in the visualization notebooks and in the summary figures of the transient removal filter (`denoising/summary_plots.py`). |
+| `pywavelets`      | Stationary Wavelet Transform (SWT) used by the transient removal filter (dataset pipeline and `denoising/`). |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
-| `scipy`           | Numerical computing, signal processing, and the STFT implementation.             |
+| `scipy`           | Numerical computing, signal processing (STFT, Welch PSD, AR filtering, frequency response) and `scipy.ndimage` labelling/filters of the transient removal filter. |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
 | `tensorboard`     | Logging and visualization of training curves and Optuna trial hyperparameters in the classification pipeline. |
 | `torch`           | Deep-learning framework used to build and train the classification CNN models.   |
@@ -119,6 +119,9 @@ EILO-BioAcoustics-Analysis/
 ├── uv.lock
 ├── dataset/
 │   └── README.md
+├── denoising/
+│   ├── __init__.py
+│   └── README.md
 ├── classification/
 │   └── README.md
 └── ICBHI/
@@ -132,6 +135,7 @@ EILO-BioAcoustics-Analysis/
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, label and duration filtering, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
+| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks (`denoise_soundwaveletSWT.ipynb`, `denoise_summary_plots.ipynb`) and interactive summary figures (`summary_plots.py`). Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md). |
 | `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits, training and hyperparameter tuning (Optuna) of a baseline 2D-CNN, and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
@@ -139,6 +143,19 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.0.0**
+    - Modified the transient removal algorithm:
+        - Decision rules based on the effective width of the events and on the alignment of the band peaks
+        - New *aligned transient* rule
+        - Not implemented in `dataset/src/remove_heart_sounds.py` and `dataset/denoise_soundwaveletSWT.ipynb` yet. 
+
+    - New subpackage `denoising/` for the transient removal algorithm:
+        - Moved `dataset/denoise_soundwaveletSWT.ipynb` → `denoising/denoise_soundwaveletSWT.ipynb`.
+        - New notebook `denoising/denoise_summary_plots.ipynb`: New version of the algorithm and interactive (`Plotly`) versions of the summary figures.
+        - New script `denoising/summary_plots.py`: the visualization functions of the notebook to show all the figures one after the other.
+
+---
+
 - **v1.5.2**
     - Heart sound removal → transient removal: the goal of the filter is now to attenuate clicks, crackles and other short broadband transients that mask the respiratory sound, without damaging the respiratory, adventitious or heart sounds (heart sounds are no longer a target).
     - Renamed `dataset/cardio_soundwaveletSWT.ipynb` → `dataset/denoise_soundwaveletSWT.ipynb`, with the new algorithm (`remove_noise`, before `remove_heart_sounds`):
