@@ -1,6 +1,6 @@
 [project]
 name = "EILO-BioAcoustics-Analysis"
-version = "2.1.0"
+version = "2.1.1"
 description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.14"
@@ -17,6 +17,7 @@ dependencies = [
     "scikit-image>=0.26.0",
     "scikit-learn>=1.9.0",
     "scipy>=1.18.0",
+    "seaborn>=0.13.2",
     "soundfile>=0.14.0",
     "tensorboard>=2.21.0",
     "torch>=2.13.0",

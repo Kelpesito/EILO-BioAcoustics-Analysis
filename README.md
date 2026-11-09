@@ -98,6 +98,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
 | `scipy`           | Numerical computing, signal processing (STFT, Welch PSD, AR filtering, frequency response) and `scipy.ndimage` labelling/filters of the transient removal filter. |
+| `seaborn`         | Statistical plotting (built on `matplotlib`) for the results figures of the transient removal filter evaluation (`denoising/evaluation_denoise.ipynb`). |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
 | `tensorboard`     | Logging and visualization of training curves and Optuna trial hyperparameters in the classification pipeline. |
 | `torch`           | Deep-learning framework used to build and train the classification CNN models.   |
@@ -143,6 +144,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.1.1**
+    - First result figures of experiment 1 in `denoising/evaluation_denoise.ipynb` (section 5.4.1):
+        - `plot_detection`: detection rate vs SNR per artifact and global, detection rate vs SNR by class of the clean signal, false positives vs SNR, and SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
+    - `SNR_LIST` extended.
+
 - **v2.1.0**
     - Towards the evaluation of the transient removal algorithm:
         - New module `denoising/remove_noise.py`: the algorithm as an importable module.
