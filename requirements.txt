@@ -212,7 +212,9 @@ markupsafe==3.0.3
     #   nbconvert
     #   werkzeug
 matplotlib==3.11.1
-    # via eilo-bioacoustics-analysis
+    # via
+    #   eilo-bioacoustics-analysis
+    #   seaborn
 matplotlib-inline==0.2.2
     # via
     #   ipykernel
@@ -260,6 +262,7 @@ numpy==2.5.1
     #   scikit-image
     #   scikit-learn
     #   scipy
+    #   seaborn
     #   soundfile
     #   tensorboard
     #   tifffile
@@ -323,7 +326,9 @@ packaging==26.3
     #   scikit-image
     #   tensorboard
 pandas==3.0.5
-    # via eilo-bioacoustics-analysis
+    # via
+    #   eilo-bioacoustics-analysis
+    #   seaborn
 pandocfilters==1.5.1
     # via nbconvert
 parso==0.8.7
@@ -426,6 +431,8 @@ scipy==1.18.0
     #   eilo-bioacoustics-analysis
     #   scikit-image
     #   scikit-learn
+seaborn==0.13.2
+    # via eilo-bioacoustics-analysis
 send2trash==2.1.0
     # via jupyter-server
 setuptools==84.0.0
