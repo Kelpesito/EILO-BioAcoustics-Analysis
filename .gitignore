@@ -31,4 +31,5 @@ classification/models/
 
 ICBHI/dataset/
 
-denoising/evaluation_denoise.ipynb
+# Don't ignore certain .csv
+!denoising/results/experiment_1.csv
