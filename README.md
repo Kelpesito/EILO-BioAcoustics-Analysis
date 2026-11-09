@@ -143,10 +143,15 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.0.1**
+    - Updated `denoising/README.md`.
+    - Updated `dataset/README.md`.
+    - Updated `denoising/denoise_soundwaveletSWT.ipynb` with the new algorithm version.
+
 - **v2.0.0**
     - Modified the transient removal algorithm:
-        - Decision rules based on the effective width of the events and on the alignment of the band peaks
-        - New *aligned transient* rule
+        - Decision rules based on the effective width of the events and on the alignment of the band peaks.
+        - New *aligned transient* rule.
         - Not implemented in `dataset/src/remove_heart_sounds.py` and `dataset/denoise_soundwaveletSWT.ipynb` yet. 
 
     - New subpackage `denoising/` for the transient removal algorithm:
@@ -157,7 +162,7 @@ EILO-BioAcoustics-Analysis/
 ---
 
 - **v1.5.2**
-    - Heart sound removal → transient removal: the goal of the filter is now to attenuate clicks, crackles and other short broadband transients that mask the respiratory sound, without damaging the respiratory, adventitious or heart sounds (heart sounds are no longer a target).
+    - Heart sound removal → transient removal: the goal of the filter is now to attenuate clicks, crackles and other short broadband transients that mask the respiratory sound, without damaging the respiratory, adventitious or heart sounds (heart sounds are no longer the main target).
     - Renamed `dataset/cardio_soundwaveletSWT.ipynb` → `dataset/denoise_soundwaveletSWT.ipynb`, with the new algorithm (`remove_noise`, before `remove_heart_sounds`):
         - Click-only mode (`CLICK_ONLY = True`): after the detection per band and the long-event protection, each candidate is classified with 4 features (bands and intensity, peak width, impulsiveness `z` from a robust AR(20) model, isolation before/after) and only the transients are attenuated.
         - Spectrograms of the plots in linear power with new custom colormap.
