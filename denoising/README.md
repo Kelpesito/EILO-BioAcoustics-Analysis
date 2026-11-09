@@ -31,6 +31,7 @@ This folder contains the development of the **transient removal filter** of the 
     - [▶️ How to run](#️-how-to-run)
     - [denoise_soundwaveletSWT.ipynb — Transient removal filter](#denoise_soundwaveletswtipynb--transient-removal-filter)
     - [denoise_summary_plots.ipynb — Development of the summary figures](#denoise_summary_plotsipynb--development-of-the-summary-figures)
+    - [evaluation_denoise.ipynb — Evaluation of the algorithm](#evaluation_denoiseipynb--evaluation-of-the-algorithm)
 - [📈 Summary figures — summary_plots.py](#-summary-figures--summary_plotspy)
 - [📋 Status](#-status)
 
@@ -45,7 +46,11 @@ denoising/
 ├── __init__.py
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
-└── summary_plots.py               ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
+├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm (in progress)
+├── evaluation.py                  ← mixtures, metrics and parallel execution of the experiments (used by evaluation_denoise.ipynb)
+├── remove_noise.py                ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
+├── summary_plots.py               ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
+└── results/                       ← metrics of each experiment (.csv)
 ```
 
 The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz).
@@ -304,6 +309,27 @@ Notebook where the current version of the algorithm and its figures were develop
 
 The figure functions were then copied to [summary_plots.py](#-summary-figures--summary_plotspy).
 
+### [evaluation_denoise.ipynb](evaluation_denoise.ipynb) — Evaluation of the algorithm
+
+Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
+
+> 🚧 **In progress:** the first experiment has been run, but its figures are still missing.
+
+1. **Algorithm:** imported from [remove_noise.py](remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
+2. **Example:** the filter and its summary figures on one fragment.
+3. **Selection of signals:**
+    - **Clean signals:** 38 fragments (10 `Normal`, 10 `Wheeze`, 10 `Rhonchi`, 8 `Stridor`), with only 1 fragment per patient and no audible or visible clicks, scrapes or impacts.
+    - **Artifacts:** 40 clearly visible transients cut from other fragments, with at most 1 per patient, from patients not in the clean set.
+4. **Experiment 1 — Insertion of a single artifact:**
+    - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −20, −10, −5, 0 and 5 dB.
+    - **Control:** each clean signal is also processed without any artifact (`art_id` = `snr_db` = `"Control"`). It shows what the filter does to a signal that has no artifacts.
+    - **Metrics** (`metrics`, in [evaluation.py](evaluation.py)), with the clean signal (> 15 Hz) as reference:
+        - *Detection:* whether a click was detected in the artifact zone (±25 ms), and the number of false clicks.
+        - *Elimination:* SNR in the artifact zone before and after the filter, its improvement (ΔSNR), and `attenuated` (ΔSNR ≥ 3 dB).
+        - *Preservation:* error (NMSE) outside the artifact zone, and local and global RMS error.
+    - **Execution:** `run_experiment` (in [evaluation.py](evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core (≈ 1 h for the ~38 000 rows). It saves the metrics in `results/experiment_1.csv`.
+    - **Results:** loaded from the `.csv`. The figures are still to be made.
+
 ---
 
 ## 📈 Summary figures — [summary_plots.py](summary_plots.py)
@@ -332,5 +358,6 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 
 - [x] Click-only transient removal (4 rules + border rule) developed and checked by eye and by ear on real fragments.
 - [x] Summary figures (`summary_plots.py`) and example in `denoise_soundwaveletSWT.ipynb`.
+- [ ] Evaluation of the algorithm (`evaluation_denoise.ipynb`).
 - [ ] Deeper optimization of the thresholds (currently selected by eye).
 - [ ] Port of the current version to the dataset pipeline (`dataset/src/remove_heart_sounds.py`, used by `dataset/get_rtf.py`, and `dataset/visualization_fragment.ipynb`).

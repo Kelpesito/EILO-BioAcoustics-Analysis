@@ -143,6 +143,13 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.1.0**
+    - Towards the evaluation of the transient removal algorithm:
+        - New module `denoising/remove_noise.py`: the algorithm as an importable module.
+        - New module `denoising/evaluation.py`: artifact insertion at a given local SNR, evaluation metrics and `run_experiment`, which runs the experiment in parallel with `multiprocessing` (one worker process per CPU core) and saves the metrics as a `.csv`.
+        - New notebook `denoising/evaluation_denoise.ipynb`: selection of clean signals and artifacts, and experiment 1 (insertion of a single artifact + control signals without any artifact). The figures of the results are still missing.
+        - Results of experiment 1 saved in `denoising/results/experiment_1.csv` (tracked by git, the rest of the `.csv` are still ignored).
+
 - **v2.0.1**
     - Updated `denoising/README.md`.
     - Updated `dataset/README.md`.
