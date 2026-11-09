@@ -11,6 +11,7 @@ The algorithm constants that the figures need are passed in a dictionary (params
 import operator
 from collections import defaultdict
 from functools import lru_cache
+from pathlib import Path
 
 import numpy as np
 import plotly.graph_objects as go
@@ -2614,7 +2615,12 @@ def plot_frequency_response(fs: float, details: dict) -> go.Figure:
 # 5. Summary
 # ====================================================================================================================
 
-def summary_plots(signal: np.ndarray, fs: float, details: dict, params: dict):
+# File names (without extension) of the figures saved by summary_plots, in the order they are shown
+FIGURE_NAMES = ["decomposition_summary", "detection_map", "impulsiveness", "isolation", "misalign",
+                "click_criteria", "noise_removal", "frequency_response"]
+
+def summary_plots(signal: np.ndarray, fs: float, details: dict, params: dict, save_dir: str | None = None,
+                  scale: float = 5):
     """
     Shows all the summary figures of the noise removal, one after the other: SWT decomposition, detection map,
     impulsiveness, isolation, misalign, click classification, spectrograms and effect in frequency.
@@ -2634,6 +2640,11 @@ def summary_plots(signal: np.ndarray, fs: float, details: dict, params: dict):
         - Z_CLICK, Z_TOLERANCE, AR_ORDER: impulsiveness (plot_impulsiveness)
         - ISO_WIN, ISOLATION, ISOLATION_IMPULSIVE, ISOLATION_ALIGNED: isolation (plot_isolation)
         - MAX_MISALIGN: misalign threshold (plot_misalign)
+    save_dir: str or None
+        Folder where each figure is also saved as <save_dir>/<name>.png (created if needed; names: see
+        FIGURE_NAMES). None -> the figures are only shown
+    scale: float
+        Scale factor of the saved images (size in px = scale x size of the figure)
 
     Examples
     --------
@@ -2641,6 +2652,7 @@ def summary_plots(signal: np.ndarray, fs: float, details: dict, params: dict):
     ...               ISO_WIN=ISO_WIN, ISOLATION=ISOLATION, ISOLATION_IMPULSIVE=ISOLATION_IMPULSIVE,
     ...               ISOLATION_ALIGNED=ISOLATION_ALIGNED, MAX_MISALIGN=MAX_MISALIGN)
     >>> summary_plots(signal, fs, details, params)
+    >>> summary_plots(signal, fs, details, params, save_dir="assets", scale=5)  # Also saves the .png images
     """
     figures = [
         lambda: decomposition_summary_plot(signal, fs, details, params),
@@ -2652,5 +2664,10 @@ def summary_plots(signal: np.ndarray, fs: float, details: dict, params: dict):
         lambda: plot_noise_removal(fs, details),
         lambda: plot_frequency_response(fs, details),
     ]
-    for make_figure in figures:  # Each figure is built just before it is shown
-        make_figure().show()
+    if save_dir is not None:
+        Path(save_dir).mkdir(parents=True, exist_ok=True)
+    for name, make_figure in zip(FIGURE_NAMES, figures):  # Each figure is built just before it is shown
+        fig = make_figure()
+        if save_dir is not None:
+            fig.write_image(Path(save_dir) / f"{name}.png", scale=scale)
+        fig.show()
