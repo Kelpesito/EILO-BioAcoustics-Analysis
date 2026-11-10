@@ -144,10 +144,16 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.1.3**
+    - Updated `README.md`.
+    - Updated `denoising/README.md`.
+
 - **v2.1.2**
     - Minor changes:
         - Training metrics computed without Data Augmentation: new `train_eval_loader` in `classification/src/data/dataloaders.py`. The training loss of `train_one_epoch` is unchanged.
         - Fixed the docstring of `classification/get_splits.py`: it requires `dataset/fragments_metadata_filtered.csv`.
+    - Rebuilt the experiment in `denoising/evaluation_denoise.ipynb`:
+        - Ampliation of `SNR_LIST` to `[-30, -20, -10, -5, 0, 5, 10, 20]`, before `[-20, -10, -5, 0, 5]`.
     - Added two figures to evaluation denoise algorithm in `denoising/evaluation_denoise.ipynb`:
         - `plot_elimination`: SNR out vs SNR in of the detected artifacts, ΔSNR distribution per SNR level, proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, net SNR improvement vs SNR, and SNR improvement of the detected artifacts by class of the clean signal.
         - `plot_conservation`: NMSE out of the artifact zone vs SNR, NMSE out of the artifact zone vs number of detections out of the zone for mixtures and control signals, the same two per class of the clean signal, and cumulative distribution of the NMSE out of the artifact zone.
