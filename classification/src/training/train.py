@@ -417,6 +417,7 @@ def fit(
         img_size=IMG_SIZE,
     )
     train_loader = dataloaders["train_loader"]
+    train_eval_loader = dataloaders["train_eval_loader"]  # Without Data Augmentation
     val_loader = dataloaders["val_loader"]
     class_weights = dataloaders["class_weights"].to(device)
 
@@ -464,10 +465,10 @@ def fit(
             device=device,
         )
         
-        # Training metrics
+        # Training metrics (training set without Data Augmentation)
         train_metrics = evaluate(
             model=model,
-            loader=train_loader,
+            loader=train_eval_loader,
             criterion=criterion,
             num_classes=num_classes,
             class_to_idx=class_to_idx,

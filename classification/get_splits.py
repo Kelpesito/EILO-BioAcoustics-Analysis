@@ -11,7 +11,7 @@ proportions:
 - Final proportions: 64/16/20
 
 Requires:
-    dataset/fragments_metadata.csv
+    dataset/fragments_metadata_filtered.csv
     
 Generates:
     classification/splits/splits.csv
