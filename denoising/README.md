@@ -313,7 +313,7 @@ The figure functions were then copied to [summary_plots.py](#-summary-figures--s
 
 Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
 
-> 🚧 **In progress:** the first experiment has been run; only the detection figure is done so far.
+> 🚧 **In progress:** the first experiment has been run and three of the main figures (detection, elimination and conservation) are done.
 
 1. **Algorithm:** imported from [remove_noise.py](remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
 2. **Example:** the filter and its summary figures on one fragment.
@@ -321,14 +321,19 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
     - **Clean signals:** 38 fragments (10 `Normal`, 10 `Wheeze`, 10 `Rhonchi`, 8 `Stridor`), with only 1 fragment per patient and no audible or visible clicks, scrapes or impacts.
     - **Artifacts:** 40 clearly visible transients cut from other fragments, with at most 1 per patient, from patients not in the clean set.
 4. **Experiment 1 — Insertion of a single artifact:**
-    - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB (the current `results/experiment_1.csv` was run with −20, −10, −5, 0 and 5 dB).
+    - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB. If the same position is drawn twice, the repeated mixture is dropped (`get_mixes`).
+    - The current `results/experiment_1.csv` (~60 700 rows) was run with the whole `SNR_LIST`.
     - **Control:** each clean signal is also processed without any artifact (`art_id` = `snr_db` = `"Control"`). It shows what the filter does to a signal that has no artifacts.
     - **Metrics** (`metrics`, in [evaluation.py](evaluation.py)), with the clean signal (> 15 Hz) as reference:
         - *Detection:* whether a click was detected in the artifact zone (±25 ms), and the number of false clicks.
         - *Elimination:* SNR in the artifact zone before and after the filter, its improvement (ΔSNR), and `attenuated` (ΔSNR ≥ 3 dB).
-        - *Preservation:* error (NMSE) outside the artifact zone, and local and global RMS error.
-    - **Execution:** `run_experiment` (in [evaluation.py](evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core (≈ 1 h for the ~38 000 rows). It saves the metrics in `results/experiment_1.csv`.
-    - **Results:** loaded from the `.csv`. `plot_detection(results_df)` shows the detection figure: (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals). It is defined twice: in matplotlib + `seaborn`, and right after as an interactive Plotly reproduction (same layout and sizes, hover information, legends that toggle series); running the cells in order leaves the Plotly one active. The rest of the figures (elimination, preservation) are still to be made.
+        - *Conservation:* error (NMSE) outside the artifact zone, and local and global RMS error.
+    - **Execution:** `run_experiment` (in [evaluation.py](evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiment_1.csv`.
+    - **Results:** loaded from the `.csv`. Three main figures (section 5.4.1), each one a function of `results_df` (which is not modified):
+        - `plot_detection` — *Detection:* (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
+        - `plot_elimination` — *Elimination:* (A) SNR out vs SNR in of the detected artifacts, attenuated / not attenuated (mean ± IQR), (B) ΔSNR distribution per SNR level (violins), (C) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, (D) net SNR improvement vs SNR (all the mixtures, undetected → ΔSNR = 0, and only the detected ones), and (E) SNR improvement of the detected artifacts by class of the clean signal.
+        - `plot_conservation` — *Conservation:* (A) NMSE out of the artifact zone vs SNR (mean ± 95 % CI over the clean signals) and in the controls, (B) NMSE out of the zone vs number of detections out of the zone (false positives), mixtures and controls, (C) and (D) the same two by class of the clean signal, and (E) cumulative distribution of the NMSE out of the zone, with references at 1 % and 0.01 % of the signal power.
+        - Each one is defined twice: in matplotlib + `seaborn`, and right after as an interactive Plotly reproduction (same layout and sizes, hover information, legends that toggle series, zoom); running the cells in order leaves the Plotly one active.
 
 ---
 
