@@ -5,6 +5,8 @@ Module to generate the dataloaders instances to train models
 """
 
 
+import copy
+
 import numpy as np
 import pandas as pd
 import torch
@@ -127,6 +129,9 @@ def get_dataloaders(
         Dictionary with:
         - train_loader: DataLoader
             DataLoader with training set
+        - train_eval_loader: DataLoader
+            DataLoader with training set, without Data Augmentation, shuffling or drop_last (to
+            evaluate the training metrics)
         - val_loader: DataLoader
             DataLoader with validation set
         - mean: float
@@ -168,7 +173,18 @@ def get_dataloaders(
             df_val, origin, class_to_idx, image_col, label_col,
             transform=get_val_transforms(mean, std, img_size),
         )
-    
+
+    # Training set without Data Augmentation, to evaluate the metrics of the training set. With
+    # cache, a shallow copy shares the cached tensor (no second read / copy of the images)
+    if cache:
+        train_eval_ds = copy.copy(train_ds)
+        train_eval_ds.transform = None
+    else:
+        train_eval_ds = ImageDataset(
+            df_train, origin, class_to_idx, image_col, label_col,
+            transform=get_val_transforms(mean, std, img_size),
+        )
+
     # Class weights to handle class imbalance (used in the loss function instead of oversampling)
     train_labels = df_train[label_col].map(class_to_idx).values
     class_counts = np.bincount(train_labels, minlength=len(class_to_idx))
@@ -196,9 +212,14 @@ def get_dataloaders(
         val_ds, batch_size=batch_size, shuffle=False,
         num_workers=val_workers, pin_memory=True, persistent_workers=val_workers > 0
     )
+    train_eval_loader = DataLoader(
+        train_eval_ds, batch_size=batch_size, shuffle=False,
+        num_workers=val_workers, pin_memory=True, persistent_workers=val_workers > 0
+    )
 
     return {
         "train_loader": train_loader,
+        "train_eval_loader": train_eval_loader,
         "val_loader": val_loader,
         "mean": mean,
         "std": std,
