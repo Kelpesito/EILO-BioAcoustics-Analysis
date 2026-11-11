@@ -313,7 +313,7 @@ The figure functions were then copied to [summary_plots.py](#-summary-figures--s
 
 Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
 
-> 🚧 **In progress:** the first experiment has been run and three of the main figures (detection, elimination and conservation) are done.
+> 🚧 **In progress:** the first experiment has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done.
 
 1. **Algorithm:** imported from [remove_noise.py](remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
 2. **Example:** the filter and its summary figures on one fragment.
@@ -324,15 +324,19 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
     - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB. If the same position is drawn twice, the repeated mixture is dropped (`get_mixes`).
     - The current `results/experiment_1.csv` (~60 700 rows) was run with the whole `SNR_LIST`.
     - **Control:** each clean signal is also processed without any artifact (`art_id` = `snr_db` = `"Control"`). It shows what the filter does to a signal that has no artifacts.
+    - **Mixture descriptors** (`insert_artifact`, in [evaluation.py](evaluation.py)): duration of the artifact, local relative power of the clean signal around it (±25 ms, dB relative to the whole fragment) and global SNR (clean fragment vs artifact energy).
     - **Metrics** (`metrics`, in [evaluation.py](evaluation.py)), with the clean signal (> 15 Hz) as reference:
         - *Detection:* whether a click was detected in the artifact zone (±25 ms), and the number of false clicks.
         - *Elimination:* SNR in the artifact zone before and after the filter, its improvement (ΔSNR), and `attenuated` (ΔSNR ≥ 3 dB).
-        - *Conservation:* error (NMSE) outside the artifact zone, and local and global RMS error.
+        - *Conservation:* error (NMSE) outside the artifact zone.
+        - *Amplitude:* error (%) of the maximum and mean of the moving RMS (30 ms), in the artifact zone (local) and in the whole fragment (global), before (mixture) and after (output) the filter.
     - **Execution:** `run_experiment` (in [evaluation.py](evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiment_1.csv`.
-    - **Results:** loaded from the `.csv`. Three main figures (section 5.4.1), each one a function of `results_df` (which is not modified):
+    - **Results:** loaded from the `.csv`. Five figures (sections 5.4.1–5.4.5), each one a function of `results_df` (which is not modified):
         - `plot_detection` — *Detection:* (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
         - `plot_elimination` — *Elimination:* (A) SNR out vs SNR in of the detected artifacts, attenuated / not attenuated (mean ± IQR), (B) ΔSNR distribution per SNR level (violins), (C) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, (D) net SNR improvement vs SNR (all the mixtures, undetected → ΔSNR = 0, and only the detected ones), and (E) SNR improvement of the detected artifacts by class of the clean signal.
         - `plot_conservation` — *Conservation:* (A) NMSE out of the artifact zone vs SNR (mean ± 95 % CI over the clean signals) and in the controls, (B) NMSE out of the zone vs number of detections out of the zone (false positives), mixtures and controls, (C) and (D) the same two by class of the clean signal, and (E) cumulative distribution of the NMSE out of the zone, with references at 1 % and 0.01 % of the signal power.
+        - `plot_amplitude` — *Amplitude:* RMS error (%) before (mixture) and after (output) the filter vs SNR (median ± IQR), in 4 panels: maximum / mean RMS, local / global, with the controls in the global ones. Each panel has a zoom of the −7 to 22 dB range.
+        - `plot_factor_analysis` — *Factor analysis:* what the result depends on. (A) detection rate and (B) mean ΔSNR of the detected artifacts per artifact and SNR (heatmaps), (C) SNR at 50 % detection vs duration of the artifact (with `MAX_EVENT`), (D) detection rate and (F) ΔSNR of the detected artifacts vs local relative power of the clean signal (deciles, per SNR), (E) local power vs global SNR of the detected and not detected mixtures (density), (G) error of the global RMS peak before / after vs global SNR, and (H) ΔSNR vs NMSE out of the zone of the detected artifacts (removal vs conservation).
         - Each one is defined twice: in matplotlib + `seaborn`, and right after as an interactive Plotly reproduction (same layout and sizes, hover information, legends that toggle series, zoom); running the cells in order leaves the Plotly one active.
 
 ---
