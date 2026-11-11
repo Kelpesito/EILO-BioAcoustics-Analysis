@@ -144,6 +144,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.1.4**
+    - Added two figures to the evaluation of the denoise algorithm in `denoising/evaluation_denoise.ipynb`:
+        - `plot_amplitude`: RMS error (%) before and after the filter vs SNR.
+        - `plot_factor_analysis`: detection rate and mean ΔSNR per artifact and SNR, SNR at 50 % detection vs artifact duration, detection rate and ΔSNR vs local relative power of the clean signal, local power vs global SNR of detected / not detected mixtures, global RMS peak error vs global SNR, and ΔSNR vs NMSE out of the artifact zone.
+
 - **v2.1.3**
     - Updated `README.md`.
     - Updated `denoising/README.md`.
