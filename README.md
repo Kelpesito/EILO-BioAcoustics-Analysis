@@ -144,6 +144,14 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.0**
+    - New experiment 2 in `denoising/evaluation_denoise.ipynb`: insertion of several artifacts + idempotence.
+        - Layouts of 3 artifacts separated by the same gap, mixed as paired subsets at the same positions (singles, pairs and the triplet).
+        - Two SNR conditions: *equal* (all the artifacts at the same SNR) and *unequal* (one strong artifact at −20 dB, masking the weak ones).
+        - Every mixture is processed twice, f(f(x)), to measure the idempotence of the filter.
+        - Not run yet in its final version: no results nor figures.
+    - `denoising/evaluation.py`, functions of experiment 2.
+
 - **v2.1.4**
     - Added two figures to the evaluation of the denoise algorithm in `denoising/evaluation_denoise.ipynb`:
         - `plot_amplitude`: RMS error (%) before and after the filter vs SNR.

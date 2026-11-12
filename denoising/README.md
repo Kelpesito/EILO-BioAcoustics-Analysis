@@ -47,7 +47,7 @@ denoising/
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm (in progress)
-├── evaluation.py                  ← mixtures, metrics and parallel execution of the experiments (used by evaluation_denoise.ipynb)
+├── evaluation.py                  ← mixtures, metrics and parallel execution of experiments 1 and 2 (used by evaluation_denoise.ipynb)
 ├── remove_noise.py                ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
 ├── summary_plots.py               ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
 └── results/                       ← metrics of each experiment (.csv)
@@ -313,7 +313,7 @@ The figure functions were then copied to [summary_plots.py](#-summary-figures--s
 
 Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
 
-> 🚧 **In progress:** the first experiment has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done.
+> 🚧 **In progress:** experiment 1 has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done. Experiment 2 is designed and implemented, but its final version has not been run yet (no results nor figures).
 
 1. **Algorithm:** imported from [remove_noise.py](remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
 2. **Example:** the filter and its summary figures on one fragment.
@@ -338,6 +338,22 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - `plot_amplitude` — *Amplitude:* RMS error (%) before (mixture) and after (output) the filter vs SNR (median ± IQR), in 4 panels: maximum / mean RMS, local / global, with the controls in the global ones. Each panel has a zoom of the −7 to 22 dB range.
         - `plot_factor_analysis` — *Factor analysis:* what the result depends on. (A) detection rate and (B) mean ΔSNR of the detected artifacts per artifact and SNR (heatmaps), (C) SNR at 50 % detection vs duration of the artifact (with `MAX_EVENT`), (D) detection rate and (F) ΔSNR of the detected artifacts vs local relative power of the clean signal (deciles, per SNR), (E) local power vs global SNR of the detected and not detected mixtures (density), (G) error of the global RMS peak before / after vs global SNR, and (H) ΔSNR vs NMSE out of the zone of the detected artifacts (removal vs conservation).
         - Each one is defined twice: in matplotlib + `seaborn`, and right after as an interactive Plotly reproduction (same layout and sizes, hover information, legends that toggle series, zoom); running the cells in order leaves the Plotly one active.
+5. **Experiment 2 — Insertion of several artifacts:** what changes when the artifacts are not alone (close artifacts, a strong one masking weak ones), and whether the filter is idempotent.
+    - **Layouts:** for each clean signal, `N_GROUPS = 20` random triplets of distinct artifacts. For each triplet and each edge-to-edge gap of `GAP_LIST` = 25, 50, 100, 300 and 500 ms, the three artifacts are placed in random order, one after another with the same gap, at a random position of the signal (at least 0.1 s from the borders). A layout that does not fit is skipped.
+    - **Paired subsets:** from each layout, every non-empty subset of its artifacts is mixed **at the same positions**: the 3 single artifacts, the 3 pairs and the triplet (7 mixtures, same `group_id`, `subset` = layout positions present). Each artifact can then be compared alone and accompanied, with everything else equal.
+    - **SNR conditions** (local SNR of each artifact, as in experiment 1):
+        - *Equal:* all the artifacts at the same SNR, for each SNR of `SNR_LIST` = −20, −10, −5, 0, 5, 10 and 20 dB.
+        - *Unequal (masking):* one artifact of the layout, chosen at random, is strong (`SNR_STRONG` = −20 dB, `is_strong`) and the others are weak, at each SNR of `SNR_WEAK_LIST` = −10, −5 and 0 dB.
+    - **Duplicates:** the same mixture (same artifacts, positions and SNRs, e.g. a single artifact of both conditions) is only kept once, with the first `group_id`.
+    - **Control:** each clean signal without any artifact (`n_art` = 0, `art_ids` = `snr_db` = `"Control"`).
+    - **Mixtures** (`insert_artifacts`, in [evaluation.py](evaluation.py)): each artifact is scaled with respect to the **clean** signal, as in experiment 1, so its scaling does not depend on the other artifacts; the mixture is the clean signal plus the contribution of every artifact. The descriptors of `insert_artifact` are kept per artifact.
+    - **Metrics** (`metrics_multi`, in [evaluation.py](evaluation.py)):
+        - *Artifact zones* (`artifact_zones`): ±25 ms around each artifact, as in experiment 1, but cut at the midpoint of the gap when two zones would overlap, so each sample belongs to one zone at most.
+        - *Per artifact* (one value per artifact, in its own zone): detection, `merged` (its click span also touches the zone of another artifact), SNR in / out, ΔSNR, `attenuated` and local amplitude errors. The SNR is measured with the contribution of that artifact alone, without the others.
+        - *Per mixture:* number of detected artifacts (`n_detected`, `all_detected`), false clicks (click spans that touch no artifact zone), NMSE out of all the zones, NMSE of the signal **between** consecutive artifacts (`nmse_between_db`: how much a merged span changes the signal between the clicks), global amplitude errors and global SNR of all the artifacts together (`snr_global_mix_db`).
+        - *Idempotence:* every mixture (and control) is processed **twice**, f(f(x)). Number of clicks of the second pass (`n_clicks_pass2`, ideally 0), of them inside the artifact zones (`n_clicks_pass2_in_zones`) and change of the second pass (`idem_nmse_db`, NMSE of f(f(x)) − f(x)).
+    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiment_2.csv`. The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
+    - **Results:** 🚧 pending. The final version of the experiment has not been run yet.
 
 ---
 
@@ -367,6 +383,8 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 
 - [x] Click-only transient removal (4 rules + border rule) developed and checked by eye and by ear on real fragments.
 - [x] Summary figures (`summary_plots.py`) and example in `denoise_soundwaveletSWT.ipynb`.
-- [ ] Evaluation of the algorithm (`evaluation_denoise.ipynb`).
+- [ ] Evaluation of the algorithm (`evaluation_denoise.ipynb`):
+    - [x] Experiment 1 (single artifact): run, with its result figures.
+    - [ ] Experiment 2 (several artifacts + idempotence): designed and implemented, pending execution and figures.
 - [ ] Deeper optimization of the thresholds (currently selected by eye).
 - [ ] Port of the current version to the dataset pipeline (`dataset/src/remove_heart_sounds.py`, used by `dataset/get_rtf.py`, and `dataset/visualization_fragment.ipynb`).

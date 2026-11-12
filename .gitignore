@@ -33,3 +33,4 @@ ICBHI/dataset/
 
 # Don't ignore certain .csv
 !denoising/results/experiment_1.csv
+!denoising/results/experiment_2.csv
