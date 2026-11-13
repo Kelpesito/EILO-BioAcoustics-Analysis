@@ -23,7 +23,7 @@ import scipy.ndimage as ndi
 from scipy.ndimage import uniform_filter1d
 from tqdm.auto import tqdm
 
-import remove_noise as rn
+from . import remove_noise as rn
 
 
 FS = 4000                     # Sampling frequency (Hz)
@@ -31,7 +31,7 @@ SNR_MARGIN = int(0.025 * FS)  # Ampliation of the window to compute local SNR (s
 TOL = int(0.025 * FS)         # Tolerance around the artifact (delays between bands), in samples
 ATEN_DB = 3                   # Minimum ΔSNR for considering the artifact "attenuated"
 RMS_WIN = int(0.03 * FS)      # 30 ms: Duration of window for RMS calculation
-RESULTS_DIR = "results"       # Folder of the results (.csv)
+RESULTS_DIR = Path(__file__).resolve().parent.parent / "results"  # denoising/results (independent of the cwd)
 CHUNKSIZE = 1                 # Mixtures sent to a worker at a time
 
 # Data of the worker processes (see init_worker)

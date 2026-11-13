@@ -42,35 +42,54 @@ This folder contains the development of the **transient removal filter** of the 
 ```
 denoising/
 ├── assets/                        ← summary figures of the example fragment (used in this file)
+├── audio/                         ← the 78 fragments of evaluation_denoise.ipynb (38 clean signals + 40 artifact sources)
 ├── README.md                      ← this file
 ├── __init__.py
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm (in progress)
-├── evaluation.py                  ← mixtures, metrics and parallel execution of experiments 1 and 2 (used by evaluation_denoise.ipynb)
-├── remove_noise.py                ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
-├── summary_plots.py               ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
-└── results/                       ← metrics of each experiment (.csv)
+├── run_experiments.py             ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
+├── src/                           ← importable modules (used by the notebooks)
+│   ├── __init__.py
+│   ├── evaluation.py              ← mixtures, metrics and parallel execution of experiments 1 and 2 (used by evaluation_denoise.ipynb)
+│   ├── remove_noise.py            ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
+│   └── summary_plots.py           ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
+└── results/                       ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
 ```
 
-The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz).
+The notebooks import the modules as a package from the `denoising/` folder (e.g. `from src import remove_noise as rn`, `from src.summary_plots import summary_plots`), so they must be run with `denoising/` as the working directory.
+
+The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz). The exception is the evaluation (`evaluation_denoise.ipynb`, except its *Example* section): its clean signals and artifacts are read from `denoising/audio/`, an identical copy of those 78 fragments that is tracked by git (exception to `*.wav` in `.gitignore`), so the experiments can be reproduced without regenerating the dataset.
 
 ---
 
 ## ⚙️ Quickstart
 
-The algorithm lives (for now) in the **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter). Once that cell (and the **Visualización** cell) has been run:
+The algorithm is the module [src/remove_noise.py](src/remove_noise.py) and its summary figures are in [src/summary_plots.py](src/summary_plots.py). From the `denoising/` folder (working directory):
 
 ```python
+import soundfile as sf
+
+from src import remove_noise as rn
+from src.summary_plots import summary_plots
+
 signal, fs = sf.read(rf"..\dataset\dataset\audio\{file}.wav")  # file: fragment id
 
 # Filtered signal only (same length as signal)
-clean = remove_noise(signal, fs)
+clean = rn.remove_noise(signal, fs)
 
-# Filtered signal + intermediate results, and the summary figures (saved as .png in assets/)
-clean, details = remove_noise(signal, fs, return_details=True)
+# Filtered signal + intermediate results
+clean, details = rn.remove_noise(signal, fs, return_details=True)
+
+# Summary figures: they need some constants of the algorithm (params); save_dir -> also saved as .png
+PARAMS = dict(G_FAC=rn.G_FAC, K=rn.K, Z_CLICK=rn.Z_CLICK, Z_TOLERANCE=rn.Z_TOLERANCE, AR_ORDER=rn.AR_ORDER,
+              ISO_WIN=rn.ISO_WIN, ISOLATION=rn.ISOLATION, ISOLATION_IMPULSIVE=rn.ISOLATION_IMPULSIVE,
+              ISOLATION_ALIGNED=rn.ISOLATION_ALIGNED, MAX_MISALIGN=rn.MAX_MISALIGN)
 summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 ```
+
+- The parameters of the algorithm are module constants ([⚙️ Parameters](#️-parameters)): to change one, set it on the module before calling `remove_noise`, e.g. `rn.K = 6`.
+- The **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) holds a copy of the same code, to read the algorithm step by step next to the original filter; [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) and [run_experiments.py](run_experiments.py) use the module.
 
 ---
 
@@ -288,7 +307,19 @@ The notebooks are **development and documentation** tools: running them does not
 
 ### ▶️ How to run
 
-From the `denoising/` folder, launch Jupyter / VS Code and open the notebook of interest, then run all cells in order (after editing a notebook, restart the kernel before running it again). The fragments must exist in `dataset/dataset/audio/` (step 4 of the [📊 Dataset pipeline](../dataset/README.md)).
+From the `denoising/` folder, launch Jupyter / VS Code and open the notebook of interest, then run all cells in order (after editing a notebook, restart the kernel before running it again). The fragments must exist in `dataset/dataset/audio/` (step 4 of the [📊 Dataset pipeline](../dataset/README.md)); the experiments of `evaluation_denoise.ipynb` only need `denoising/audio/`.
+
+The experiments can also be run **from the terminal** (e.g. on a remote machine, without Jupyter) with [run_experiments.py](run_experiments.py), from any folder (e.g. the repository root):
+
+```bash
+python denoising/run_experiments.py -e 1        # Experiment 1: single artifact
+python denoising/run_experiments.py -e 2        # Experiment 2: several artifacts + idempotence
+python denoising/run_experiments.py -e 2 -p 4   # -p, --processes: worker processes (default: as many as CPU cores)
+```
+
+- The script holds the same constants, signal selection and mixture generation (`get_mixes_1`, `get_mixes_2`) as sections 4, 5.1 and 6.1 of the notebook (identical mixtures), and calls `run_experiment`. If a constant is changed in the notebook, it must also be changed in the script.
+- The algorithm runs with the default constants of [remove_noise.py](src/remove_noise.py).
+- Notebook and script write to the **same file**, `denoising/results/experiment_{1, 2}.csv` (`RESULTS_DIR` of [evaluation.py](src/evaluation.py) is relative to the module, not to the working directory), so the results of the script can be loaded in the notebook with `read_results`. Running an experiment overwrites its previous `.csv`.
 
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
@@ -315,7 +346,7 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
 
 > 🚧 **In progress:** experiment 1 has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done. Experiment 2 is designed and implemented, but its final version has not been run yet (no results nor figures).
 
-1. **Algorithm:** imported from [remove_noise.py](remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
+1. **Algorithm:** imported from [remove_noise.py](src/remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
 2. **Example:** the filter and its summary figures on one fragment.
 3. **Selection of signals:**
     - **Clean signals:** 38 fragments (10 `Normal`, 10 `Wheeze`, 10 `Rhonchi`, 8 `Stridor`), with only 1 fragment per patient and no audible or visible clicks, scrapes or impacts.
@@ -324,13 +355,13 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
     - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB. If the same position is drawn twice, the repeated mixture is dropped (`get_mixes`).
     - The current `results/experiment_1.csv` (~60 700 rows) was run with the whole `SNR_LIST`.
     - **Control:** each clean signal is also processed without any artifact (`art_id` = `snr_db` = `"Control"`). It shows what the filter does to a signal that has no artifacts.
-    - **Mixture descriptors** (`insert_artifact`, in [evaluation.py](evaluation.py)): duration of the artifact, local relative power of the clean signal around it (±25 ms, dB relative to the whole fragment) and global SNR (clean fragment vs artifact energy).
-    - **Metrics** (`metrics`, in [evaluation.py](evaluation.py)), with the clean signal (> 15 Hz) as reference:
+    - **Mixture descriptors** (`insert_artifact`, in [evaluation.py](src/evaluation.py)): duration of the artifact, local relative power of the clean signal around it (±25 ms, dB relative to the whole fragment) and global SNR (clean fragment vs artifact energy).
+    - **Metrics** (`metrics`, in [evaluation.py](src/evaluation.py)), with the clean signal (> 15 Hz) as reference:
         - *Detection:* whether a click was detected in the artifact zone (±25 ms), and the number of false clicks.
         - *Elimination:* SNR in the artifact zone before and after the filter, its improvement (ΔSNR), and `attenuated` (ΔSNR ≥ 3 dB).
         - *Conservation:* error (NMSE) outside the artifact zone.
         - *Amplitude:* error (%) of the maximum and mean of the moving RMS (30 ms), in the artifact zone (local) and in the whole fragment (global), before (mixture) and after (output) the filter.
-    - **Execution:** `run_experiment` (in [evaluation.py](evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiment_1.csv`.
+    - **Execution:** `run_experiment` (in [evaluation.py](src/evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiment_1.csv`. Also from the terminal: `python denoising/run_experiments.py -e 1` (see [▶️ How to run](#️-how-to-run)).
     - **Results:** loaded from the `.csv`. Five figures (sections 5.4.1–5.4.5), each one a function of `results_df` (which is not modified):
         - `plot_detection` — *Detection:* (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
         - `plot_elimination` — *Elimination:* (A) SNR out vs SNR in of the detected artifacts, attenuated / not attenuated (mean ± IQR), (B) ΔSNR distribution per SNR level (violins), (C) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, (D) net SNR improvement vs SNR (all the mixtures, undetected → ΔSNR = 0, and only the detected ones), and (E) SNR improvement of the detected artifacts by class of the clean signal.
@@ -346,18 +377,18 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - *Unequal (masking):* one artifact of the layout, chosen at random, is strong (`SNR_STRONG` = −20 dB, `is_strong`) and the others are weak, at each SNR of `SNR_WEAK_LIST` = −10, −5 and 0 dB.
     - **Duplicates:** the same mixture (same artifacts, positions and SNRs, e.g. a single artifact of both conditions) is only kept once, with the first `group_id`.
     - **Control:** each clean signal without any artifact (`n_art` = 0, `art_ids` = `snr_db` = `"Control"`).
-    - **Mixtures** (`insert_artifacts`, in [evaluation.py](evaluation.py)): each artifact is scaled with respect to the **clean** signal, as in experiment 1, so its scaling does not depend on the other artifacts; the mixture is the clean signal plus the contribution of every artifact. The descriptors of `insert_artifact` are kept per artifact.
-    - **Metrics** (`metrics_multi`, in [evaluation.py](evaluation.py)):
+    - **Mixtures** (`insert_artifacts`, in [evaluation.py](src/evaluation.py)): each artifact is scaled with respect to the **clean** signal, as in experiment 1, so its scaling does not depend on the other artifacts; the mixture is the clean signal plus the contribution of every artifact. The descriptors of `insert_artifact` are kept per artifact.
+    - **Metrics** (`metrics_multi`, in [evaluation.py](src/evaluation.py)):
         - *Artifact zones* (`artifact_zones`): ±25 ms around each artifact, as in experiment 1, but cut at the midpoint of the gap when two zones would overlap, so each sample belongs to one zone at most.
         - *Per artifact* (one value per artifact, in its own zone): detection, `merged` (its click span also touches the zone of another artifact), SNR in / out, ΔSNR, `attenuated` and local amplitude errors. The SNR is measured with the contribution of that artifact alone, without the others.
         - *Per mixture:* number of detected artifacts (`n_detected`, `all_detected`), false clicks (click spans that touch no artifact zone), NMSE out of all the zones, NMSE of the signal **between** consecutive artifacts (`nmse_between_db`: how much a merged span changes the signal between the clicks), global amplitude errors and global SNR of all the artifacts together (`snr_global_mix_db`).
         - *Idempotence:* every mixture (and control) is processed **twice**, f(f(x)). Number of clicks of the second pass (`n_clicks_pass2`, ideally 0), of them inside the artifact zones (`n_clicks_pass2_in_zones`) and change of the second pass (`idem_nmse_db`, NMSE of f(f(x)) − f(x)).
-    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiment_2.csv`. The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
+    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiment_2.csv` (also from the terminal: `python denoising/run_experiments.py -e 2`). The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
     - **Results:** 🚧 pending. The final version of the experiment has not been run yet.
 
 ---
 
-## 📈 Summary figures — [summary_plots.py](summary_plots.py)
+## 📈 Summary figures — [summary_plots.py](src/summary_plots.py)
 
 Module with the figure functions of `denoise_summary_plots.ipynb`, built from the intermediate results of `remove_noise(..., return_details=True)`. `summary_plots(signal, fs, details, params, save_dir=None, scale=5)` shows them one after the other:
 
@@ -375,7 +406,7 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 - `params`: the algorithm constants the figures need (`G_FAC`, `K`, `Z_CLICK`, `Z_TOLERANCE`, `AR_ORDER`, `ISO_WIN`, `ISOLATION`, `ISOLATION_IMPULSIVE`, `ISOLATION_ALIGNED`, `MAX_MISALIGN`).
 - `save_dir`: if given, each figure is also saved as `<save_dir>/<name>.png` (Plotly static export with `kaleido`), with `scale` as the image scale factor.
 
-> The FWHM of each band is hard-coded in the module (`FWHM`, values of the table in [step 1](#1️⃣-decomposition-into-10-bands)): it must be updated if the decomposition changes.
+> The FWHM of each band (`plot_misalign`, values of the table in [step 1](#1️⃣-decomposition-into-10-bands)) is computed with `band_resolution` of [remove_noise.py](src/remove_noise.py), for the decomposition of `details["bands"]`, so it follows any change of the decomposition.
 
 ---
 
