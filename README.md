@@ -93,7 +93,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `nbformat`        | Parsing and validating Jupyter notebook structure (`.ipynb`).                    |
 | `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner). |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
-| `plotly`          | Interactive plotting in the visualization notebooks and in the summary figures of the transient removal filter (`denoising/summary_plots.py`). |
+| `plotly`          | Interactive plotting in the visualization notebooks. |
 | `pywavelets`      | Stationary Wavelet Transform (SWT) used by the transient removal filter (dataset pipeline and `denoising/`). |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
 | `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
@@ -136,7 +136,7 @@ EILO-BioAcoustics-Analysis/
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, label and duration filtering, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
-| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks (`denoise_soundwaveletSWT.ipynb`, `denoise_summary_plots.ipynb`) and interactive summary figures (`summary_plots.py`). Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md). |
+| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks (`denoise_soundwaveletSWT.ipynb`, `denoise_summary_plots.ipynb`) and interactive summary figures (`src/summary_plots.py`). Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md). |
 | `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits, training and hyperparameter tuning (Optuna) of a baseline 2D-CNN, and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
@@ -144,6 +144,13 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.1**
+    - Updated `denoising/README.md`.
+    - Ordered scripts in `denoising`: Now the non-executable scripts lie in `denoise/src/`.
+    - Added `band_resolution` calculation in `denoising/summary_plots.ipynb` when needed, replacing `FWHM`.
+    - Copied the signals used in `denoising/evaluation_denoise.ipynb` preventing the non-deterministic scripts between OS.
+    - New executable script: `run_experiment.py` that allows to run the evaluation experiments on terminal.
+
 - **v2.2.0**
     - New experiment 2 in `denoising/evaluation_denoise.ipynb`: insertion of several artifacts + idempotence.
         - Layouts of 3 artifacts separated by the same gap, mixed as paired subsets at the same positions (singles, pairs and the triplet).

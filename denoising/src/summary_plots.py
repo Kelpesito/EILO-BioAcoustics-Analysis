@@ -29,6 +29,8 @@ from scipy.ndimage import minimum_filter1d
 from scipy.signal import ShortTimeFFT, freqz, welch
 from scipy.signal.windows import hann
 
+from . import remove_noise as rn
+
 
 # ====================================================================================================================
 # 2. Constants
@@ -40,11 +42,6 @@ WIDTH = None  # Width (px) of the figures that reproduce matplotlib (None -> as 
 WIDTH_SUMMARY = 1450  # Width (px) of decomposition_summary_plot
 LINK_X = True  # decomposition_summary_plot: zoom/pan in time linked in all the subplots
 EPS = np.finfo(float).eps
-
-# Time resolution (s) of each band (FWHM of its impulse response, plot_misalign). Temporary substitute of
-# band_resolution(fs, n_levels, tuple(SPLIT_LEVELS), round(ENV_SMOOTH*fs)): only valid for fs = 4000 Hz,
-# SPLIT_LEVELS = [3, 4, 5], F_APPROX = 15 Hz and ENV_SMOOTH = 4 ms (10 bands, D1 ... D7)
-FWHM = np.array([0.004, 0.004, 0.006, 0.0075, 0.011, 0.0135, 0.0215, 0.027, 0.027, 0.0535])
 
 # Colors of the matplotlib version
 MPL_COLORS = {"gray": "#808080", "tab:green": "#2ca02c", "tab:red": "#d62728", "tab:orange": "#ff7f0e",
@@ -1641,7 +1638,9 @@ def plot_misalign(signal: np.ndarray, fs: float, details: dict, params: dict) ->
     - WIDTH: width of the figure (px). Only the axes area gets narrower/wider (the labels, the fonts and the
       heights do not change). None -> as matplotlib
     - DPI: px per inch (matplotlib inline: 100). Every size (fonts, lines, pads) scales with it
-    - params: algorithm constants (MAX_MISALIGN; see summary_plots). The time resolution of each band is FWHM
+    - params: algorithm constants (MAX_MISALIGN; see summary_plots). The time resolution (FWHM) of each band is
+      computed with remove_noise.band_resolution, for the decomposition of details["bands"] (number of levels and
+      split levels) and remove_noise.ENV_SMOOTH
     Limits: plotly draws the grid below the spans and the row backgrounds; the caps of the errorbar in the
     legend of D are drawn as shapes (they do not hide with the item)
     """
@@ -1676,7 +1675,10 @@ def plot_misalign(signal: np.ndarray, fs: float, details: dict, params: dict) ->
     base = np.arange(n_bands)[::-1]  # D1 on top
     env_max = envelope.max(axis=1) + EPS
     env_norm = base[:, None] + (1 - GAP)*envelope / env_max[:, None]
-    fwhm = FWHM  # Time resolution of each band (substitute of band_resolution)
+    # Time resolution (FWHM, s) of each band, for the same decomposition as the algorithm (see band_resolution)
+    n_levels = details["bands"][-1]["level"]
+    split_levels = tuple(sorted({b["level"] for b in details["bands"] if b["part"] != "full"})) or None
+    fwhm = rn.band_resolution(fs, n_levels, split_levels, round(rn.ENV_SMOOTH*fs))
 
     # Peak of each detected band in each span (as find_click_events), t_ref and deviations
     spans = []
