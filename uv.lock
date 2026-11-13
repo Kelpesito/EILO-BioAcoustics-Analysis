@@ -522,7 +522,7 @@ wheels = [
 
 [[package]]
 name = "eilo-bioacoustics-analysis"
-version = "2.2.1"
+version = "2.2.2"
 source = { virtual = "." }
 dependencies = [
     { name = "ipywidgets" },

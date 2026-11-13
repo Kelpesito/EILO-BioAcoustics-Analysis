@@ -144,6 +144,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.2**
+    - Updated `denoising/run_experiment.py`: one value of SNR was missing
+
 - **v2.2.1**
     - Updated `denoising/README.md`.
     - Ordered scripts in `denoising`: Now the non-executable scripts lie in `denoise/src/`.
