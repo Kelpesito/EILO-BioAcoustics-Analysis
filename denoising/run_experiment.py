@@ -102,7 +102,7 @@ N_REPS = 5                                       # Number of random positions pe
 
 # Experiment 2 (section 6.1 of evaluation_denoise.ipynb)
 GAP_LIST = [0.025, 0.05, 0.1, 0.3, 0.5]        # Edge-to-edge gaps between artifacts (s)
-SNR_LIST_2 = [-20, -10, -5, 0, 5, 10, 20]      # Equal condition: SNR of every artifact (local, dB)
+SNR_LIST_2 = [-30, -20, -10, -5, 0, 5, 10, 20]      # Equal condition: SNR of every artifact (local, dB)
 SNR_STRONG = -20                               # Unequal condition: SNR of the strong artifact (dB)
 SNR_WEAK_LIST = [-10, -5, 0]                   # Unequal condition: SNR of the weak artifacts (dB)
 N_GROUPS = 20                                  # Artifact triplets per clean signal
