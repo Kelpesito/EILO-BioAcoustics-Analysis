@@ -144,6 +144,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.3**
+    - Executed experiments 1 and 2 from `denoising` for the evaluation of the denoising algorithm. 
+
 - **v2.2.2**
     - Updated `denoising/run_experiment.py`: one value of SNR was missing
 
