@@ -32,8 +32,8 @@ classification/models/
 ICBHI/dataset/
 
 # Don't ignore certain .csv
-!denoising/results/experiment_1.csv
-!denoising/results/experiment_2.csv
+!denoising/results/experiments/experiment_1.csv
+!denoising/results/experiments/experiment_2.csv
 
 # Don't ignore the fragments of the denoising evaluation (clean signals and artifacts of evaluation_denoise.ipynb)
 !denoising/audio/*.wav

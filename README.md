@@ -144,6 +144,15 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.4**
+    - Updated `denoising/README.md`.
+    - The `.csv` of the experiments of `denoising` are now saved in `denoising/results/experiments/`; `experiment_1.csv` and `experiment_2.csv` moved there.
+    - `denoising/evaluation_denoise.ipynb`: the plotly figures of the results are also saved as `.html` in `denoising/results/figures/experiment_{1, 2}/` (`save_html`, defined in the imports cell).
+    - Result figures of experiment 2 in `denoising/evaluation_denoise.ipynb` (section 6.4), documented in `denoising/README.md`:
+        - `plot_experiment_comparison`: experiment 2 vs experiment 1 per number of artifacts in the mixture: detection rate (total and own), SNR at 50 % detection, ΔSNR, local RMS error and proportion of attenuated artifacts vs SNR.
+        - `plot_interaction_artifacts`: change in the detection and in the ΔSNR of an artifact when it is accompanied vs alone, as a function of the gap between artifacts and of the SNR, proportion of merged artifacts, masking of a weak artifact by a strong one, and effect of merging on the removal and on the signal between artifacts.
+        - `plot_mixture_performance`: number of detected artifacts per mixture, rate of mixtures with all the artifacts detected (vs SNR and vs global SNR, with the rate expected without interaction) and global RMS peak error before / after the filter vs global SNR.
+
 - **v2.2.3**
     - Executed experiments 1 and 2 from `denoising` for the evaluation of the denoising algorithm. 
 

@@ -14,7 +14,7 @@ Requires:
         The 38 clean signals and the 40 fragments the artifacts are cut from
 
 Generates:
-    denoising/results/experiment_{1, 2}.csv
+    denoising/results/experiments/experiment_{1, 2}.csv
         Metrics of each mixture (same file as the notebook, wherever the script is run from)
 
 Execution:
@@ -107,7 +107,7 @@ SNR_STRONG = -20                               # Unequal condition: SNR of the s
 SNR_WEAK_LIST = [-10, -5, 0]                   # Unequal condition: SNR of the weak artifacts (dB)
 N_GROUPS = 20                                  # Artifact triplets per clean signal
 
-# Output files (in src.evaluation.RESULTS_DIR = denoising/results)
+# Output files (in src.evaluation.RESULTS_DIR = denoising/results/experiments)
 CSV_FILES = {1: "experiment_1.csv", 2: "experiment_2.csv"}
 
 
@@ -354,7 +354,7 @@ def main():
 
     csv_file = CSV_FILES[args.experiment]
     run_experiment(exp_df, csv_file, clean_dict, artifact_dict, processes=args.processes, worker=worker)
-    print(f"\nResults saved in denoising/results/{csv_file}")
+    print(f"\nResults saved in denoising/results/experiments/{csv_file}")
 
 
 if __name__ == "__main__":  # Required by multiprocessing (spawn) on Windows
