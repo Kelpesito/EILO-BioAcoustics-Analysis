@@ -144,6 +144,10 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.6**
+    - Re-run experiments for evaluation of the denoising algorithm.
+    - Recreated the figures of the evaluation of the denoising algorithm.
+
 - **v2.2.5**
     - Modified some figures of the results of the evaluation of the denoising algorithm.
     - Review of the selected artifacts, cut and remove some.
