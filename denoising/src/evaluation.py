@@ -337,11 +337,16 @@ def process_mixture(row: dict) -> dict:
     return {**row, **m}
 
 
+# Metrics of metrics_multi also saved after the second pass (suffix _pass2)
+PASS2_KEYS = ("detected", "merged", "snr_out_db", "dsnr_db", "attenuated", "n_detected", "all_detected",
+              "n_false", "nmse_out_zone_db", "err_rms_max_glob_out", "err_rms_mean_glob_out")
+
+
 def process_mixture_multi(row: dict) -> dict:
     """
     Experiment 2. Rebuilds a mixture with one to three artifacts (row of exp_df; art_ids = "Control" -> clean
     signal without artifacts), processes it with remove_noise TWICE (idempotence) and returns its information + its
-    metrics.
+    metrics after each pass.
     """
     clean = np.asarray(_clean_dict[row["clean_id"]]["signal"], dtype=float)
     ref = hp15(clean)                                               # Reference > 15 Hz
@@ -358,10 +363,11 @@ def process_mixture_multi(row: dict) -> dict:
             mixed_i, _ = insert_artifact(clean, art, k0, snr)
             mixed += mixed_i - clean
             arts.append(hp15(mixed_i) - ref)
+    mix_hp = hp15(mixed)
 
     # First pass
     out, det = rn.remove_noise(mixed, FS, return_details=True)
-    m = metrics_multi(ref, hp15(mixed), out, arts, k0s, k1s, det["click_span"])
+    m = metrics_multi(ref, mix_hp, out, arts, k0s, k1s, det["click_span"])
     union = m.pop("_union")
 
     # Global SNR of the whole mixture (all the artifacts together; raw signals, as in insert_artifact)
@@ -373,6 +379,22 @@ def process_mixture_multi(row: dict) -> dict:
     m["n_clicks_pass2"] = n2                                                  # Ideal: 0
     m["n_clicks_pass2_in_zones"] = len(set(np.unique(lab2[union])) - {0})    # Of them, in the artifact zones
     m["idem_nmse_db"] = 10*np.log10(np.mean((out2 - out)**2) / np.mean(out**2))   # Change of the 2nd pass (ideal: -inf)
+
+    # Metrics after the second pass: same definitions as the first pass, on out2 (references: clean and mixture)
+    m2 = metrics_multi(ref, mix_hp, out2, arts, k0s, k1s, det2["click_span"])
+    m2.pop("_union")
+    for key in PASS2_KEYS:
+        m[f"{key}_pass2"] = m2[key]
+    # Detected in at least one of the two passes
+    m["detected_any"] = tuple(bool(a or b) for a, b in zip(m["detected"], m2["detected"]))
+    m["n_detected_any"] = sum(m["detected_any"]) if k0s else np.nan
+    m["all_detected_any"] = all(m["detected_any"]) if k0s else np.nan
+
+    # Global SNR (whole fragment, > 15 Hz): before processing, after the 1st pass and after the 2nd pass
+    p_ref = np.mean(ref**2)
+    m["snr_glob_in_db"] = 10*np.log10(p_ref / np.mean((mix_hp - ref)**2)) if k0s else np.nan
+    m["snr_glob_out_db"] = 10*np.log10(p_ref / np.mean((out - ref)**2))
+    m["snr_glob_out_pass2_db"] = 10*np.log10(p_ref / np.mean((out2 - ref)**2))
 
     return {**row, **m}
 

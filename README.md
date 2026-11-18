@@ -144,6 +144,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.7**
+    - New result figure of experiment 2 in `denoising/evaluation_denoise.ipynb`:
+        - `plot_conservation_multiple`: conservation of the signal out of the artifact zones with several artifacts: cumulative distribution of the NMSE out of the zones per number of artifacts and for 2 and 3 artifacts with / without merges, NMSE out of the zones vs SNR and false positives vs SNR, with the controls.
+    - Redesigned experiment 2 (evaluation of denoising algorithm): New metrics saved (detected and SNR of second pass).
+
 - **v2.2.6**
     - Re-run experiments for evaluation of the denoising algorithm.
     - Recreated the figures of the evaluation of the denoising algorithm.
