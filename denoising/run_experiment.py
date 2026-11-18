@@ -11,7 +11,7 @@ them in parallel with run_experiment (src/evaluation.py, one worker process per 
 
 Requires:
     denoising/audio/{id}.wav
-        The 38 clean signals and the 40 fragments the artifacts are cut from
+        The 38 clean signals and the 32 fragments the artifacts are cut from
 
 Generates:
     denoising/results/experiments/experiment_{1, 2}.csv
@@ -50,46 +50,38 @@ CLEAN_SIGNALS = {
 }
 # Artifacts: fragment id and time span (s); at most 1 per patient, patients not in the clean set
 ARTIFACTS = [
-    {"id": 22260, "t_ini": 1.15, "t_fin": 1.19},
-    {"id": 22115, "t_ini": 1.01, "t_fin": 1.08},
-    {"id": 5085,  "t_ini": 0.18, "t_fin": 0.24},
-    {"id": 4999,  "t_ini": 1.53, "t_fin": 1.58},
-    {"id": 16489, "t_ini": 0.54, "t_fin": 0.57},
-    {"id": 2183,  "t_ini": 0.95, "t_fin": 1.00},
-    {"id": 4303,  "t_ini": 0.51, "t_fin": 0.61},
-    {"id": 15159, "t_ini": 1.27, "t_fin": 1.34},
+    {"id": 22260, "t_ini": 1.16, "t_fin": 1.18},
+    {"id": 22115, "t_ini": 1.02, "t_fin": 1.05},
+    {"id": 5085,  "t_ini": 0.19, "t_fin": 0.22},
+    {"id": 4999,  "t_ini": 1.54, "t_fin": 1.57},
+    {"id": 16489, "t_ini": 0.54, "t_fin": 0.56},
+    {"id": 2183,  "t_ini": 0.95, "t_fin": 0.99},
+    {"id": 15159, "t_ini": 1.28, "t_fin": 1.30},
     {"id": 13234, "t_ini": 0.30, "t_fin": 0.33},
     {"id": 984,   "t_ini": 0.96, "t_fin": 0.99},
-    {"id": 22005, "t_ini": 0.38, "t_fin": 0.45},
-    {"id": 924,   "t_ini": 0.74, "t_fin": 0.80},
-    {"id": 16375, "t_ini": 1.48, "t_fin": 1.55},
-    {"id": 7882,  "t_ini": 0.39, "t_fin": 0.44},
-    {"id": 1673,  "t_ini": 0.11, "t_fin": 0.16},
+    {"id": 22005, "t_ini": 0.39, "t_fin": 0.44},
+    {"id": 924,   "t_ini": 0.75, "t_fin": 0.79},
+    {"id": 16375, "t_ini": 1.49, "t_fin": 1.52},
+    {"id": 7882,  "t_ini": 0.40, "t_fin": 0.43},
+    {"id": 1673,  "t_ini": 0.12, "t_fin": 0.15},
     {"id": 22951, "t_ini": 0.15, "t_fin": 0.19},
-    {"id": 21671, "t_ini": 1.65, "t_fin": 1.75},
-    {"id": 20260, "t_ini": 1.60, "t_fin": 1.65},
-    {"id": 5132,  "t_ini": 1.22, "t_fin": 1.38},
-    {"id": 852,   "t_ini": 0.75, "t_fin": 0.86},
-    {"id": 16814, "t_ini": 0.06, "t_fin": 0.11},
-    {"id": 9135,  "t_ini": 1.05, "t_fin": 1.09},
-    {"id": 17690, "t_ini": 1.24, "t_fin": 1.29},
-    {"id": 23533, "t_ini": 1.35, "t_fin": 1.47},
-    {"id": 2512,  "t_ini": 1.67, "t_fin": 1.74},
-    {"id": 22895, "t_ini": 1.01, "t_fin": 1.08},
-    {"id": 5963,  "t_ini": 0.06, "t_fin": 0.40},
-    {"id": 9009,  "t_ini": 0.26, "t_fin": 0.32},
-    {"id": 7577,  "t_ini": 0.50, "t_fin": 0.56},
-    {"id": 14131, "t_ini": 0.36, "t_fin": 0.44},
-    {"id": 23570, "t_ini": 0.80, "t_fin": 0.87},
-    {"id": 20493, "t_ini": 1.04, "t_fin": 1.22},
-    {"id": 15420, "t_ini": 0.10, "t_fin": 0.15},
-    {"id": 7458,  "t_ini": 1.44, "t_fin": 1.48},
-    {"id": 9793,  "t_ini": 0.79, "t_fin": 0.87},
+    {"id": 21671, "t_ini": 1.68, "t_fin": 1.75},
+    {"id": 20260, "t_ini": 1.60, "t_fin": 1.64},
+    {"id": 852,   "t_ini": 0.79, "t_fin": 0.82},
+    {"id": 16814, "t_ini": 0.07, "t_fin": 0.09},
+    {"id": 9135,  "t_ini": 1.06, "t_fin": 1.09},
+    {"id": 17690, "t_ini": 1.24, "t_fin": 1.28},
+    {"id": 2512,  "t_ini": 1.69, "t_fin": 1.71},
+    {"id": 22895, "t_ini": 1.02, "t_fin": 1.06},
+    {"id": 9009,  "t_ini": 0.26, "t_fin": 0.30},
+    {"id": 7577,  "t_ini": 0.51, "t_fin": 0.54},
+    {"id": 23570, "t_ini": 0.81, "t_fin": 0.84},
+    {"id": 15420, "t_ini": 0.11, "t_fin": 0.14},
+    {"id": 7458,  "t_ini": 1.44, "t_fin": 1.47},
     {"id": 22175, "t_ini": 1.33, "t_fin": 1.36},
-    {"id": 22497, "t_ini": 0.66, "t_fin": 0.76},
-    {"id": 14269, "t_ini": 0.24, "t_fin": 0.31},
+    {"id": 22497, "t_ini": 0.67, "t_fin": 0.75},
+    {"id": 14269, "t_ini": 0.25, "t_fin": 0.31},
     {"id": 14166, "t_ini": 0.76, "t_fin": 0.79},
-    {"id": 22699, "t_ini": 1.00, "t_fin": 1.10},
 ]
 
 # Common constants

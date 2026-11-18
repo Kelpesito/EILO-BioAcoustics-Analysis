@@ -144,6 +144,10 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.5**
+    - Modified some figures of the results of the evaluation of the denoising algorithm.
+    - Review of the selected artifacts, cut and remove some.
+
 - **v2.2.4**
     - Updated `denoising/README.md`.
     - The `.csv` of the experiments of `denoising` are now saved in `denoising/results/experiments/`; `experiment_1.csv` and `experiment_2.csv` moved there.
