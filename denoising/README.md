@@ -41,7 +41,7 @@ This folder contains the development of the **transient removal filter** of the 
 
 ```
 denoising/
-├── assets/                        ← summary figures of the example fragment (used in this file)
+├── assets/                        ← summary figures of the example fragment and result figures of the evaluation (used in this file)
 ├── audio/                         ← the 70 fragments of evaluation_denoise.ipynb (38 clean signals + 32 artifact sources)
 ├── README.md                      ← this file
 ├── __init__.py
@@ -49,14 +49,16 @@ denoising/
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm (in progress)
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
+├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
 ├── src/                           ← importable modules (used by the notebooks)
 │   ├── __init__.py
 │   ├── evaluation.py              ← mixtures, metrics and parallel execution of experiments 1 and 2 (used by evaluation_denoise.ipynb)
+│   ├── evaluation_plots.py        ← plotly result figures of experiments 1 and 2 (same code as the notebook; used by save_figures.py)
 │   ├── remove_noise.py            ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
 │   └── summary_plots.py           ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
 └── results/
     ├── experiments/               ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
-    └── figures/                   ← interactive (plotly) figures of the results, as .html
+    └── figures/                   ← plotly figures of the results, as .png, .svg and .html (save_figures.py)
         ├── experiment_1/
         └── experiment_2/
 ```
@@ -325,6 +327,18 @@ python denoising/run_experiment.py -e 2 -p 4   # -p, --processes: worker process
 - The algorithm runs with the default constants of [remove_noise.py](src/remove_noise.py).
 - Notebook and script write to the **same file**, `denoising/results/experiments/experiment_{1, 2}.csv` (`RESULTS_DIR` of [evaluation.py](src/evaluation.py) is relative to the module, not to the working directory), so the results of the script can be loaded in the notebook with `read_results`. Running an experiment overwrites its previous `.csv`.
 
+The result figures are saved (not shown) **from the terminal** with [save_figures.py](save_figures.py), from any folder, once the `.csv` of the experiment exists:
+
+```bash
+python denoising/save_figures.py                     # Experiments 1 and 2 (default)
+python denoising/save_figures.py -e 1                # Only experiment 1 (-e 2: only experiment 2)
+python denoising/save_figures.py -e 2 -f idempotence # -f, --figures: only some figures (names: see below)
+python denoising/save_figures.py -s 3                # -s, --scale: scale factor of the .png images (default: 5)
+```
+
+- Each figure is saved as `denoising/results/figures/experiment_{1, 2}/<name>.png` (`scale=5`), `.svg` and `.html` (plotly.js from the CDN), overwriting the previous files. Names: `detection`, `elimination`, `conservation`, `amplitude`, `factor_analysis` (experiment 1) and `experiment_comparison`, `interaction_artifacts`, `mixture_performance`, `conservation_multiple`, `idempotence` (experiment 2; `experiment_comparison` also reads `experiment_1.csv`).
+- The figure functions are in [src/evaluation_plots.py](src/evaluation_plots.py), a copy of the plotly cells of sections 5.4 and 6.4 of the notebook (entry point: `save_figures(experiment)`). If a figure is changed in the notebook, it must also be changed in the module. The notebook saves only the `.png` images of this file (`assets/exp{1, 2}_<name>.png`, see below).
+
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
 Reference notebook of the filter, in 4 sections:
@@ -368,12 +382,27 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - *Conservation:* error (NMSE) outside the artifact zone.
         - *Amplitude:* error (%) of the maximum and mean of the moving RMS (30 ms), in the artifact zone (local) and in the whole fragment (global), before (mixture) and after (output) the filter.
     - **Execution:** `run_experiment` (in [evaluation.py](src/evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiments/experiment_1.csv`. Also from the terminal: `python denoising/run_experiment.py -e 1` (see [▶️ How to run](#️-how-to-run)).
-    - **Results:** loaded from the `.csv`. Five figures (sections 5.4.1–5.4.5), each one a function of `results_df` (which is not modified); the plotly version of each one is also saved as `results/figures/experiment_1/<name>.html`:
+    - **Results:** loaded from the `.csv`. Five figures (sections 5.4.1–5.4.5), each one a function of `results_df` (which is not modified); the notebook saves each one as `assets/exp1_<name>.png` (`save_png`, defined in the imports cell; scale 5), shown below its description, and the plotly version of each one is saved as `results/figures/experiment_1/<name>.{png, svg, html}` by [save_figures.py](save_figures.py) (see [▶️ How to run](#️-how-to-run)):
         - `plot_detection` — *Detection:* (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
+
+          ![Detection](assets/exp1_detection.png)
+
         - `plot_elimination` — *Elimination:* (A) SNR out vs SNR in of the detected artifacts, attenuated / not attenuated (mean ± IQR), (B) ΔSNR distribution per SNR level (violins), (C) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, (D) net SNR improvement vs SNR (all the mixtures, undetected → ΔSNR = 0, and only the detected ones), and (E) SNR improvement of the detected artifacts by class of the clean signal.
+
+          ![Elimination](assets/exp1_elimination.png)
+
         - `plot_conservation` — *Conservation:* (A) NMSE out of the artifact zone vs SNR (mean ± 95 % CI over the clean signals) and in the controls, (B) NMSE out of the zone vs number of detections out of the zone (false positives), mixtures and controls, (C) and (D) the same two by class of the clean signal, and (E) cumulative distribution of the NMSE out of the zone, with references at 1 % and 0.01 % of the signal power.
+
+          ![Conservation](assets/exp1_conservation.png)
+
         - `plot_amplitude` — *Amplitude:* RMS error (%) before (mixture) and after (output) the filter vs SNR (median ± IQR), in 4 panels: maximum / mean RMS, local / global, with the controls in the global ones. Each panel has a zoom of the −7 to 22 dB range.
+
+          ![Amplitude](assets/exp1_amplitude.png)
+
         - `plot_factor_analysis` — *Factor analysis:* what the result depends on. (A) detection rate and (B) mean ΔSNR of the detected artifacts per artifact and SNR (heatmaps), (C) SNR at 50 % detection vs duration of the artifact, (D) detection rate and (F) ΔSNR of the detected artifacts vs local relative power of the clean signal (deciles, per SNR), (E) local power vs global SNR of the detected and not detected mixtures (density), (G) error of the global RMS peak before / after vs global SNR, and (H) ΔSNR vs NMSE out of the zone of the detected artifacts (removal vs conservation).
+
+          ![Factor analysis](assets/exp1_factor_analysis.png)
+
 5. **Experiment 2 — Insertion of several artifacts:** what changes when the artifacts are not alone (close artifacts, a strong one masking weak ones), and whether the filter is idempotent.
     - **Layouts:** for each clean signal, `N_GROUPS = 20` random triplets of distinct artifacts. For each triplet and each edge-to-edge gap of `GAP_LIST` = 25, 50, 100, 300 and 500 ms, the three artifacts are placed in random order, one after another with the same gap, at a random position of the signal (at least 0.1 s from the borders). A layout that does not fit is skipped.
     - **Paired subsets:** from each layout, every non-empty subset of its artifacts is mixed **at the same positions**: the 3 single artifacts, the 3 pairs and the triplet (7 mixtures, same `group_id`, `subset` = layout positions present). Each artifact can then be compared alone and accompanied, with everything else equal.
@@ -391,12 +420,27 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - *After the second pass:* the metrics of the first pass recomputed on f(f(x)), with the suffix `_pass2` (`PASS2_KEYS`: detection, `merged`, SNR out, ΔSNR, `attenuated`, `n_detected`, `all_detected`, false clicks, NMSE out of the zones and global amplitude errors after the filter); artifacts detected in at least one of the two passes (`detected_any`, `n_detected_any`, `all_detected_any`); and global SNR of the whole fragment (> 15 Hz) before the filter, after the first pass and after the second pass (`snr_glob_in_db`, `snr_glob_out_db`, `snr_glob_out_pass2_db`).
         - The current `results/experiments/experiment_2.csv` was run before these second-pass metrics were added: it has `n_clicks_pass2`, `n_clicks_pass2_in_zones` and `idem_nmse_db`, but not the `_pass2`, `_any` and `snr_glob_*` columns (experiment 2 has to be run again to get them).
     - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiments/experiment_2.csv` (also from the terminal: `python denoising/run_experiment.py -e 2`). The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
-    - **Results:** loaded from the `.csv`. Four figures so far (sections 6.4.1–6.4.4), each one a function of `results_df` (which is not modified); the plotly version of each one is also saved as `results/figures/experiment_2/<name>.html`:
+    - **Results:** loaded from the `.csv`. Five figures (sections 6.4.1–6.4.5), each one a function of `results_df` (which is not modified); the notebook saves each one as `assets/exp2_<name>.png` (`save_png`, defined in the imports cell; scale 5), shown below its description, and the plotly version of each one is saved as `results/figures/experiment_2/<name>.{png, svg, html}` by [save_figures.py](save_figures.py):
         - `plot_experiment_comparison` — *Experiment 2 vs experiment 1* (equal condition, per number of artifacts in the mixture, with experiment 1 as reference and the paired difference per clean signal below each panel): (A) detection rate vs SNR, with the proportion of merged artifacts, (B) own detection rate vs SNR (detected and not merged, or merged but also detected alone), with the borrowed detection (total − own), (C) SNR at 50 % detection, total and own, with its 95 % CI (bootstrap over the clean signals), (D) ΔSNR of the detected artifacts vs SNR, (E) mean local RMS error after the filter vs SNR (all the artifacts, median ± IQR), and (F) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) among the detected ones vs SNR.
+
+          ![Experiment 2 vs experiment 1](assets/exp2_experiment_comparison.png)
+
         - `plot_interaction_artifacts` — *Interaction between artifacts* (accompanied − alone: the same artifact, at the same position and SNR, in the mixture vs alone): (A) change in the detection rate (total and own) vs gap between artifacts, for pairs and triplets, and (B) proportion of merged artifacts vs gap, both with the characteristic distances of the algorithm as references (2·`TOL`, `REF_INNER`, `REF_OUTER`) and 95 % CI over the clean signals; (C) change in the detection rate and (D) change in the ΔSNR of the artifacts detected both alone and accompanied, per gap and SNR (triplets, heatmaps); (E) masking (unequal condition): change in the detection (total and own) of a weak artifact next to the strong one (−20 dB) vs gap, per SNR of the weak one; and (F) ΔSNR of the detected artifacts vs SNR, alone / merged / not merged, with the NMSE of the signal between the two artifacts of the pairs (merged / not merged, median ± IQR) below.
+
+          ![Interaction between artifacts](assets/exp2_interaction_artifacts.png)
+
         - `plot_mixture_performance` — *Mixture-level performance* (equal condition, per number of artifacts in the mixture): (A) number of detected artifacts per mixture vs SNR (stacked bars: all, all but one, all but two, none), (B) rate of mixtures with all the artifacts detected vs SNR, with all the mixtures pooled and the rate expected without interaction (each artifact detected alone), (C) error of the global RMS peak before / after the filter vs global SNR of the mixture (median ± IQR, 5 dB bins, with a zoom from −5 dB), and (D) the all-detected rate of (B) vs global SNR of the mixture.
+
+          ![Mixture-level performance](assets/exp2_mixture_performance.png)
+
         - `plot_conservation_multiple` — *Conservation with several artifacts* (equal condition and controls): (A) cumulative distribution of the NMSE out of the artifact zones per number of artifacts in the mixture and in the controls, (B) the same for the mixtures of 2 and 3 artifacts with / without some merged artifact, with 1 artifact as reference, both with references at 1 % and 0.01 % of the signal power (−20 and −40 dB), (C) NMSE out of the zones vs SNR per number of artifacts (median ± IQR), and (D) false positives per mixture vs SNR per number of artifacts (mean ± 95 % CI over the clean signals); in (C) and (D) the controls are shown at the right of the SNR axis, with their value as a reference line. In the plotly version, the large cumulative distributions are evaluated on a 0.05 dB grid, so the `.html` stays small.
-        - 🚧 Pending: idempotence.
+
+          ![Conservation with several artifacts](assets/exp2_conservation_multiple.png)
+
+        - `plot_idempotence` — *Idempotence* (second pass f(f(x)), per number of artifacts in the mixture and in the controls): (A) proportion of mixtures with clicks detected in the second pass (only in the artifact zones / out of them), (B) cumulative distribution of the NMSE between the outputs of the 1st and 2nd pass, (C) and (D) the same two vs SNR, with the controls at the right of the SNR axis, (E) proportion of artifacts detected after one pass and after one or two passes vs SNR, with the recovered ones (%) below, and (F) extra attenuation of the artifacts in the second pass (ΔSNR after 2nd − after 1st pass) vs SNR.
+
+          ![Idempotence](assets/exp2_idempotence.png)
+
 
 ---
 
@@ -426,8 +470,8 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 
 - [x] Click-only transient removal (4 rules + border rule) developed and checked by eye and by ear on real fragments.
 - [x] Summary figures (`summary_plots.py`) and example in `denoise_soundwaveletSWT.ipynb`.
-- [ ] Evaluation of the algorithm (`evaluation_denoise.ipynb`):
+- [x] Evaluation of the algorithm (`evaluation_denoise.ipynb`):
     - [x] Experiment 1 (single artifact)
-    - [ ] Experiment 2 (several artifacts + idempotence)
+    - [x] Experiment 2 (several artifacts + idempotence)
 - [ ] Deeper optimization of the thresholds (currently selected by eye).
 - [ ] Port of the current version to the dataset pipeline (`dataset/src/remove_heart_sounds.py`, used by `dataset/get_rtf.py`, and `dataset/visualization_fragment.ipynb`).

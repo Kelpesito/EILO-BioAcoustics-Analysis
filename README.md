@@ -136,7 +136,7 @@ EILO-BioAcoustics-Analysis/
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, label and duration filtering, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
-| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks (`denoise_soundwaveletSWT.ipynb`, `denoise_summary_plots.ipynb`) and interactive summary figures (`src/summary_plots.py`). Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md). |
+| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks (`denoise_soundwaveletSWT.ipynb`, `denoise_summary_plots.ipynb`), interactive summary figures (`src/summary_plots.py`) and evaluation of the algorithm with artificially inserted artifacts (`evaluation_denoise.ipynb`; terminal scripts `run_experiment.py` and `save_figures.py`). Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md). |
 | `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits, training and hyperparameter tuning (Optuna) of a baseline 2D-CNN, and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
@@ -144,6 +144,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.2.8**
+    - New result figure of experiment 2 in `denoising/evaluation_denoise.ipynb`:
+        - `plot_idempotence`: clicks detected in the second pass (in / out of the artifact zones) and change introduced by the second pass (NMSE between the 1st and 2nd pass outputs), per number of artifacts and vs SNR, detection after one and two passes and extra attenuation of the artifacts in the second pass.
+    - New module `denoising/src/evaluation_plots.py`: the result figures of experiments 1 and 2, with the entry point `save_figures(experiment)`, which saves each figure as `.png`, `.svg` and `.html` in `denoising/results/figures/experiment_{1, 2}/`.
+    - New executable script `denoising/save_figures.py`: saves the result figures of experiment 1, 2 or both from the terminal.
+
 - **v2.2.7**
     - New result figure of experiment 2 in `denoising/evaluation_denoise.ipynb`:
         - `plot_conservation_multiple`: conservation of the signal out of the artifact zones with several artifacts: cumulative distribution of the NMSE out of the zones per number of artifacts and for 2 and 3 artifacts with / without merges, NMSE out of the zones vs SNR and false positives vs SNR, with the controls.
