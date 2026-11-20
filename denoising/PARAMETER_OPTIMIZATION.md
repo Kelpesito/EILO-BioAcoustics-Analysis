@@ -74,7 +74,7 @@ $$
 S = Q - \lambda\cdot FP
 $$
 
-where $\lambda$ is a parameter that penalizes the score according to the detected false positives (value chosen in [0.3](#03-penalty-λ)):
+where $\lambda$ is a parameter that penalizes the score according to the detected false positives (value chosen in [0.2](#02-penalty-λ)):
 
 | $\lambda$ | One false positive is worth… |
 |:---------:|:-----------------------------|
@@ -98,7 +98,7 @@ The optimization is split into 6 phases. Each phase fixes its parameters before 
 
 | Phase | What it optimizes | Parameters | Metric | Output |
 |:-----:|:------------------|:-----------|:-------|:-------|
-| **0** | Preparation | — | Score, Q, FP | Tuning/test split, baseline, $\lambda$ |
+| **0** | Preparation | — | Score, Q, FP | Tuning/test split, $\lambda$, baseline |
 | **1** | Candidate generation | `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER`, `MAX_EVENT` | Candidate recall, load, overflow | C1 |
 | **2** | Feature definition | `BG_FACTOR`, `WIDTH_FLOOR_DB`, `EXTEND`, `ISO_WIN`, `Z_WIN`, `AR_ORDER` | Standardized partial ROC-AUC | Candidate table |
 | **3** | Rule selection | Rule structure and thresholds | $\hat{S}$ (estimated score) | Final rules and thresholds |
@@ -111,27 +111,26 @@ The optimization is split into 6 phases. Each phase fixes its parameters before 
 
 #### 0.1. Tuning/test split
 
-70 % tuning / 30 % test, grouped by signal and artifact, stratified by label:
+75 % tuning / 25 % test (first of 4 folds as test, [get_splits.py](get_splits.py)), grouped by signal and artifact:
+
+- **Signals:** stratified by label.
+- **Artifacts:** stratified by duration.
 
 | Set | Tuning | Test | Total |
 |:----|:------:|:----:|:-----:|
-| **Signals**   | 27 | 11 | 38 |
-| **Artifacts** | 22 | 10 | 32 |
+| **Signals**   | 29 | 9 | 38 |
+| **Artifacts** | 23 | 9 | 32 |
 
 Signal × artifact combinations of each set:
 
 | Set | Signals | Artifacts | Combinations |
 |:----|:-------:|:---------:|:------------:|
-| **Tuning**        | 27 (tuning) | 22 (tuning) | 594 |
-| **Test**          | 11 (test)   | 10 (test)   | 110 |
-| **New signals**   | 11 (test)   | 22 (tuning) | 242 |
-| **New artifacts** | 27 (tuning) | 10 (test)   | 270 |
+| **Tuning**        | 29 (tuning) | 23 (tuning) | 667 |
+| **Test**          | 9 (test)   | 9 (test)   | 81 |
+| **New signals**   | 9 (test)   | 23 (tuning) | 207 |
+| **New artifacts** | 29 (tuning) | 9 (test)   | 261 |
 
-#### 0.2. Baseline
-
-Compute the Score, Q and FP on the tuning set.
-
-#### 0.3. Penalty $\lambda$
+#### 0.2. Penalty $\lambda$
 
 It is set from an external criterion: **a missed artifact is acceptable if it does not mask the signal, and when in doubt the signal is kept**. So one false positive is worth missing an artifact right at the masking limit $s^*$.
 
@@ -157,6 +156,10 @@ $$
 where $\hat{q}^{\text{det}}_s$ and $\hat{q}^{\text{undet}}_s$ are the mean $q$ of the detected and the undetected artifacts at SNR $s$, and $\Delta q_{s^*}$ is interpolated linearly between the SNR of `SNR_LIST`. If $\hat{q}^{\text{det}}_{s^*}$ is close to 1, both values are almost equal and the approximation can be kept.
 
 Its effect on the rule selection is studied in [5.1](#51-sensitivity-to-λ).
+
+#### 0.3. Baseline
+
+Compute the Score, Q and FP on the tuning set, with the $\lambda$ of [0.2](#02-penalty-λ).
 
 ---
 

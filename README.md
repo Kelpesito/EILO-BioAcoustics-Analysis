@@ -144,6 +144,16 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.1**
+    - Updated `denoising/PARAMETER_OPTIMIZATION.md`: tuning/test split changed to 75 % / 25 %; penalty λ (now 0.2) before the baseline (now 0.3).
+    - New executable script `denoising/get_splits.py`: tuning/test split (75 % / 25 %) of the clean signals (stratified by label) and of the artifacts (stratified by duration) for the parameter optimization, saved in `denoising/splits/` (not versioned).
+    - New module `denoising/src/optimization/splits.py`: loading of the tuning/test split (`load_split`) and split of the results of an experiment into the four sets: tuning, test, new signals and new artifacts (`split_results`).
+    - Updated `denoising/parameter_optimization.ipynb`: loading of the tuning/test split and split of `experiment_1.csv` into the four sets (section 3.1); penalty λ (now section 3.2) before the baseline (now section 3.3).
+    - Reorganized `denoising/src/` into subpackages, with the imports of the notebooks and scripts updated:
+        - `algorithm/`: `remove_noise.py`, `summary_plots.py`.
+        - `evaluation/`: `evaluation.py`, `evaluation_plots.py`.
+        - `optimization/`: `splits.py`.
+
 - **v2.3.0**
     - Updated `denoising/README.md`.
     - New document `denoising/PARAMETER_OPTIMIZATION.md`: plan of the parameter optimization of the transient removal algorithm.

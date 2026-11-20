@@ -44,8 +44,8 @@ from scipy.stats import gaussian_kde
 from seaborn.utils import relative_luminance
 
 from .evaluation import FS, RESULTS_DIR, TOL, read_results
-from .remove_noise import REF_INNER, REF_OUTER
-from .summary_plots import (DASH_PATTERNS, FONT, MPL_COLORS, MPL_TICKFORMAT, mpl_colorscale, mpl_dashes, mpl_nticks,
+from ..algorithm.remove_noise import REF_INNER, REF_OUTER
+from ..algorithm.summary_plots import (DASH_PATTERNS, FONT, MPL_COLORS, MPL_TICKFORMAT, mpl_colorscale, mpl_dashes, mpl_nticks,
                             mpl_range, mpl_text_size, rgba, rounded_rect)
 
 

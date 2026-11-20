@@ -5,7 +5,7 @@ EVALUATION OF THE TRANSIENT REMOVAL FILTER (remove_noise)
 ---------------------------------------------------------
 Runs the evaluation experiments of evaluation_denoise.ipynb from the terminal: loads the clean signals and the
 artifacts, generates the mixtures (get_mixes_1 / get_mixes_2, same code and constants as the notebook) and processes
-them in parallel with run_experiment (src/evaluation.py, one worker process per CPU core by default).
+them in parallel with run_experiment (src/evaluation/evaluation.py, one worker process per CPU core by default).
     - Experiment 1: insertion of a single artifact (+ controls without artifact)
     - Experiment 2: insertion of several artifacts (paired subsets, equal / unequal SNR) + idempotence (+ controls)
 
@@ -34,7 +34,7 @@ import soundfile as sf
 from scipy.signal import detrend
 from scipy.signal.windows import tukey
 
-from src.evaluation import FS, insert_artifact, insert_artifacts, process_mixture, process_mixture_multi, run_experiment
+from src.evaluation.evaluation import FS, insert_artifact, insert_artifacts, process_mixture, process_mixture_multi, run_experiment
 
 
 # Paths

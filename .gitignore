@@ -31,6 +31,8 @@ classification/models/
 
 ICBHI/dataset/
 
+denoising/splits/
+
 # Don't ignore certain .csv
 !denoising/results/experiments/experiment_1.csv
 !denoising/results/experiments/experiment_2.csv

@@ -3,7 +3,7 @@ save_figures.py
 
 FIGURES OF THE EVALUATION OF THE TRANSIENT REMOVAL FILTER (remove_noise)
 ------------------------------------------------------------------------
-Builds the result figures of evaluation_denoise.ipynb (plotly versions, src/evaluation_plots.py) from the saved
+Builds the result figures of evaluation_denoise.ipynb (plotly versions, src/evaluation/evaluation_plots.py) from the saved
 metrics of the experiments and saves them as .png (scale 5), .svg and .html.
     - Experiment 1: detection, elimination, conservation, amplitude, factor_analysis
     - Experiment 2: experiment_comparison, interaction_artifacts, mixture_performance, conservation_multiple,
@@ -27,7 +27,7 @@ Execution:
 
 import argparse
 
-from src.evaluation_plots import FIGURES, PNG_SCALE, save_figures
+from src.evaluation.evaluation_plots import FIGURES, PNG_SCALE, save_figures
 
 
 def main():
