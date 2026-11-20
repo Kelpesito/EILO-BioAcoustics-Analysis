@@ -6,7 +6,7 @@ This folder contains the development of the **transient removal filter** of the 
 - **Goal:** remove those transients **without damaging** the respiratory, adventitious or heart sounds. When in doubt, the signal is kept.
 - **Origin:** the filter is a modification of `soundwaveletSWT`, an adaptive wavelet filter originally designed to attenuate heart sounds (inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)). Heart sounds are **no longer a target**: they are present in every class, `Normal` included.
 
-> ⚠️ The thresholds of the algorithm have been **selected by eye** (visual and listening inspection of real fragments), **pending a deeper optimization**.
+> ⚠️ The thresholds of the algorithm have been **selected by eye** (visual and listening inspection of real fragments), **pending a deeper optimization** (plan: [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
 
 > ⚠️ The current version is **not yet ported to the dataset pipeline**: `dataset/src/remove_heart_sounds.py` (used by `dataset/get_rtf.py`) still implements a previous version (see [📋 Status](#-status)).
 
@@ -32,6 +32,7 @@ This folder contains the development of the **transient removal filter** of the 
     - [denoise_soundwaveletSWT.ipynb — Transient removal filter](#denoise_soundwaveletswtipynb--transient-removal-filter)
     - [denoise_summary_plots.ipynb — Development of the summary figures](#denoise_summary_plotsipynb--development-of-the-summary-figures)
     - [evaluation_denoise.ipynb — Evaluation of the algorithm](#evaluation_denoiseipynb--evaluation-of-the-algorithm)
+    - [parameter_optimization.ipynb — Parameter optimization](#parameter_optimizationipynb--parameter-optimization)
 - [📈 Summary figures — summary_plots.py](#-summary-figures--summary_plotspy)
 - [📋 Status](#-status)
 
@@ -44,10 +45,12 @@ denoising/
 ├── assets/                        ← summary figures of the example fragment and result figures of the evaluation (used in this file)
 ├── audio/                         ← the 70 fragments of evaluation_denoise.ipynb (38 clean signals + 32 artifact sources)
 ├── README.md                      ← this file
+├── PARAMETER_OPTIMIZATION.md      ← plan of the parameter optimization of the algorithm (score + phases 0–5)
 ├── __init__.py
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
-├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm (in progress)
+├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
+├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (skeleton; only the score is implemented)
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
 ├── src/                           ← importable modules (used by the notebooks)
@@ -219,7 +222,7 @@ All the other candidates (heart sounds, bursts of adventitious sounds, breathing
 
 ### ⚙️ Parameters
 
-All the thresholds have been **selected by eye**, pending a deeper optimization.
+All the thresholds have been **selected by eye**, pending a deeper optimization (see [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
 
 | Group | Parameter | Value | Role |
 |:------|:----------|:------|:-----|
@@ -362,9 +365,9 @@ The figure functions were then copied to [summary_plots.py](#-summary-figures--s
 
 Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
 
-> 🚧 **In progress:** 
+> ✅ **Done:** 
 > Experiment 1 has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done.
-> Experiment 2 has been run too; four result figures are done (comparison with experiment 1, interaction between artifacts, mixture-level performance and conservation with several artifacts), the figure of the idempotence is pending.
+> Experiment 2 has been run too and its five result figures are done (comparison with experiment 1, interaction between artifacts, mixture-level performance, conservation with several artifacts and idempotence).
 
 1. **Algorithm:** imported from [remove_noise.py](src/remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
 2. **Example:** the filter and its summary figures on one fragment.
@@ -418,7 +421,7 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - *Per mixture:* number of detected artifacts (`n_detected`, `all_detected`), false clicks (click spans that touch no artifact zone), NMSE out of all the zones, NMSE of the signal **between** consecutive artifacts (`nmse_between_db`: how much a merged span changes the signal between the clicks), global amplitude errors and global SNR of all the artifacts together (`snr_global_mix_db`).
         - *Idempotence:* every mixture (and control) is processed **twice**, f(f(x)). Number of clicks of the second pass (`n_clicks_pass2`, ideally 0), of them inside the artifact zones (`n_clicks_pass2_in_zones`) and change of the second pass (`idem_nmse_db`, NMSE of f(f(x)) − f(x)).
         - *After the second pass:* the metrics of the first pass recomputed on f(f(x)), with the suffix `_pass2` (`PASS2_KEYS`: detection, `merged`, SNR out, ΔSNR, `attenuated`, `n_detected`, `all_detected`, false clicks, NMSE out of the zones and global amplitude errors after the filter); artifacts detected in at least one of the two passes (`detected_any`, `n_detected_any`, `all_detected_any`); and global SNR of the whole fragment (> 15 Hz) before the filter, after the first pass and after the second pass (`snr_glob_in_db`, `snr_glob_out_db`, `snr_glob_out_pass2_db`).
-        - The current `results/experiments/experiment_2.csv` was run before these second-pass metrics were added: it has `n_clicks_pass2`, `n_clicks_pass2_in_zones` and `idem_nmse_db`, but not the `_pass2`, `_any` and `snr_glob_*` columns (experiment 2 has to be run again to get them).
+        - The current `results/experiments/experiment_2.csv` already includes all these metrics (also the `_pass2`, `_any` and `snr_glob_*` columns).
     - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiments/experiment_2.csv` (also from the terminal: `python denoising/run_experiment.py -e 2`). The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
     - **Results:** loaded from the `.csv`. Five figures (sections 6.4.1–6.4.5), each one a function of `results_df` (which is not modified); the notebook saves each one as `assets/exp2_<name>.png` (`save_png`, defined in the imports cell; scale 5), shown below its description, and the plotly version of each one is saved as `results/figures/experiment_2/<name>.{png, svg, html}` by [save_figures.py](save_figures.py):
         - `plot_experiment_comparison` — *Experiment 2 vs experiment 1* (equal condition, per number of artifacts in the mixture, with experiment 1 as reference and the paired difference per clean signal below each panel): (A) detection rate vs SNR, with the proportion of merged artifacts, (B) own detection rate vs SNR (detected and not merged, or merged but also detected alone), with the borrowed detection (total − own), (C) SNR at 50 % detection, total and own, with its 95 % CI (bootstrap over the clean signals), (D) ΔSNR of the detected artifacts vs SNR, (E) mean local RMS error after the filter vs SNR (all the artifacts, median ± IQR), and (F) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) among the detected ones vs SNR.
@@ -440,6 +443,26 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
         - `plot_idempotence` — *Idempotence* (second pass f(f(x)), per number of artifacts in the mixture and in the controls): (A) proportion of mixtures with clicks detected in the second pass (only in the artifact zones / out of them), (B) cumulative distribution of the NMSE between the outputs of the 1st and 2nd pass, (C) and (D) the same two vs SNR, with the controls at the right of the SNR axis, (E) proportion of artifacts detected after one pass and after one or two passes vs SNR, with the recovered ones (%) below, and (F) extra attenuation of the artifacts in the second pass (ΔSNR after 2nd − after 1st pass) vs SNR.
 
           ![Idempotence](assets/exp2_idempotence.png)
+
+### [parameter_optimization.ipynb](parameter_optimization.ipynb) — Parameter optimization
+
+Notebook of the **parameter optimization** of the algorithm, which will replace the thresholds selected by eye ([⚙️ Parameters](#️-parameters)). It follows the plan of [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md), over mixtures like those of experiment 1 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm).
+
+> 🚧 **In progress:** only the skeleton (one section per phase, with its description) and the score (section 2) are written. Nothing has been run yet.
+
+1. **Import libraries.**
+2. **Score definition:** per-artifact quality $q$ (SNR after the filter in the artifact zone, clipped to [−30, 0] dB and scaled to [0, 1]), global quality $Q$, number of false positives $FP$ and score $S = Q - \lambda \cdot FP$, with its diagnostics. Functions:
+    - `quality(snr_out_db)` — per-artifact quality.
+    - `snr_at_50(rate, levels)` — SNR at 50 % detection (same function as `plot_detection`).
+    - `score(results_df, lam, snr_list=None)` — `(scores, diagnostics)` of a results table in the format of `experiment_1.csv`:
+        - `scores`: S, Q, FP and λ. Q is the mean over the existing (SNR, artifact, clean signal) cells; FP only counts the mixtures (the controls are reported apart).
+        - `diagnostics`: per SNR (detection, mean q of all / detected / undetected artifacts and their difference Δq, NMSE out of the artifact zone, local RMS error of the detected artifacts), SNR at 50 % detection (global and per artifact), false positives per label (mixtures and controls) and NMSE of the controls.
+3. **Phase 0 — Preparation:** tuning/test split, baseline and penalty λ.
+4. **Phase 1 — Candidate generation:** candidate recall, load and overflow.
+5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
+6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization, importance of each condition and backward pruning.
+7. **Phase 4 — Attenuation.**
+8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.
 
 
 ---
@@ -474,4 +497,4 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
     - [x] Experiment 1 (single artifact)
     - [x] Experiment 2 (several artifacts + idempotence)
 - [ ] Deeper optimization of the thresholds (currently selected by eye).
-- [ ] Port of the current version to the dataset pipeline (`dataset/src/remove_heart_sounds.py`, used by `dataset/get_rtf.py`, and `dataset/visualization_fragment.ipynb`).
+- [ ] Port of the current version to the dataset pipeline.
