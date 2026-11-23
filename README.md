@@ -144,6 +144,14 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.2**
+    - Updated `denoising/PARAMETER_OPTIMIZATION.md`: definition of the score, computation of the penalty λ and estimated score of phase 3.
+    - Updated `denoising/parameter_optimization.ipynb`:
+        - Updated score function (`score`) and new descriptive summary of the score (`describe_score`).
+        - Computation of the penalty λ (section 3.2) and baseline (section 3.3).
+        - Markdown updated as in `PARAMETER_OPTIMIZATION.md`.
+    - Updated `denoising/README.md`.
+
 - **v2.3.1**
     - Updated `denoising/PARAMETER_OPTIMIZATION.md`: tuning/test split changed to 75 % / 25 %; penalty λ (now 0.2) before the baseline (now 0.3).
     - New executable script `denoising/get_splits.py`: tuning/test split (75 % / 25 %) of the clean signals (stratified by label) and of the artifacts (stratified by duration) for the parameter optimization, saved in `denoising/splits/` (not versioned).

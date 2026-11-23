@@ -38,14 +38,16 @@ where $F=-30$ dB and $C=0$ dB.
 ### Global quality
 
 $$
-Q = \frac{1}{|\mathcal{S}| |\mathcal{A}| |\mathcal{C}|}\sum_{s\in\mathcal{S}}\sum_{a\in\mathcal{A}}\sum_{c\in\mathcal{C}} \bar{q}_{s,a,c}
+Q = \frac{1}{|\mathcal{S}|}\sum_{s\in\mathcal{S}} Q_s, \qquad
+Q_s = \frac{1}{|\mathcal{A}| |\mathcal{C}|}\sum_{a\in\mathcal{A}}\sum_{c\in\mathcal{C}} \bar{q}_{s,a,c}
 $$
 
 where:
 
+- $Q_s$ is the quality at SNR $s$.
 - $\mathcal{S}$ is the set of SNR values.
 - $\mathcal{A}$ is the set of artifacts.
-- $\mathcal{C}$ is the set of clean signals.
+- $\mathcal{C}$ is the set of clean signals (every artifact is inserted into every clean signal).
 - $\bar{q}_{s,a,c}$ is the mean quality of artifact $a$, for clean signal $c$, at SNR $s$ (mean over the different positions of the artifact):
 
 $$
@@ -54,19 +56,22 @@ $$
 
 where $N_{a,c}$ is the number of mixtures in which artifact $a$ is inserted into clean signal $c$.
 
+> Each artifact and each clean signal weighs the same, whatever its number of positions $N_{a,c}$.
+
 ### Number of false positives
 
 $$
 FP = \frac{1}{|\mathcal{C}|}\sum_{c\in\mathcal{C}}\bar{n}_c^{\text{false}}
 $$
 
-where $\bar{n}_c^{\text{false}}$ is the mean number of false positives of clean signal $c$:
+where $\bar{n}_c^{\text{false}}$ is the mean number of false positives of the mixtures of clean signal $c$, averaged as $Q$ (first over the positions):
 
 $$
-\bar{n}_c^{\text{false}} = \frac{1}{N_c}\sum_{i=1}^{N_c}n_i^{\text{false}}
+\bar{n}_c^{\text{false}} = \frac{1}{|\mathcal{S}| |\mathcal{A}|}\sum_{s\in\mathcal{S}}\sum_{a\in\mathcal{A}} \bar{n}_{s,a,c}^{\text{false}}, \qquad
+\bar{n}_{s,a,c}^{\text{false}} = \frac{1}{N_{a,c}}\sum_{i=1}^{N_{a,c}} n_{s,a,c}^{\text{false},(i)}
 $$
 
-where $N_c$ is the number of mixtures whose clean signal is $c$.
+Each artifact weighs the same, whatever its number of positions $N_{a,c}$.
 
 ### Score
 
@@ -74,7 +79,7 @@ $$
 S = Q - \lambda\cdot FP
 $$
 
-where $\lambda$ is a parameter that penalizes the score according to the detected false positives (value chosen in [0.2](#02-penalty-λ)):
+where $\lambda$ is a parameter that penalizes the score according to the detected false positives (see [0.2](#02-penalty-λ)):
 
 | $\lambda$ | One false positive is worth… |
 |:---------:|:-----------------------------|
@@ -150,10 +155,15 @@ $$
 2. **Measured:** the detection does not leave $q = 1$ ($q^{\text{det}} < 1$), so the real cost of missing an artifact at SNR $s$ is:
 
 $$
-\Delta q_s = \hat{q}^{\text{det}}_s - \hat{q}^{\text{undet}}_s, \qquad \lambda = \Delta q_{s^*}
+\Delta q_s = \bar{q}^{\text{det}}_s - \bar{q}^{\text{undet}}_s, \qquad \lambda = \Delta q_{s^*}
 $$
 
-where $\hat{q}^{\text{det}}_s$ and $\hat{q}^{\text{undet}}_s$ are the mean $q$ of the detected and the undetected artifacts at SNR $s$, and $\Delta q_{s^*}$ is interpolated linearly between the SNR of `SNR_LIST`. If $\hat{q}^{\text{det}}_{s^*}$ is close to 1, both values are almost equal and the approximation can be kept.
+where:
+
+- $\bar{q}^{\text{det}}_s$ and $\bar{q}^{\text{undet}}_s$ are the mean $q$ of the detected and the undetected artifacts at SNR $s$, averaged as in $Q$ (weighted by the detection of each cell, see [Decomposition of the quality](#decomposition-of-the-quality) in 3.2).
+- $\Delta q_{s^*}$ is interpolated linearly between the SNR of `SNR_LIST`.
+
+If $\bar{q}^{\text{det}}_{s^*}$ is close to 1, both values of $\lambda$ are almost equal and the approximation can be kept.
 
 Its effect on the rule selection is studied in [5.1](#51-sensitivity-to-λ).
 
@@ -278,17 +288,52 @@ $$
 
 #### 3.2. Provisional optimization
 
-- **Goal:** estimate the Score:
+- **Goal:** estimate the Score of a rule set from its detections on the candidate table, without running the filter. Same mean as $Q$ ([Global quality](#global-quality)), with the quality of each cell $k = (s, a, c)$ split into its detected and undetected parts:
 
 $$
-\hat{S} = \frac{1}{|\mathcal{S}|}\sum_{s\in\mathcal{S}}\left[\left(1-\widehat{\text{Det}}_s\right)\cdot\hat{q}_s^{\text{undet}} + \hat{q}_s^{\text{det}}\cdot\widehat{\text{Det}}_s\right] - \lambda \cdot \widehat{FP}
+\hat{S} = \frac{1}{|\mathcal{S}| |\mathcal{A}| |\mathcal{C}|}\sum_{s\in\mathcal{S}}\sum_{a\in\mathcal{A}}\sum_{c\in\mathcal{C}}\left[\widehat{\text{Det}}_{s,a,c}\cdot \hat{q}^{\text{det}}_{s,a,c} + \left(1-\widehat{\text{Det}}_{s,a,c}\right)\cdot \hat{q}^{\text{undet}}_{s,a,c}\right] - \lambda \cdot \widehat{FP}
 $$
 
 where:
 
-- $\hat{q}_s^{\text{undet}}$ is the mean q when the artifact is not detected (equivalent to $SNR_s$) for input SNR $s$.
-- $\hat{q}_s^{\text{det}}$ is the mean q when the artifact is detected for input SNR $s$.
-- $\widehat{\text{Det}}_s$ is the artifact detection rate at SNR $s$.
+- $\widehat{\text{Det}}_{s,a,c}$ is the fraction of the $N_{a,c}$ positions of the cell detected by the rules.
+- $\hat{q}^{\text{det}}_{s,a,c}$ and $\hat{q}^{\text{undet}}_{s,a,c}$ are the quality of the detected and the undetected positions of the cell used by $\hat{S}$: the values $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ measured in the full run of [Phase 1](#1️⃣-phase-1--candidate-generation) ([Decomposition of the quality](#decomposition-of-the-quality)), or imputed when missing ([Imputation](#imputation)). They do not depend on the rules: only $\widehat{\text{Det}}_{s,a,c}$ and $\widehat{FP}$ change.
+- $\widehat{FP}$ is the number of false positives with the rules, averaged as $FP$.
+
+##### Decomposition of the quality
+
+$\hat{S}$ only uses the cell level; the aggregated means are used for $\lambda$ ([0.2](#02-penalty-λ)) and the [imputation](#imputation).
+
+**Cell:** if $p_k$ is the fraction of the positions of cell $k$ detected in the full run, and $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ are the mean $q$ of its detected and undetected positions:
+
+$$
+\bar{q}_k = p_k\cdot \bar{q}_k^{\text{det}} + (1-p_k)\cdot \bar{q}_k^{\text{undet}}
+$$
+
+The term in brackets of $\hat{S}$ is this decomposition with $p_k$ replaced by $\widehat{\text{Det}}_{s,a,c}$, keeping $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ from the full run. With the detections of the full run, $\hat{S} = S$ exactly. With other rules, $\hat{S}$ is an approximation: it assumes that only the fraction of detected positions changes, but the real $q$ of the cell can also change (e.g. the positions that become detected may be harder to attenuate than those already detected). The real $S$ is computed in [Phase 4](#4️⃣-phase-4--attenuation).
+
+**Aggregated means** (per artifact $\bar{q}_{s,a}$, per SNR $\bar{q}_s$): weighted mean of the detected ($\mathcal{D}$) or undetected ($\mathcal{U}$) mixtures, each one with its weight in $Q$:
+
+$$
+w_i = \frac{1}{N_{a,c}}, \qquad
+\bar{q}^{\text{det}} = \frac{\sum\limits_{i\in\mathcal{D}} w_i\, q_i}{\sum\limits_{i\in\mathcal{D}} w_i}, \qquad
+\bar{q}^{\text{undet}} = \frac{\sum\limits_{i\in\mathcal{U}} w_i\, q_i}{\sum\limits_{i\in\mathcal{U}} w_i}
+$$
+
+With these weights, the decomposition also holds per SNR, with $\text{Det}_s$ the mean over $a, c$ of $p_k$:
+
+$$
+Q_s = \text{Det}_s\cdot \bar{q}^{\text{det}}_s + \left(1-\text{Det}_s\right)\cdot \bar{q}^{\text{undet}}_s
+$$
+
+##### Imputation
+
+A value is missing when an artifact is never detected (or never missed) in a cell in the full run, but the new rules do detect (or miss) it. Each value used by $\hat{S}$ is taken from the closest level with data:
+
+- **$\hat{q}^{\text{undet}}_{s,a,c}$:** $\bar{q}_k^{\text{undet}}$; if missing, the filter does not touch the zone of the artifact, so $\text{SNR}^{\text{out}} \approx s$ and $\hat{q}^{\text{undet}}_{s,a,c} \approx q(s)$.
+- **$\hat{q}^{\text{det}}_{s,a,c}$:** $\bar{q}_k^{\text{det}}$; if missing, $\bar{q}^{\text{det}}_{s,a}$ (same artifact in the other clean signals); if the artifact is not detected in any clean signal at that SNR, $\bar{q}^{\text{det}}_s$.
+
+> If the full run gives $q^{\text{det}}$ of every mixture (forcing the attenuation of its candidate), no imputation is needed.
 
 **Procedure:**
 
@@ -355,7 +400,7 @@ where:
 
 ## 📋 Status
 
-- [ ] **Phase 0** — Preparation
+- [x] **Phase 0** — Preparation
 - [ ] **Phase 1** — Candidate generation
 - [ ] **Phase 2** — Feature definition
 - [ ] **Phase 3** — Rule selection

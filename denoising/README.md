@@ -50,7 +50,7 @@ denoising/
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
-├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (skeleton; only the score and the split loading are implemented)
+├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (in progress)
 ├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
@@ -466,14 +466,17 @@ Notebook for the **evaluation** experiments of the algorithm: artifacts are adde
 
 Notebook of the **parameter optimization** of the algorithm, which will replace the thresholds selected by eye ([⚙️ Parameters](#️-parameters)). It follows the plan of [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md), over mixtures like those of experiment 1 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm).
 
-> 🚧 **In progress:** only the skeleton (one section per phase, with its description), the score (section 2), the loading of the tuning/test split (from the `.csv` files of [get_splits.py](get_splits.py)) and the split of `experiment_1.csv` into the four sets (section 3.1) are written. Both use [src/optimization/splits.py](src/optimization/splits.py): `load_split()` reads the split and `split_results(results_df)` returns the four sets (`tune`, `test`, `new_signals`, `new_artifacts`), each one with the controls of its clean signals. Nothing has been run yet.
+> 🚧 **In progress:**
 
 1. **Import libraries.**
-2. **Score definition:** per-artifact quality $q$ (SNR after the filter in the artifact zone, clipped to [−30, 0] dB and scaled to [0, 1]), global quality $Q$, number of false positives $FP$ and score $S = Q - \lambda \cdot FP$, with its diagnostics.
-3. **Phase 0 — Preparation:** tuning/test split, penalty λ and baseline (with that λ).
+2. **Score definition:** per-artifact quality $q$, global quality $Q$, number of false positives $FP$ and score $S = Q - \lambda \cdot FP$. $Q$ and $FP$ are averaged first over the positions of each cell (SNR, artifact, clean signal), so that each artifact and each clean signal weighs the same.
+3. **Phase 0 — Preparation:**
+    - **3.1. Tuning/test split:** the four sets of `experiment_1.csv`.
+    - **3.2. Penalty λ:** masking SNR $s^* \approx -7.8$ dB and cost of missing an artifact there: $\lambda \approx -s^*/30 = 0.26$ (ideal elimination) and $\lambda = \Delta q_{s^*} = 0.21$ (measured, the one used).
+    - **3.3. Baseline:** score of the current version on the tuning set: $S = 0.8987$.
 4. **Phase 1 — Candidate generation:** candidate recall, load and overflow.
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
-6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization, importance of each condition and backward pruning.
+6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 1 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.
 
