@@ -136,7 +136,7 @@ EILO-BioAcoustics-Analysis/
 | Directory / File       | Description                                                                                                              |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------ |
 | `dataset/`             | Data preparation pipeline: ingestion of SPRSound, metadata curation, quality filtering, fragment extraction, RTFs, label and duration filtering, and exploratory notebooks. See [dataset/README.md](dataset/README.md) for the full pipeline description. |
-| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks, interactive summary figures and evaluation of the algorithm with artificially inserted artifacts, and the plan of the optimization of its parameters. Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md) for the dull pipeline description. |
+| `denoising/`           | Development of the transient (click) removal filter used in the fragment pre-processing: algorithm development notebooks, interactive summary figures and evaluation of the algorithm with artificially inserted artifacts, and the plan of the optimization of its parameters. Not yet ported to the dataset pipeline. See [denoising/README.md](denoising/README.md) for the full pipeline description. |
 | `classification/`      | Respiratory sound classification pipeline (work in progress): patient-level data splits, training and hyperparameter tuning (Optuna) of a baseline 2D-CNN, and a planned ablation study for model-architecture selection. See [classification/README.md](classification/README.md) for the full pipeline description. |
 | `ICBHI/`               | Auxiliary analysis on the ICBHI 2017 Challenge dataset: extracts per-cycle fragments and studies respiratory-cycle duration distributions in a pediatric population, as a sanity check for whether SPRSound's fragments need duration-based filtering. Not part of the main dataset/classification pipeline. See [ICBHI/README.md](ICBHI/README.md) for the full description. |
 | `README.md`            | This file.                                                                                                                |
@@ -144,6 +144,17 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.3**
+    - Phase 1 (candidate generation) of the parameter optimization of the denoising algorithm:
+        - Updated `denoising/PARAMETER_OPTIMIZATION.md`: 
+            - The candidate recall is now weighted by the cost of missing an artifact at each SNR and is the metric optimized in the search
+            - New diagnostics: unweighted recall, recall at every SNR and of each artifact, and load in the mixtures.
+        - `denoising/src/algorithm/remove_noise.py`: the candidate generation (steps 1–4: decomposition, detection and long-event protection) is now the function `generate_candidates`, called by `remove_noise` (same output) and callable alone.
+        - New executable script `denoising/get_candidates.py`: candidates of the mixtures of experiment 1 (all or one set) and their per-mixture metrics, saved in `denoising/results/optimization/candidates/{name}/{set}.csv`.
+        - New executable script `denoising/screen_candidates.py`: screening of the candidate generation, one parameter at a time.
+        - New module `denoising/src/optimization/candidate_score.py`: metrics of the candidate generation.
+        - Updated `denoising/parameter_optimization.ipynb`: metrics of the candidate generation and baseline.
+
 - **v2.3.2**
     - Updated `denoising/PARAMETER_OPTIMIZATION.md`: definition of the score, computation of the penalty λ and estimated score of phase 3.
     - Updated `denoising/parameter_optimization.ipynb`:

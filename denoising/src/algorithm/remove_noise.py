@@ -786,6 +786,113 @@ def find_click_events(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray,
     return keep, click_span, click_reference, candidates
 
 
+def generate_candidates(signal: np.ndarray, fs: float, levels=None, max_event: float | None = MAX_EVENT,
+                        split_levels=SPLIT_LEVELS) -> dict:
+    """
+    Candidate generation of remove_noise (everything before the classification of find_click_events):
+    - Decomposition: SWT (db4) until the approximation is below ~15 Hz, split_levels split into 2 half-bands, and
+      time-domain signal of each band (MRA, see band_signals)
+    - Detection: in each band, envelope > K times the reference (median of the envelope REF_INNER-REF_OUTER s at
+      each side), widened MASK_DILATION
+    - Protection: events longer than max_event or closer than EDGE to the borders are removed (see
+      protect_long_events)
+    The candidates are the connected time spans of the union over the bands of the protected mask.
+
+    Parameters
+    ----------
+    signal: np.ndarray
+        The respiratory sound (if multichannel, only the first channel is used)
+    fs: float
+        Sample frequency
+    levels: iterable of int, optional
+        SWT levels (1..n) to process (all their bands, if split). By default, all of them
+    max_event: float or None
+        Maximum duration (s) of a transient event. None -> no protection (original algorithm)
+    split_levels: iterable of int or None
+        Levels (1..n) split into 2 half-bands. None -> no split
+
+    Returns
+    -------
+    stages: dict
+        - signal, N: the signal (first channel, mean removed) and its length
+        - n_levels: SWT levels; l_env: envelope smoothing (samples)
+        - levels: processed bands (1..n_bands); bands: band information (see split_bands); n_bands
+        - detail, band_sig: coefficients and time-domain signal (MRA) of each band
+        - envelope, reference: envelope and reference of each band
+        - mask_reference, mask_protected: detection mask and mask after the protection
+          (detail ... mask_protected: bands x samples, padded to the length of the SWT)
+        - candidate_span: samples covered by some candidate (unpadded, length N)
+    """
+    signal = np.asarray(signal, dtype=float)
+    if signal.ndim > 1:
+        signal = signal[:, 0]  # Multichannel -> first channel
+    signal = signal - signal.mean()
+    N = len(signal)
+
+    # Parameters (in samples)
+    n_levels = round(np.log2(fs/F_APPROX)) - 1
+    levels = range(1, n_levels + 1) if levels is None else levels
+    lb = round(REF_INNER*fs)
+    ub = round(REF_OUTER*fs)
+    l_env = round(ENV_SMOOTH*fs)
+    l_dil = round(MASK_DILATION*fs)
+    ref_step = 1 if REF_STEP is None else max(1, round(REF_STEP*fs))
+
+    # SWT needs a length multiple of 2^n_levels (2^(n_levels+1) to split the levels) -> symmetric padding
+    n_pow = n_levels + 1 if split_levels else n_levels
+    n_tot = int(np.ceil(N / 2**n_pow)) * 2**n_pow
+    n_pad = n_tot - N
+    padded = np.concatenate((signal, signal[N - n_pad:][::-1]))
+
+    # SWT decomposition. pywt returns [(cAn, cDn), ..., (cA1, cD1)] -> reversed (row 0 = level 1)
+    coeffs = pywt.swt(padded, WAVELET, level=n_levels)
+    detail = np.array([cD for _, cD in coeffs[::-1]])
+
+    # Bands to process: the levels, some of them split into 2 half-bands. From here on, "level" is
+    # a band index (1..n_bands); without split, bands = levels
+    detail, band_info = split_bands(detail, fs, split_levels)
+    band_sig = band_signals(detail, band_info)
+    n_bands = len(band_info)
+    levels = [b + 1 for b, band in enumerate(band_info) if band["level"] in levels]
+
+    envelope = np.zeros((n_bands, n_tot))
+    reference = np.full((n_bands, n_tot), np.nan)
+    mask_reference = np.zeros((n_bands, n_tot), dtype=bool)
+
+    for i in range(n_bands):
+        envelope[i] = uniform_filter1d(np.abs(hilbert(band_sig[i])), max(1, l_env))
+
+    # Detection mask (dilated)
+    for level in levels:
+        i = level - 1  # Band row
+        reference[i] = local_reference(envelope[i], lb, ub, ref_step)
+        m = envelope[i] > K*reference[i]
+        mask_reference[i] = np.convolve(m.astype(float), np.ones(l_dil), "same") > 0.5 if l_dil > 0 else m
+        mask_reference[i] &= ~np.isnan(reference[i])  # No reference (very short fragments) -> no detection (avoids NaN gains)
+
+    # Protection of long events (adventitious sounds) and events at the borders
+    mask_protected = mask_reference
+    if max_event is not None:
+        mask_protected = protect_long_events(mask_reference, levels, fs, N, max_event)
+
+    return {
+        "signal": signal,
+        "N": N,
+        "n_levels": n_levels,
+        "l_env": l_env,
+        "levels": levels,
+        "bands": band_info,
+        "n_bands": n_bands,
+        "detail": detail,
+        "band_sig": band_sig,
+        "envelope": envelope,
+        "reference": reference,
+        "mask_reference": mask_reference,
+        "mask_protected": mask_protected,
+        "candidate_span": mask_protected.any(axis=0)[:N],  # Bands not processed: no detections
+    }
+
+
 def remove_noise(signal: np.ndarray, fs: float, levels=None, max_event: float | None = MAX_EVENT,
                         split_levels=SPLIT_LEVELS, return_details: bool = False):
     """
@@ -836,60 +943,18 @@ def remove_noise(signal: np.ndarray, fs: float, levels=None, max_event: float | 
     .. [2] Coifman, R. R., & Wickerhauser, M. V. (1992). Entropy-based algorithms for best basis selection.
            IEEE Trans. Information Theory, 38(2), 713-718.
     """
-    signal = np.asarray(signal, dtype=float)
-    if signal.ndim > 1:
-        signal = signal[:, 0]  # Multichannel -> first channel
-    signal = signal - signal.mean()
-    N = len(signal)
-
-    # Parameters (in samples)
-    n_levels = round(np.log2(fs/F_APPROX)) - 1
-    levels = range(1, n_levels + 1) if levels is None else levels
-    lb = round(REF_INNER*fs)
-    ub = round(REF_OUTER*fs)
-    l_env = round(ENV_SMOOTH*fs)
-    l_dil = round(MASK_DILATION*fs)
+    # Candidate generation: decomposition, detection and protection of the long events (see generate_candidates)
+    stages = generate_candidates(signal, fs, levels, max_event, split_levels)
+    signal, N, n_levels, l_env = stages["signal"], stages["N"], stages["n_levels"], stages["l_env"]
+    levels, band_info, n_bands = stages["levels"], stages["bands"], stages["n_bands"]
+    detail, band_sig = stages["detail"], stages["band_sig"]
+    envelope, reference = stages["envelope"], stages["reference"]
+    mask_reference, mask_protected = stages["mask_reference"], stages["mask_protected"]
+    n_tot = envelope.shape[1]
     l_gain = round(GAIN_SMOOTH*fs)
-    ref_step = 1 if REF_STEP is None else max(1, round(REF_STEP*fs))
-
-    # SWT needs a length multiple of 2^n_levels (2^(n_levels+1) to split the levels) -> symmetric padding
-    n_pow = n_levels + 1 if split_levels else n_levels
-    n_tot = int(np.ceil(N / 2**n_pow)) * 2**n_pow
-    n_pad = n_tot - N
-    padded = np.concatenate((signal, signal[N - n_pad:][::-1]))
-
-    # SWT decomposition. pywt returns [(cAn, cDn), ..., (cA1, cD1)] -> reversed (row 0 = level 1)
-    coeffs = pywt.swt(padded, WAVELET, level=n_levels)
-    detail = np.array([cD for _, cD in coeffs[::-1]])
-
-    # Bands to process: the levels, some of them split into 2 half-bands. From here on, "level" is
-    # a band index (1..n_bands); without split, bands = levels
-    detail, band_info = split_bands(detail, fs, split_levels)
-    band_sig = band_signals(detail, band_info)
-    n_bands = len(band_info)
-    levels = [b + 1 for b, band in enumerate(band_info) if band["level"] in levels]
 
     detail_filtered = detail.copy()
-    envelope = np.zeros((n_bands, n_tot))
-    reference = np.full((n_bands, n_tot), np.nan)
     gain = np.ones((n_bands, n_tot))
-    mask_reference = np.zeros((n_bands, n_tot), dtype=bool)
-
-    for i in range(n_bands):
-        envelope[i] = uniform_filter1d(np.abs(hilbert(band_sig[i])), max(1, l_env))
-
-    # Detection mask (dilated)
-    for level in levels:
-        i = level - 1  # Band row
-        reference[i] = local_reference(envelope[i], lb, ub, ref_step)
-        m = envelope[i] > K*reference[i]
-        mask_reference[i] = np.convolve(m.astype(float), np.ones(l_dil), "same") > 0.5 if l_dil > 0 else m
-        mask_reference[i] &= ~np.isnan(reference[i])  # No reference (very short fragments) -> no detection (avoids NaN gains)
-
-    # Protection of long events (adventitious sounds) and events at the borders
-    mask_protected = mask_reference
-    if max_event is not None:
-        mask_protected = protect_long_events(mask_reference, levels, fs, N, max_event)
 
     # Click-only mode: only the events of clicks are kept
     mask_clicks = mask_protected

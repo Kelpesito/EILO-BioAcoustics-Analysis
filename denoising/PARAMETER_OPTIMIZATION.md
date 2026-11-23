@@ -178,9 +178,24 @@ Compute the Score, Q and FP on the tuning set, with the $\lambda$ of [0.2](#02-p
 - **Goal:** almost every artifact that matters should generate some candidate, without an excessive load on the clean signals and without overflowing the artifact. If an artifact does not become a candidate, no rule will be able to detect it later; if its span overflows the artifact, it merges with neighbouring sounds, which degrades its features ([Phase 2](#2️⃣-phase-2--feature-definition)).
 - **Optimization of:** `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER`, `MAX_EVENT`.
 - **Metrics:** missing a candidate and overflowing the artifact have very different costs (a missed artifact is lost for good; a wider span only degrades its features, which the rules of [Phase 3](#3️⃣-phase-3--rule-selection) can partly compensate), so they are measured apart and with priority:
-    1. **Candidate recall:** proportion of artifacts with SNR ≤ 0 dB that have some candidate in their zone $Z_i$ (artifact ± 25 ms).
+    1. **Candidate recall:** recall at each SNR weighted by the cost of missing an artifact at that SNR, over every SNR.
     2. **Load:** candidates per control signal.
-    3. **Overflow:** median of $w_i$ over the artifacts that have some candidate:
+    3. **Overflow:** median of $w_i$ over the artifacts with SNR ≤ 0 dB that have some candidate.
+
+**Candidate recall:**
+
+$$
+\text{Recall} = \frac{\sum\limits_{s\in\mathcal{S}} c_s\,\text{Recall}_s}{\sum\limits_{s\in\mathcal{S}} c_s}, \qquad c_s = 1 - q(s)
+$$
+
+where:
+
+- $\text{Recall}_s$ is the proportion of artifacts with SNR $s$ that have some candidate in their zone $Z_i$ (artifact ± 25 ms).
+- $c_s$ is the cost of missing an artifact at SNR $s$, with ideal elimination ([Penalty λ](#02-penalty-λ)): $-s/30$ between $-30$ and $0$ dB, $0$ above. The measured $\Delta q_s$ can be used instead.
+
+> Missing an artifact at SNR ≥ 0 dB costs nothing, and there most of the candidates in $Z_i$ are background candidates that touch it by chance (recall ≈ 0.54 at 20 dB in the baseline).
+
+**Overflow:**
 
 $$
 w_i = \frac{|Z_i|}{|Z_i \cup \text{spans}_i|} = \frac{|Z_i|}{|Z_i| + \text{overflow}_i}
@@ -193,7 +208,12 @@ where:
 
 > $w_i = 1$ if the spans do not leave the zone, $0.5$ if the overflow equals the length of the zone. A span shorter than the zone is not penalized. An isolated click already overflows the zone a little (time resolution of the low bands, `MASK_DILATION`), so $w_i < 1$ even in the best case; this bias is similar for every configuration.
 
-- **Diagnostics:** median overflow (ms) and weighted candidate recall ($\text{Recall}_w = \frac{1}{N}\sum_i w_i$ over the $N$ artifacts with SNR ≤ 0 dB, with $w_i = 0$ if there is no candidate).
+- **Diagnostics:**
+    - Median overflow (ms).
+    - Weighted candidate recall ($\text{Recall}_w = \frac{1}{N}\sum_i w_i$ over the $N$ artifacts with SNR ≤ 0 dB, with $w_i = 0$ if there is no candidate).
+    - Unweighted candidate recall: proportion of artifacts with SNR ≤ 0 dB that have some candidate in $Z_i$.
+    - Candidate recall at every SNR, $\text{Recall}_s$, and of each artifact (cost-weighted and unweighted).
+    - **Load in the mixtures:** candidates that do not touch $Z_i$ per mixture, averaged as $FP$ ([Number of false positives](#number-of-false-positives)). The false positives of [Phase 3](#3️⃣-phase-3--rule-selection) come from these candidates; a difference with the load shows that the artifact changes the candidates of the rest of the signal.
 
 > `K` and `MASK_DILATION` move recall and overflow in opposite directions (a low `K` gives more candidates, but wider spans): a single combined number would hide that conflict.
 
@@ -201,7 +221,7 @@ where:
 
 1. **Screening:** each parameter is varied alone. If the metrics do not change, it is fixed.
 2. **Search:** two Bayesian optimizations, one after the other:
-    - **(a) Maximum recall:** maximize the recall subject to load < 2 × baseline → recall<sub>max</sub>.
+    - **(a) Maximum recall:** maximize the candidate recall (cost-weighted) subject to load < 2 × baseline → recall<sub>max</sub>.
     - **(b) Minimum load:** minimize the load subject to recall ≥ recall<sub>max</sub> − 0.005 and median $w_i$ ≥ median $w_i$ of the baseline.
     - The recall, load and overflow of every evaluated configuration (of both searches) are saved.
 3. **Choice:** among all the evaluated configurations (a and b) that meet the two constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of the configurations with recall ≥ recall<sub>max</sub> − 0.005 is used to check it (e.g. whether a little more load would give much less overflow).

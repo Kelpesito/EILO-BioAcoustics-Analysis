@@ -27,6 +27,7 @@ This folder contains the development of the **transient removal filter** of the 
     - [⚙️ Parameters](#️-parameters)
     - [⚠️ Known limitations](#️-known-limitations)
 - [🖼️ Example](#️-example)
+- [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
     - [▶️ How to run](#️-how-to-run)
     - [denoise_soundwaveletSWT.ipynb — Transient removal filter](#denoise_soundwaveletswtipynb--transient-removal-filter)
@@ -51,15 +52,16 @@ denoising/
 ├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
 ├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (in progress)
+├── get_candidates.py              ← candidates of the mixtures of experiment 1 and their metrics (phase 1 of parameter_optimization.ipynb)
 ├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
-├── splits/                        ← tuning/test split (clean_split.csv, artifact_split.csv; get_splits.py, not versioned)
+├── screen_candidates.py           ← screening of the candidate generation, one parameter at a time (phase 1 of parameter_optimization.ipynb)
 ├── src/                           ← importable modules (used by the notebooks and the scripts)
 │   ├── __init__.py
 │   ├── algorithm/                 ← the algorithm and its figures
 │   │   ├── __init__.py
-│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py)
+│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py and get_candidates.py)
 │   │   └── summary_plots.py       ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
 │   ├── evaluation/                ← evaluation of the algorithm (evaluation_denoise.ipynb)
 │   │   ├── __init__.py
@@ -67,6 +69,7 @@ denoising/
 │   │   └── evaluation_plots.py    ← plotly result figures of experiments 1 and 2 (same code as the notebook; used by save_figures.py)
 │   └── optimization/              ← parameter optimization of the algorithm (parameter_optimization.ipynb)
 │       ├── __init__.py
+│       ├── candidate_score.py     ← metrics of the candidate generation (same code as sections 2 and 4.1 of the notebook; used by screen_candidates.py)
 │       └── splits.py              ← loading of the tuning/test split and split of the results into the four sets (used by parameter_optimization.ipynb)
 └── results/
     ├── experiments/               ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
@@ -99,6 +102,9 @@ clean = rn.remove_noise(signal, fs)
 # Filtered signal + intermediate results
 clean, details = rn.remove_noise(signal, fs, return_details=True)
 
+# Candidates only (steps 1-4, without classification nor attenuation)
+stages = rn.generate_candidates(signal, fs)  # stages["candidate_span"]: samples covered by some candidate
+
 # Summary figures: they need some constants of the algorithm (params); save_dir -> also saved as .png
 PARAMS = dict(G_FAC=rn.G_FAC, K=rn.K, Z_CLICK=rn.Z_CLICK, Z_TOLERANCE=rn.Z_TOLERANCE, AR_ORDER=rn.AR_ORDER,
               ISO_WIN=rn.ISO_WIN, ISOLATION=rn.ISOLATION, ISOLATION_IMPULSIVE=rn.ISOLATION_IMPULSIVE,
@@ -107,6 +113,7 @@ summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 ```
 
 - The parameters of the algorithm are module constants ([⚙️ Parameters](#️-parameters)): to change one, set it on the module before calling `remove_noise`, e.g. `rn.K = 6`.
+    - ⚠️ Except `MAX_EVENT` and `SPLIT_LEVELS`: they are the default values of the arguments `max_event` and `split_levels` of `remove_noise` and `generate_candidates`, fixed when the module is imported. To change them, pass them as arguments, e.g. `rn.remove_noise(signal, fs, max_event=0.2)`.
 - The **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) holds a copy of the same code, to read the algorithm step by step next to the original filter; [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) and [run_experiment.py](run_experiment.py) use the module.
 
 ---
@@ -126,6 +133,8 @@ summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 | **7** | Gain < 1 inside the clicks, sum of the bands | Filtered signal |
 
 Before step 1, only the first channel is used and its mean is removed. The signal is padded at the end (mirror) up to a multiple of 2⁸ samples, as required by the SWT, and cropped back at the end.
+
+Steps 1–4 (candidate generation) are the function `generate_candidates`, which `remove_noise` calls first; it can also be called alone to get the candidates without classifying them (phase 1 of [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization)).
 
 ---
 
@@ -319,6 +328,34 @@ Original vs. filtered signal and residual (top), PSD of the three signals and at
 
 ---
 
+## 📁 Final folder layout
+
+After running the scripts (see [▶️ How to run](#️-how-to-run)), the relevant outputs are (compare with [📂 Repository layout](#-repository-layout) to see what ships with the repo vs. what the scripts produce):
+
+```
+denoising/
+├── splits/                        ← get_splits.py
+│   ├── clean_split.csv                    # clean_id, label, set (tune / test)
+│   └── artifact_split.csv                 # art_id, art_duration_ms, set (tune / test)
+└── results/
+    ├── experiments/               ← run_experiment.py (versioned; overwritten when an experiment is run again)
+    │   ├── experiment_1.csv
+    │   └── experiment_2.csv
+    ├── figures/                   ← save_figures.py (versioned; overwritten)
+    │   ├── experiment_1/                  # <name>.png, .svg, .html
+    │   └── experiment_2/
+    └── optimization/
+        └── candidates/
+            ├── <name>/            ← get_candidates.py (-n, default: baseline)
+            │   └── <set>.csv              # one row per mixture: metrics of its candidates (all.csv without -s)
+            └── screening/         ← screen_candidates.py
+                └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
+```
+
+`splits/` and `results/optimization/` are not versioned (`.gitignore`): `splits/` is regenerated identically with the same seed, and `results/optimization/` with the same parameters of the algorithm.
+
+---
+
 ## 📓 Notebooks
 
 The notebooks are **development and documentation** tools: running them does not modify the dataset pipeline outputs.
@@ -359,6 +396,48 @@ python denoising/get_splits.py
 
 - It generates the mixtures of experiment 1 (`get_mixes_1` of [run_experiment.py](run_experiment.py), without the controls) and takes the first of 4 folds as test (`StratifiedGroupKFold`, `RANDOM_STATE = 42`): the clean signals grouped by `clean_id` and stratified by label, and the artifacts grouped by `art_id` and stratified by duration.
 - It saves `denoising/splits/clean_split.csv` (`clean_id`, `label`, `set`) and `denoising/splits/artifact_split.csv` (`art_id`, `art_duration_ms`, `set`), with `set` = `tune` / `test`. The folder is not versioned (`.gitignore`): the split is regenerated identically with the same seed.
+
+The candidates of phase 1 of the notebook are generated **from the terminal** with [get_candidates.py](get_candidates.py), from any folder, once `experiment_1.csv` exists (and the split, if a set is given):
+
+```bash
+python denoising/get_candidates.py                  # All the mixtures of experiment 1 (and the controls)
+python denoising/get_candidates.py -s tune          # -s, --set: only one set (tune, test, new_signals or new_artifacts)
+python denoising/get_candidates.py -n baseline      # -n, --name: name of the output folder (default: baseline)
+python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker processes (default: as many as CPU cores)
+```
+
+- It rebuilds each mixture of `experiment_1.csv` (all the SNR), generates its candidates with `generate_candidates` ([remove_noise.py](src/algorithm/remove_noise.py), default constants) in parallel, and computes the metrics of its candidates (`candidate_metrics`), with the artifact zone of experiment 1 (±25 ms):
+    - `n_candidates`: candidates of the signal; `n_candidates_out`: candidates that do not touch the zone.
+    - `has_candidate`: some candidate touches the zone.
+    - `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
+    - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
+- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Not versioned (`*.csv` in `.gitignore`).
+
+The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
+
+```bash
+python denoising/screen_candidates.py                            # All the parameters, on the tuning set
+python denoising/screen_candidates.py --params K MASK_DILATION   # --params: only some parameters
+python denoising/screen_candidates.py -s tune -p 8               # -s, --set (default: tune); -p, --processes
+```
+
+- Each parameter of the candidate generation is varied **alone**, over the values of `SCREENING` (the default value of [remove_noise.py](src/algorithm/remove_noise.py) is included in each list), with the others at their default value:
+
+| Parameter | Values |
+|:----------|:-------|
+| `WAVELET` | db1, db2, **db4**, db6, db8, db10, coif2, coif4 |
+| `K` | 1, 3, **5**, 7, 9, 11, 13, 15 |
+| `ENV_SMOOTH` | 0, 1, 2, **4**, 8, 16, 32, 64 ms (0 → no smoothing) |
+| `MASK_DILATION` | 0, 5, 10, **15**, 20, 25, 30, 40 ms (0 → no widening) |
+| `REF_INNER` | 10, 20, 30, 50, 70, **100**, 150, 200 ms |
+| `REF_OUTER` | 250, 300, **400**, 500, 600, 700, 800, 900 ms |
+| `MAX_EVENT` | 60, 80, 100, 110, 120, 130, **140**, 160 ms |
+
+- For each value, the parameter is set on the module (e.g. `rn.K = 4`; `run_candidates` copies the constants to the worker processes), the candidates of the mixtures are generated with `run_candidates` of [get_candidates.py](get_candidates.py) (not saved) and their metrics are computed with `candidate_score` ([candidate_score.py](src/optimization/candidate_score.py)); then the default value is restored.
+- It saves `denoising/results/optimization/candidates/screening/<PARAMETER>.csv`, one row per value: `value`, `default` (whether it is the default value), the metrics (`recall`, `load`, `w_med`), the scalar diagnostics (`recall_unweighted`, `recall_w`, `overflow_ms_med`, `load_mix`) and the recall at each SNR (`recall_-30` … `recall_20`). The file is rewritten after each value, so an interrupted run keeps the values already done. Not versioned.
+- Three nested progress bars: parameters done, values done of the current parameter, and mixtures of the current value; the metrics of each value are printed above them.
+- Each value is a full run of the tuning set (~26 700 mixtures): 56 runs with all the parameters.
+- `candidate_score.py` is a copy of `quality` and `candidate_score` of the notebook (sections 2 and 4.1): if one of them is changed in the notebook, it must also be changed in the module.
 
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
@@ -474,7 +553,11 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
     - **3.1. Tuning/test split:** the four sets of `experiment_1.csv`.
     - **3.2. Penalty λ:** masking SNR $s^* \approx -7.8$ dB and cost of missing an artifact there: $\lambda \approx -s^*/30 = 0.26$ (ideal elimination) and $\lambda = \Delta q_{s^*} = 0.21$ (measured, the one used).
     - **3.3. Baseline:** score of the current version on the tuning set: $S = 0.8987$.
-4. **Phase 1 — Candidate generation:** candidate recall, load and overflow.
+4. **Phase 1 — Candidate generation:**
+    - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact at each SNR, $c_s = 1 - q(s)$), load and overflow, and their diagnostics (`candidate_score`, `describe_candidates`), from the per-mixture results of [get_candidates.py](get_candidates.py).
+    - **4.2. Baseline:** candidate metrics of the current version on the tuning set: recall = 0.986 (unweighted, SNR ≤ 0 dB: 0.943), load = 7.4 candidates per control, median $w_i$ = 0.86 (median overflow: 15 ms). About half of the artifact zones already touch a candidate of the clean signal (recall ≈ 0.54 at 20 dB), which is why the recall is weighted by the cost.
+    - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py) (pending results).
+    - **4.4–4.6:** search, choice of C1 and full run (pending).
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 1 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
@@ -501,7 +584,7 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 - `params`: the algorithm constants the figures need (`G_FAC`, `K`, `Z_CLICK`, `Z_TOLERANCE`, `AR_ORDER`, `ISO_WIN`, `ISOLATION`, `ISOLATION_IMPULSIVE`, `ISOLATION_ALIGNED`, `MAX_MISALIGN`).
 - `save_dir`: if given, each figure is also saved as `<save_dir>/<name>.png` (Plotly static export with `kaleido`), with `scale` as the image scale factor.
 
-> The FWHM of each band (`plot_misalign`, values of the table in [step 1](#1️⃣-decomposition-into-10-bands)) is computed with `band_resolution` of [remove_noise.py](src/algorithm/remove_noise.py), for the decomposition of `details["bands"]`, so it follows any change of the decomposition.
+> The FWHM of each band (`plot_misalign`, values of the table in [step 1](#1️⃣-decomposition-into-10-bands)) is computed with `band_resolution` of [remove_noise.py](src/algorithm/remove_noise.py), for the decomposition of `details["bands"]`, so it follows any change of the decomposition. ⚠️ `band_resolution` is cached (`lru_cache`) and `WAVELET` is not one of its arguments: after changing `rn.WAVELET` in the same process, call `rn.band_resolution.cache_clear()`.
 
 ---
 
