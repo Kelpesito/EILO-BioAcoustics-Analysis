@@ -144,6 +144,9 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.5**
+    - `denoising/search_candidates.py`: the log of each evaluated configuration no longer prints its parameters.
+
 - **v2.3.4**
     - Phase 1 (candidate generation) of the parameter optimization of the denoising algorithm: screening results and Bayesian search.
         - Screening of the 7 parameters of the candidate generation run.

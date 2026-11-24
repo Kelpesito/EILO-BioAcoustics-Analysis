@@ -210,8 +210,7 @@ def run_one(run: str, train_df: pd.DataFrame, validation_df: pd.DataFrame | None
     def on_trial(study, trial):
         m = trial.user_attrs
         seconds = trial.duration.total_seconds() if trial.duration else float("nan")
-        logger.info(f"[{run} {study.study_name} {len(cs.own_trials(study)):3d}] {format_metrics(m)} | "
-                    f"{cs.format_params(cs.trial_params(trial))} | {seconds:.0f} s")
+        logger.info(f"[{run} {study.study_name} {len(cs.own_trials(study)):3d}] {format_metrics(m)} | {seconds:.0f} s")
         if state["search"] == "a":
             if state["best"] is None or m["recall"] > state["best"]:
                 state["best"] = m["recall"]
