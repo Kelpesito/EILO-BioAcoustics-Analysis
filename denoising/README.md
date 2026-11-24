@@ -53,10 +53,11 @@ denoising/
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
 ├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (in progress)
 ├── get_candidates.py              ← candidates of the mixtures of experiment 1 and their metrics (phase 1 of parameter_optimization.ipynb)
-├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb
+├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb, and the folds of the cross-validation of the tuning set
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
 ├── screen_candidates.py           ← screening of the candidate generation, one parameter at a time (phase 1 of parameter_optimization.ipynb)
+├── search_candidates.py           ← Bayesian search of the candidate generation with a nested cross-validation (phase 1 of parameter_optimization.ipynb)
 ├── src/                           ← importable modules (used by the notebooks and the scripts)
 │   ├── __init__.py
 │   ├── algorithm/                 ← the algorithm and its figures
@@ -70,6 +71,7 @@ denoising/
 │   └── optimization/              ← parameter optimization of the algorithm (parameter_optimization.ipynb)
 │       ├── __init__.py
 │       ├── candidate_score.py     ← metrics of the candidate generation (same code as sections 2 and 4.1 of the notebook; used by screen_candidates.py)
+│       ├── candidate_search.py    ← protocol of the Bayesian search of phase 1: search space, constraints, searches (a)/(b), safeguard, choice of C1, folds (used by search_candidates.py)
 │       └── splits.py              ← loading of the tuning/test split and split of the results into the four sets (used by parameter_optimization.ipynb)
 └── results/
     ├── experiments/               ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
@@ -336,7 +338,9 @@ After running the scripts (see [▶️ How to run](#️-how-to-run)), the releva
 denoising/
 ├── splits/                        ← get_splits.py
 │   ├── clean_split.csv                    # clean_id, label, set (tune / test)
-│   └── artifact_split.csv                 # art_id, art_duration_ms, set (tune / test)
+│   ├── artifact_split.csv                 # art_id, art_duration_ms, set (tune / test)
+│   ├── cv_clean_folds.csv                 # clean_id, label, fold (1-5) of the tuning clean signals
+│   └── cv_artifact_folds.csv              # art_id, art_duration_ms, fold (1-5) of the tuning artifacts
 └── results/
     ├── experiments/               ← run_experiment.py (versioned; overwritten when an experiment is run again)
     │   ├── experiment_1.csv
@@ -345,14 +349,20 @@ denoising/
     │   ├── experiment_1/                  # <name>.png, .svg, .html
     │   └── experiment_2/
     └── optimization/
-        └── candidates/
-            ├── <name>/            ← get_candidates.py (-n, default: baseline)
-            │   └── <set>.csv              # one row per mixture: metrics of its candidates (all.csv without -s)
-            └── screening/         ← screen_candidates.py
-                └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
+        ├── candidates/
+        │   ├── <name>/            ← get_candidates.py (-n, default: baseline)
+        │   │   └── <set>.csv              # one row per mixture: metrics of its candidates (all.csv without -s)
+        │   └── screening/         ← screen_candidates.py
+        │       └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
+        └── search/                ← search_candidates.py (<run> = fold_1 … fold_5, all)
+            ├── <run>.db                   # Optuna studies a, b (b2) of the run (SQLite; resume)
+            ├── <run>_trials.csv           # one row per evaluated configuration: search, configuration, metrics, feasible
+            ├── <run>.json                 # constraints, C1 and its metrics and those of the baseline (training, validation)
+            ├── <runs>.log                 # log of an execution, identical to the terminal (e.g. fold_1.log)
+            └── summary.csv                # one row per finished run
 ```
 
-`splits/` and `results/optimization/` are not versioned (`.gitignore`): `splits/` is regenerated identically with the same seed, and `results/optimization/` with the same parameters of the algorithm.
+Versioned (exceptions to `*.csv` in `.gitignore`): `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the other tables of `get_candidates.py` (regenerated with the same parameters of the algorithm), and the `.db` (only to resume a run) and `.log` of the search.
 
 ---
 
@@ -395,7 +405,8 @@ python denoising/get_splits.py
 ```
 
 - It generates the mixtures of experiment 1 (`get_mixes_1` of [run_experiment.py](run_experiment.py), without the controls) and takes the first of 4 folds as test (`StratifiedGroupKFold`, `RANDOM_STATE = 42`): the clean signals grouped by `clean_id` and stratified by label, and the artifacts grouped by `art_id` and stratified by duration.
-- It saves `denoising/splits/clean_split.csv` (`clean_id`, `label`, `set`) and `denoising/splits/artifact_split.csv` (`art_id`, `art_duration_ms`, `set`), with `set` = `tune` / `test`. The folder is not versioned (`.gitignore`): the split is regenerated identically with the same seed.
+- It saves `denoising/splits/clean_split.csv` (`clean_id`, `label`, `set`) and `denoising/splits/artifact_split.csv` (`art_id`, `art_duration_ms`, `set`), with `set` = `tune` / `test`. Versioned, so the HPC runs and the notebook use the same split; it is regenerated identically with the same seed.
+- Then it splits the tuning clean signals and artifacts into 5 folds for a nested cross-validation, in the same way (grouped and stratified, on the tuning mixtures): `denoising/splits/cv_clean_folds.csv` (`clean_id`, `label`, `fold`) and `denoising/splits/cv_artifact_folds.csv` (`art_id`, `art_duration_ms`, `fold`).
 
 The candidates of phase 1 of the notebook are generated **from the terminal** with [get_candidates.py](get_candidates.py), from any folder, once `experiment_1.csv` exists (and the split, if a set is given):
 
@@ -411,7 +422,7 @@ python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker pr
     - `has_candidate`: some candidate touches the zone.
     - `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
     - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
-- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Not versioned (`*.csv` in `.gitignore`).
+- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Only `baseline/tune.csv` is versioned (required by `search_candidates.py`); the others are not (`*.csv` in `.gitignore`).
 
 The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
 
@@ -434,10 +445,24 @@ python denoising/screen_candidates.py -s tune -p 8               # -s, --set (de
 | `MAX_EVENT` | 60, 80, 100, 110, 120, 130, **140**, 160 ms |
 
 - For each value, the parameter is set on the module (e.g. `rn.K = 4`; `run_candidates` copies the constants to the worker processes), the candidates of the mixtures are generated with `run_candidates` of [get_candidates.py](get_candidates.py) (not saved) and their metrics are computed with `candidate_score` ([candidate_score.py](src/optimization/candidate_score.py)); then the default value is restored.
-- It saves `denoising/results/optimization/candidates/screening/<PARAMETER>.csv`, one row per value: `value`, `default` (whether it is the default value), the metrics (`recall`, `load`, `w_med`), the scalar diagnostics (`recall_unweighted`, `recall_w`, `overflow_ms_med`, `load_mix`) and the recall at each SNR (`recall_-30` … `recall_20`). The file is rewritten after each value, so an interrupted run keeps the values already done. Not versioned.
+- It saves `denoising/results/optimization/candidates/screening/<PARAMETER>.csv`, one row per value: `value`, `default` (whether it is the default value), the metrics (`recall`, `load`, `w_med`), the scalar diagnostics (`recall_unweighted`, `recall_w`, `overflow_ms_med`, `load_mix`) and the recall at each SNR (`recall_-30` … `recall_20`). The file is rewritten after each value, so an interrupted run keeps the values already done. Versioned.
 - Three nested progress bars: parameters done, values done of the current parameter, and mixtures of the current value; the metrics of each value are printed above them.
 - Each value is a full run of the tuning set (~26 700 mixtures): 56 runs with all the parameters.
 - `candidate_score.py` is a copy of `quality` and `candidate_score` of the notebook (sections 2 and 4.1): if one of them is changed in the notebook, it must also be changed in the module.
+
+The Bayesian search of phase 1 (sections 4.4 and 4.5 of the notebook) is run **from the terminal** with [search_candidates.py](search_candidates.py), from any folder, once `experiment_1.csv`, the split and folds (`get_splits.py`) and the candidates of the baseline on the tuning set (`get_candidates.py -s tune`: metrics of the baseline and constraint of (b)) exist:
+
+```bash
+python denoising/search_candidates.py                            # The 5 folds and the whole tuning set
+python denoising/search_candidates.py --runs 1                   # --runs: folds 1-5 and/or all (one job per run)
+python denoising/search_candidates.py --trials-a 100 --trials-b 100 -p 64   # configurations of (a) and (b); processes
+```
+
+- **Nested cross-validation:** the tuning clean signals (stratified by label) and artifacts (stratified by duration) are split into 5 folds; fold *k* trains on the signals and artifacts of the other folds and validates on those of fold *k* (as the tuning/test split). Each fold runs the whole protocol and its C1 is evaluated on its validation mixtures, next to the baseline; the run `all` repeats it on the whole tuning set (final C1).
+- **Protocol** ([candidate_search.py](src/optimization/candidate_search.py), Optuna TPE): (a) maximum recall → recall<sub>max</sub> and its SE (bootstrap grouped by signal and artifact); (b) minimum load with recall ≥ recall<sub>max</sub> − SE and median $w_i$ ≥ that of the baseline, starting from the configurations of (a); safeguard (b2) if no configuration meets both; C1 = minimum load among the configurations that meet them. `REF_OUTER` is searched from `REF_INNER` + `MAX_EVENT` (constraint met by construction); `MAX_EVENT` is fixed (140 ms).
+- **Resume:** the studies are saved in `<run>.db`; an interrupted run continues where it stopped, and a finished run (`<run>.json`) is skipped. The runs are independent, so they can be launched as separate jobs at the same time.
+- Three nested progress bars: runs (cross-validation), configurations of the current search, and mixtures of the current configuration. The terminal and `<runs>.log` show the same messages: the baseline (whole tuning set and training/validation of each run), each evaluated configuration (metrics, parameters, time), the constraints of (b), C1, its validation and the cross-validation summary over the finished folds.
+- Each configuration is a run of the training mixtures of the fold (~64 % of the tuning set; the whole tuning set in `all`): about 200 configurations per run (more with the safeguard).
 
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
@@ -554,10 +579,11 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
     - **3.2. Penalty λ:** masking SNR $s^* \approx -7.8$ dB and cost of missing an artifact there: $\lambda \approx -s^*/30 = 0.26$ (ideal elimination) and $\lambda = \Delta q_{s^*} = 0.21$ (measured, the one used).
     - **3.3. Baseline:** score of the current version on the tuning set: $S = 0.8987$.
 4. **Phase 1 — Candidate generation:**
-    - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact at each SNR, $c_s = 1 - q(s)$), load and overflow, and their diagnostics (`candidate_score`, `describe_candidates`), from the per-mixture results of [get_candidates.py](get_candidates.py).
+    - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact at each SNR, $c_s = 1 - q(s)$), load and overflow, and their diagnostics, from the per-mixture results of [get_candidates.py](get_candidates.py).
     - **4.2. Baseline:** candidate metrics of the current version on the tuning set: recall = 0.986 (unweighted, SNR ≤ 0 dB: 0.943), load = 7.4 candidates per control, median $w_i$ = 0.86 (median overflow: 15 ms). About half of the artifact zones already touch a candidate of the clean signal (recall ≈ 0.54 at 20 dB), which is why the recall is weighted by the cost.
-    - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py) (pending results).
-    - **4.4–4.6:** search, choice of C1 and full run (pending).
+    - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py). The tables are loaded with `load_screening` and shown in one figure (`plot_screening`): one row per parameter and one column per metric (recall, load, median $w_i$), with the same y axis in each column, the default value and the baseline.
+    - **4.4–4.5:** Bayesian search ((a) maximum recall, (b) minimum load) and choice of C1, with a nested 5-fold cross-validation, run with [search_candidates.py](search_candidates.py) (pending results).
+    - **4.6:** full run (pending).
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 1 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**

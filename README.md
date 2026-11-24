@@ -91,12 +91,12 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `kaleido`         | Static image export engine for `Plotly` figures.                                   |
 | `matplotlib`      | Static plotting for exploratory analysis and visualisation notebooks |
 | `nbformat`        | Parsing and validating Jupyter notebook structure (`.ipynb`).                    |
-| `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner). |
+| `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner) and Bayesian search of the parameters of the transient removal filter (`denoising/search_candidates.py`). |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
 | `plotly`          | Interactive plotting in the visualization notebooks. |
 | `pywavelets`      | Stationary Wavelet Transform (SWT) used by the transient removal filter (dataset pipeline and `denoising/`). |
 | `scikit-image`    | Image processing utilities (used for RTF image export and resizing).             |
-| `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline). |
+| `scikit-learn`    | Machine-learning utilities (e.g. `StratifiedGroupKFold` for patient-level data splits in the classification pipeline, and for the tuning/test split and cross-validation folds of the parameter optimization in `denoising/`). |
 | `scipy`           | Numerical computing, signal processing (STFT, Welch PSD, AR filtering, frequency response) and `scipy.ndimage` labelling/filters of the transient removal filter. |
 | `seaborn`         | Statistical plotting (built on `matplotlib`) for the results figures of the transient removal filter evaluation (`denoising/evaluation_denoise.ipynb`). |
 | `soundfile`       | Reading and writing audio files (`.wav`).                                        |
@@ -144,6 +144,22 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.4**
+    - Phase 1 (candidate generation) of the parameter optimization of the denoising algorithm: screening results and Bayesian search.
+        - Screening of the 7 parameters of the candidate generation run.
+        - Updated `denoising/parameter_optimization.ipynb` (section 4.3): figure of the screening, range of each metric per parameter, and the parameters of the search (ranges, constraints; `MAX_EVENT` fixed at 140 ms).
+        - Updated `denoising/PARAMETER_OPTIMIZATION.md`:
+            - (a) Maximum recall → recall<sub>max</sub> and its SE;
+            - (b) Minimum load with recall ≥ recall<sub>max</sub> − SE (1-SE rule, instead of 0.005) and median $w_i$ ≥ baseline (constraint only in (b), with a safeguard);
+            - Constraint `REF_OUTER` − `REF_INNER` ≥ `MAX_EVENT`;
+            - `MAX_EVENT` fixed; 
+            - Nested 5-fold cross-validation.
+        - New executable script `denoising/search_candidates.py`: Bayesian search (Optuna TPE) of the candidate generation with a nested cross-validation (5 folds + whole tuning set).
+        - New module `denoising/src/optimization/candidate_search.py`: protocol of the search (search space, constraints, searches (a) and (b), safeguard, choice of C1, training/validation mixtures of each fold).
+        - Updated `denoising/get_splits.py`: it also saves the 5 folds of the cross-validation of the tuning set.
+        - Updated `denoising/README.md`.
+    - `.gitignore`: the split and folds (`denoising/splits/`), the candidates of the baseline on the tuning set, and the results of the screening and of the search are now versioned (not the Optuna studies `.db` nor the logs of the search).
+
 - **v2.3.3**
     - Phase 1 (candidate generation) of the parameter optimization of the denoising algorithm:
         - Updated `denoising/PARAMETER_OPTIMIZATION.md`: 

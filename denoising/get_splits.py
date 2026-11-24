@@ -9,6 +9,8 @@ removed) and takes the first of N_SPLITS = 4 folds as test (75 % tuning / 25 % t
     - Clean signals: grouped by clean_id, stratified by label (StratifiedGroupKFold)
     - Artifacts: grouped by art_id, stratified by duration (StratifiedGroupKFold)
 Crossing both splits gives the four sets of parameter_optimization.ipynb: tuning, test, new signals and new artifacts.
+Then splits the tuning clean signals and artifacts into the N_CV_FOLDS = 5 folds of the nested cross-validation of
+search_candidates.py, in the same way (grouped and stratified, on the tuning mixtures).
 
 Requires:
     denoising/audio/{id}.wav
@@ -19,6 +21,10 @@ Generates:
         clean_id, label and set (tune / test) of each clean signal
     denoising/splits/artifact_split.csv
         art_id, art_duration_ms and set (tune / test) of each artifact
+    denoising/splits/cv_clean_folds.csv
+        clean_id, label and fold (1-5) of each tuning clean signal
+    denoising/splits/cv_artifact_folds.csv
+        art_id, art_duration_ms and fold (1-5) of each tuning artifact
 
 Execution:
     python denoising/get_splits.py
@@ -29,8 +35,7 @@ import pandas as pd
 from sklearn.model_selection import StratifiedGroupKFold
 
 from run_experiment import get_mixes_1, load_artifacts, load_clean_signals
-from src.evaluation.evaluation import FS
-from src.optimization.splits import SPLITS_PATH  # denoising/splits (same folder as the one read by the notebook)
+from src.optimization.splits import CV_FILES, N_CV_FOLDS, SPLITS_PATH  # denoising/splits (read by the notebook)
 
 
 DENOISING_PATH = Path(__file__).resolve().parent  # denoising/ (independent of the cwd, as in run_experiment.py)
@@ -79,6 +84,40 @@ def do_tune_test_split(df: pd.DataFrame) -> tuple[set, set]:
     return groups_clean, groups_artifact
 
 
+def do_cv_folds(df: pd.DataFrame, groups_clean: set, groups_artifact: set) -> tuple[dict, dict]:
+    """
+    Folds of the nested cross-validation of the tuning set (N_CV_FOLDS), as the tuning/test split but with every fold:
+    - Clean signals: grouped by clean_id, stratified by label
+    - Artifacts: grouped by art_id, stratified by duration (art_duration_ms)
+    Fold k of search_candidates.py crosses both (training: signals and artifacts of the other folds; validation:
+    those of fold k).
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Mixtures (without controls), with the duration of the artifact (art_duration_ms)
+    groups_clean: set
+        clean_id of the tuning clean signals
+    groups_artifact: set
+        art_id of the tuning artifacts
+
+    Returns
+    -------
+    folds_clean: dict
+        clean_id -> fold (1..N_CV_FOLDS) of each tuning clean signal
+    folds_artifact: dict
+        art_id -> fold (1..N_CV_FOLDS) of each tuning artifact
+    """
+    tune = df[df["clean_id"].isin(groups_clean) & df["art_id"].isin(groups_artifact)]
+
+    def folds(strata, groups):
+        sgkf = StratifiedGroupKFold(n_splits=N_CV_FOLDS, shuffle=True, random_state=RANDOM_STATE)
+        return {group: k for k, (_, idx) in enumerate(sgkf.split(tune, tune[strata], tune[groups]), start=1)
+                for group in tune.iloc[idx][groups].unique()}
+
+    return folds("label", "clean_id"), folds("art_duration_ms", "art_id")
+
+
 def save_split(df: pd.DataFrame, groups_clean: set, groups_artifact: set) -> None:
     """
     Saves the tuning/test split of the clean signals and of the artifacts:
@@ -103,6 +142,28 @@ def save_split(df: pd.DataFrame, groups_clean: set, groups_artifact: set) -> Non
     artifact.to_csv(SPLITS_PATH / "artifact_split.csv", index=False)
 
 
+def save_cv_folds(df: pd.DataFrame, folds_clean: dict, folds_artifact: dict) -> None:
+    """
+    Saves the folds of the nested cross-validation of the tuning set:
+    - denoising/splits/cv_clean_folds.csv: clean_id, label, fold
+    - denoising/splits/cv_artifact_folds.csv: art_id, art_duration_ms, fold
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Mixtures (without controls), with the duration of the artifact (art_duration_ms)
+    folds_clean, folds_artifact: dict
+        clean_id / art_id -> fold (do_cv_folds)
+    """
+    clean = df.groupby("clean_id")["label"].first().reset_index()
+    clean = clean[clean["clean_id"].isin(folds_clean)].assign(fold=lambda d: d["clean_id"].map(folds_clean))
+    clean.to_csv(SPLITS_PATH / CV_FILES[0], index=False)
+
+    artifact = df.groupby("art_id")["art_duration_ms"].first().reset_index()
+    artifact = artifact[artifact["art_id"].isin(folds_artifact)].assign(fold=lambda d: d["art_id"].map(folds_artifact))
+    artifact.to_csv(SPLITS_PATH / CV_FILES[1], index=False)
+
+
 def main():
     # Create directory, if necessary
     print("\nCreating folder\n")
@@ -122,9 +183,17 @@ def main():
     print(f"Clean signals: {len(groups_clean)} tune / {n_clean - len(groups_clean)} test")
     print(f"Artifacts:     {len(groups_artifact)} tune / {n_artifact - len(groups_artifact)} test")
 
+    # Generate the folds of the cross-validation of the tuning set
+    print(f"\nFolds of the cross-validation of the tuning set ({N_CV_FOLDS})\n")
+    folds_clean, folds_artifact = do_cv_folds(exp_df, groups_clean, groups_artifact)
+    for k in range(1, N_CV_FOLDS + 1):
+        print(f"Fold {k}: {list(folds_clean.values()).count(k)} clean signals, "
+              f"{list(folds_artifact.values()).count(k)} artifacts")
+
     # Save splits
     print("\nSaving splits\n")
     save_split(exp_df, groups_clean, groups_artifact)
+    save_cv_folds(exp_df, folds_clean, folds_artifact)
 
 
 if __name__ == "__main__":

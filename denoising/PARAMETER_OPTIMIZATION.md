@@ -104,7 +104,7 @@ The optimization is split into 6 phases. Each phase fixes its parameters before 
 | Phase | What it optimizes | Parameters | Metric | Output |
 |:-----:|:------------------|:-----------|:-------|:-------|
 | **0** | Preparation | — | Score, Q, FP | Tuning/test split, $\lambda$, baseline |
-| **1** | Candidate generation | `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER`, `MAX_EVENT` | Candidate recall, load, overflow | C1 |
+| **1** | Candidate generation | `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER` (`MAX_EVENT` fixed) | Candidate recall, load, overflow | C1 |
 | **2** | Feature definition | `BG_FACTOR`, `WIDTH_FLOOR_DB`, `EXTEND`, `ISO_WIN`, `Z_WIN`, `AR_ORDER` | Standardized partial ROC-AUC | Candidate table |
 | **3** | Rule selection | Rule structure and thresholds | $\hat{S}$ (estimated score) | Final rules and thresholds |
 | **4** | Attenuation | `G_FAC`, `GAIN_SMOOTH`, `LOCAL_BG` | Score | Optimized version |
@@ -176,7 +176,7 @@ Compute the Score, Q and FP on the tuning set, with the $\lambda$ of [0.2](#02-p
 ### 1️⃣ Phase 1 — Candidate generation
 
 - **Goal:** almost every artifact that matters should generate some candidate, without an excessive load on the clean signals and without overflowing the artifact. If an artifact does not become a candidate, no rule will be able to detect it later; if its span overflows the artifact, it merges with neighbouring sounds, which degrades its features ([Phase 2](#2️⃣-phase-2--feature-definition)).
-- **Optimization of:** `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER`, `MAX_EVENT`.
+- **Optimization of:** `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER`. `MAX_EVENT` is screened, but fixed at 140 ms (see the procedure).
 - **Metrics:** missing a candidate and overflowing the artifact have very different costs (a missed artifact is lost for good; a wider span only degrades its features, which the rules of [Phase 3](#3️⃣-phase-3--rule-selection) can partly compensate), so they are measured apart and with priority:
     1. **Candidate recall:** recall at each SNR weighted by the cost of missing an artifact at that SNR, over every SNR.
     2. **Load:** candidates per control signal.
@@ -215,17 +215,28 @@ where:
     - Candidate recall at every SNR, $\text{Recall}_s$, and of each artifact (cost-weighted and unweighted).
     - **Load in the mixtures:** candidates that do not touch $Z_i$ per mixture, averaged as $FP$ ([Number of false positives](#number-of-false-positives)). The false positives of [Phase 3](#3️⃣-phase-3--rule-selection) come from these candidates; a difference with the load shows that the artifact changes the candidates of the rest of the signal.
 
-> `K` and `MASK_DILATION` move recall and overflow in opposite directions (a low `K` gives more candidates, but wider spans): a single combined number would hide that conflict.
+> `K` moves recall and overflow in opposite directions (a low `K` gives more candidates, but wider spans), and `MASK_DILATION` moves load and overflow in opposite directions (less widening gives more candidates, but narrower ones; the recall barely changes): a single combined number would hide these conflicts.
 
 **Procedure:**
 
 1. **Screening:** each parameter is varied alone. If the metrics do not change, it is fixed.
-2. **Search:** two Bayesian optimizations, one after the other:
-    - **(a) Maximum recall:** maximize the candidate recall (cost-weighted) subject to load < 2 × baseline → recall<sub>max</sub>.
-    - **(b) Minimum load:** minimize the load subject to recall ≥ recall<sub>max</sub> − 0.005 and median $w_i$ ≥ median $w_i$ of the baseline.
+    - **`MAX_EVENT` is fixed at 140 ms**, although it changes the metrics: it is the limit of the protection of the adventitious sounds, which phase 1 does not measure, and it caps the width of the candidates (a long detection is removed only in its band, while the span of a candidate is the union over the bands), so a search would use it to lower the overflow. It is swept later with the Score.
+2. **Search:** two Bayesian optimizations, one after the other, both subject to `REF_INNER` < `REF_OUTER` and `REF_OUTER` − `REF_INNER` ≥ `MAX_EVENT`:
+    - **(a) Maximum recall:** maximize the candidate recall (cost-weighted) → recall<sub>max</sub> and its standard error $SE$ (bootstrap grouped by signal and by artifact).
+    - **(b) Minimum load:** minimize the load subject to recall ≥ recall<sub>max</sub> − $SE$ and median $w_i$ ≥ median $w_i$ of the baseline.
+    - **Safeguard:** if (b) finds no configuration that meets both constraints, recall<sub>max</sub> and $SE$ are recomputed from the configurations of (a) with median $w_i$ ≥ median $w_i$ of the baseline, and (b) is run again.
     - The recall, load and overflow of every evaluated configuration (of both searches) are saved.
-3. **Choice:** among all the evaluated configurations (a and b) that meet the two constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of the configurations with recall ≥ recall<sub>max</sub> − 0.005 is used to check it (e.g. whether a little more load would give much less overflow).
+    - **Nested cross-validation:** the tuning clean signals and artifacts are split into 5 folds (grouped and stratified as the tuning/test split); in fold *k*, the searches and the choice use the signals and artifacts of the other folds, and the C1 of the fold is evaluated (with the baseline) on the signals and artifacts of fold *k* → 5 C1 (stability of the parameters) + 5 validation metrics (optimism). The final C1 comes from the same protocol on the whole tuning set.
+3. **Choice:** among all the evaluated configurations (a and b) that meet the constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of those configurations is used to check it (e.g. whether a little more load would give much less overflow).
 4. **Full run:** computation of the estimates needed for the Score in [Phase 3](#3️⃣-phase-3--rule-selection).
+
+> **Tolerance $SE$:** the recall of the baseline has $SE$ = 0.0041 (2000 resamples of signals and artifacts), so differences of recall smaller than $SE$ cannot be told apart from the sampling of signals and artifacts (1-SE rule, as in the [backward pruning](#34-backward-pruning)). In terms of the Score, giving up 0.004 of recall costs at most $0.004 \cdot \sum_s c_s / |\mathcal{S}| \approx 0.001$ of $Q$.
+>
+> **Overflow only in (b):** recall<sub>max</sub> is the maximum recall, whatever the overflow and the load, so the recall keeps its priority. If that maximum is only reached with wide spans, no configuration with little overflow comes close to it and (b) has no solution, hence the safeguard.
+>
+> **Range and constraints:** the search ranges are those of each parameter alone; the constraints apply to the whole configuration. A value that alone does not meet a constraint (e.g. `ENV_SMOOTH` = 2 ms: median $w_i$ = 0.849) can meet it together with other values, so it stays in the range.
+
+**`REF_OUTER` − `REF_INNER` ≥ `MAX_EVENT`:** the reference is the median of two windows of `REF_OUTER` − `REF_INNER`, one at each side, so in an event longer than `REF_OUTER` the reference rises at the edges and only the center is detected (2·`REF_OUTER` − L for a flat event of length L < `REF_INNER` + `REF_OUTER`; longer events are not detected at all). With windows shorter than `MAX_EVENT`, that center can be shorter than `MAX_EVENT`: the event loses the protection of long events and becomes a short candidate.
 
 **Outputs:**
 

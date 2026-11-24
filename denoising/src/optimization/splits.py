@@ -8,6 +8,8 @@ get_splits.py and splits the results of an experiment into the four sets of sect
     - new_signals:   test clean signals   x tuning artifacts
     - new_artifacts: tuning clean signals x test artifacts
 Each set keeps the controls (clean signal without artifact) of its clean signals.
+Also loads the folds of the nested cross-validation of the tuning set (search_candidates.py), also saved by
+get_splits.py.
 """
 
 from pathlib import Path
@@ -17,6 +19,8 @@ import pandas as pd
 
 SPLITS_PATH = Path(__file__).resolve().parents[2] / "splits"  # denoising/splits (independent of the cwd)
 SETS = ["tune", "test", "new_signals", "new_artifacts"]
+N_CV_FOLDS = 5  # Folds of the nested cross-validation of the tuning set
+CV_FILES = ("cv_clean_folds.csv", "cv_artifact_folds.csv")  # In SPLITS_PATH
 
 
 def load_split() -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -33,6 +37,20 @@ def load_split() -> tuple[pd.DataFrame, pd.DataFrame]:
     clean_split = pd.read_csv(SPLITS_PATH / "clean_split.csv")
     artifact_split = pd.read_csv(SPLITS_PATH / "artifact_split.csv")
     return clean_split, artifact_split
+
+
+def load_cv_folds() -> tuple[pd.DataFrame, pd.DataFrame]:
+    """
+    Loads the folds of the nested cross-validation of the tuning set saved by get_splits.py.
+
+    Returns
+    -------
+    clean_folds: pd.DataFrame
+        clean_id, label and fold (1..N_CV_FOLDS) of each tuning clean signal
+    artifact_folds: pd.DataFrame
+        art_id, art_duration_ms and fold (1..N_CV_FOLDS) of each tuning artifact
+    """
+    return tuple(pd.read_csv(SPLITS_PATH / name) for name in CV_FILES)
 
 
 def split_results(results_df: pd.DataFrame, clean_split: pd.DataFrame | None = None,

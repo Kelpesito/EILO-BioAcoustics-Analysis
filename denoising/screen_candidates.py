@@ -52,7 +52,7 @@ EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
 
 # Values of each parameter (the default value of remove_noise.py is included in each list)
 SCREENING = {
-    "WAVELET": ["db1", "db2", "db4", "db6", "db8", "db10", "coif2", "coif4"],       # Orthogonal only (see README)
+    "WAVELET": ["db1", "db2", "db4", "db6", "db8", "db10", "coif2", "coif4"],       # Orthogonal only
     "K": [1, 3, 5, 7, 9, 11, 13, 15],                                               # Detection threshold (times the reference)
     "ENV_SMOOTH": [0, 0.001, 0.002, 0.004, 0.008, 0.016, 0.032, 0.064],             # s
     "MASK_DILATION": [0, 0.005, 0.01, 0.015, 0.02, 0.025, 0.03, 0.04],              # s (0 -> no widening)
