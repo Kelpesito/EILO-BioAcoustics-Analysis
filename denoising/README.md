@@ -582,8 +582,12 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
     - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact at each SNR, $c_s = 1 - q(s)$), load and overflow, and their diagnostics, from the per-mixture results of [get_candidates.py](get_candidates.py).
     - **4.2. Baseline:** candidate metrics of the current version on the tuning set: recall = 0.986 (unweighted, SNR ≤ 0 dB: 0.943), load = 7.4 candidates per control, median $w_i$ = 0.86 (median overflow: 15 ms). About half of the artifact zones already touch a candidate of the clean signal (recall ≈ 0.54 at 20 dB), which is why the recall is weighted by the cost.
     - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py). The tables are loaded with `load_screening` and shown in one figure (`plot_screening`): one row per parameter and one column per metric (recall, load, median $w_i$), with the same y axis in each column, the default value and the baseline.
-    - **4.4–4.5:** Bayesian search ((a) maximum recall, (b) minimum load) and choice of C1, with a nested 5-fold cross-validation, run with [search_candidates.py](search_candidates.py) (pending results).
-    - **4.6:** full run (pending).
+    - **4.4. Search:** results of [search_candidates.py](search_candidates.py) ((a) maximum recall, (b) minimum load, safeguard (b2); nested 5-fold cross-validation and whole tuning set): table of each run and history of the searches (recall, load and overflow of each configuration in the order of evaluation, with the best feasible configuration so far and the best recall of (a)). Every run needed the safeguard.
+    - **4.5. Choice:** C1 of each run with its recall–load and load–overflow Pareto fronts, parameters of C1, nested cross-validation (C1 − baseline on the training and validation mixtures of each fold, optimism, mean ± SD over the folds) and stability of the parameters of C1.
+        - **Final C1** (whole tuning set): `db8`, `K` = 5.50, `ENV_SMOOTH` = 15.8 ms, `MASK_DILATION` = 8.8 ms, `REF_INNER` = 36.1 ms, `REF_OUTER` = 233.1 ms → recall = 0.993, load = 3.3 candidates per control, median $w_i$ = 0.876 (baseline: 0.986, 7.4, 0.860).
+        - **Validation** (mean ± SD over the 5 folds, C1 − baseline): recall +0.010 ± 0.011, load −1.8 ± 2.7, median $w_i$ +0.005 ± 0.025.
+        - **Stability:** the C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
+    - **4.6:** full run.
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 1 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**

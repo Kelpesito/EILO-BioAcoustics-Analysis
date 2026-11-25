@@ -144,6 +144,12 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.7**
+    - Results of the Bayesian search of the candidate generation (phase 1 of the parameter optimization): 5 folds of the nested cross-validation and whole tuning set (`denoising/results/optimization/candidates/search/`). Every run needed the safeguard (b2).
+    - Updated `denoising/parameter_optimization.ipynb` (sections 4.3–4.5):
+        - Figures of the search: history of the searches of each run, choice of C1 with the recall–load and load–overflow Pareto fronts, nested cross-validation (C1 − baseline on the training and validation mixtures of each fold, optimism) and stability of the parameters of C1.
+        - Mean ± SD over the folds of the nested cross-validation, printed after its table.
+
 - **v2.3.6**
     - Uptaded `denoising/PARAMETER_OPTIMIZATION.md`.
     - Updated `denoising/README.md`.

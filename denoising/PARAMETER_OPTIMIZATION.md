@@ -225,9 +225,9 @@ where:
     - **(a) Maximum recall:** maximize the candidate recall (cost-weighted) → recall<sub>max</sub> and its standard error $SE$ (bootstrap grouped by signal and by artifact).
     - **(b) Minimum load:** minimize the load subject to recall ≥ recall<sub>max</sub> − $SE$ and median $w_i$ ≥ median $w_i$ of the baseline.
     - **Safeguard:** if (b) finds no configuration that meets both constraints, recall<sub>max</sub> and $SE$ are recomputed from the configurations of (a) with median $w_i$ ≥ median $w_i$ of the baseline, and (b) is run again.
-    - The recall, load and overflow of every evaluated configuration (of both searches) are saved.
+    - The recall, load and overflow of every evaluated configuration (of every search) are saved.
     - **Nested cross-validation:** the tuning clean signals and artifacts are split into 5 folds (grouped and stratified as the tuning/test split); in fold *k*, the searches and the choice use the signals and artifacts of the other folds, and the C1 of the fold is evaluated (with the baseline) on the signals and artifacts of fold *k* → 5 C1 (stability of the parameters) + 5 validation metrics (optimism). The final C1 comes from the same protocol on the whole tuning set.
-3. **Choice:** among all the evaluated configurations (a and b) that meet the constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of those configurations is used to check it (e.g. whether a little more load would give much less overflow).
+3. **Choice:** among all the evaluated configurations (a, b and, with the safeguard, b2) that meet the constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of those configurations is used to check it (e.g. whether a little more load would give much less overflow).
 4. **Full run:** computation of the estimates needed for the Score in [Phase 3](#3️⃣-phase-3--rule-selection).
 
 > **Tolerance $SE$:** the recall of the baseline has $SE$ = 0.0041 (2000 resamples of signals and artifacts), so differences of recall smaller than $SE$ cannot be told apart from the sampling of signals and artifacts (1-SE rule, as in the [backward pruning](#34-backward-pruning)). In terms of the Score, giving up 0.004 of recall costs at most $0.004 \cdot \sum_s c_s / |\mathcal{S}| \approx 0.001$ of $Q$.
@@ -241,7 +241,9 @@ where:
 **Outputs:**
 
 - Screening plots.
-- Recall–load curve (a), load–overflow Pareto front (b), with the chosen point.
+- History of the searches of each run: recall, load and overflow of each configuration in the order of evaluation, with the best feasible configuration so far and the best recall of (a).
+- Recall–load and load–overflow Pareto fronts, with the constraints of (b) and the chosen point.
+- Nested cross-validation: C1 − baseline on the training and validation mixtures of each fold, optimism, and mean ± SD over the folds; stability of the parameters of C1 across the folds.
 - C1.
 
 ---
