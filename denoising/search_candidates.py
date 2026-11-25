@@ -25,8 +25,8 @@ Requires:
         metrics of the baseline and constraint of (b) on the median w_i
 
 Generates:
-    denoising/results/optimization/search/
-        <run>.db            Optuna studies a, b (and b2) of the run (SQLite): an interrupted run continues where it
+    denoising/results/optimization/candidates/search/
+        <run>.db           Optuna studies a, b (and b2) of the run (SQLite): an interrupted run continues where it
                             stopped when it is launched again
         <run>_trials.csv    One row per evaluated configuration: search, configuration, metrics, feasible
         <run>.json          Summary of the run: constraints, C1 and its metrics and those of the baseline (training
@@ -63,7 +63,7 @@ from src.optimization.splits import N_CV_FOLDS, load_cv_folds, load_split, split
 
 
 # Paths
-SEARCH_PATH = OPTIMIZATION_PATH / "search"  # denoising/results/optimization/search
+SEARCH_PATH = CANDIDATES_PATH / "search"  # denoising/results/optimization/candidates/search
 BASELINE_FILE = CANDIDATES_PATH / "baseline" / "tune.csv"  # get_candidates.py -s tune
 EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
 
@@ -79,9 +79,11 @@ def create_folder_structure() -> None:
     """
     Creates the following folders:
     - denoising/results/optimization
-    - denoising/results/optimization/search
+    - denoising/results/optimization/candidates
+    - denoising/results/optimization/candidates/search
     """
     OPTIMIZATION_PATH.mkdir(exist_ok=True)
+    CANDIDATES_PATH.mkdir(exist_ok=True)
     SEARCH_PATH.mkdir(exist_ok=True)
 
 

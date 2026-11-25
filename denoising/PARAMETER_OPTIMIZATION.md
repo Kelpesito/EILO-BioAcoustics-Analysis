@@ -2,7 +2,7 @@
 
 This document describes the **parameter optimization plan** of the transient (click) removal filter of [🧹 Denoising](README.md). Its goal is to replace the current thresholds, **selected by eye** (see [⚙️ Parameters](README.md#️-parameters)), with a phased optimization over mixtures of clean signals and artifacts, like those of [evaluation_denoise.ipynb](README.md#evaluation_denoiseipynb--evaluation-of-the-algorithm).
 
-> 🚧 **Plan:** the phases described here are not implemented yet (see [📋 Status](#-status)).
+> 🚧 **In progress:** see [📋 Status](#-status).
 
 ---
 

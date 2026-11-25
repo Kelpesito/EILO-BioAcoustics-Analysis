@@ -91,7 +91,7 @@ The project declares the following direct dependencies in `pyproject.toml`:
 | `kaleido`         | Static image export engine for `Plotly` figures.                                   |
 | `matplotlib`      | Static plotting for exploratory analysis and visualisation notebooks |
 | `nbformat`        | Parsing and validating Jupyter notebook structure (`.ipynb`).                    |
-| `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner) and Bayesian search of the parameters of the transient removal filter (`denoising/search_candidates.py`). |
+| `optuna`          | Hyperparameter optimization for the classification pipeline (TPE sampler + Hyperband pruner) and Bayesian search of the parameters of the transient removal filter. |
 | `pandas`          | Tabular data handling and metadata CSV processing.                               |
 | `plotly`          | Interactive plotting in the visualization notebooks. |
 | `pywavelets`      | Stationary Wavelet Transform (SWT) used by the transient removal filter (dataset pipeline and `denoising/`). |
@@ -144,6 +144,14 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.6**
+    - Uptaded `denoising/PARAMETER_OPTIMIZATION.md`.
+    - Updated `denoising/README.md`.
+    - Updated `README.md`
+    - Updated `denoising/search_candidates.py`: New results route. 
+    - Updated `.gitignore`: Versioned all `.csv` files.
+    - `denoising/parameter_optimization.ipynb:` Preparation of results visualization after bayesian search of parameters in candidate generation. 
+
 - **v2.3.5**
     - `denoising/search_candidates.py`: the log of each evaluated configuration no longer prints its parameters.
 

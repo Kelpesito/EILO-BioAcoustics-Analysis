@@ -82,7 +82,7 @@ denoising/
 
 The notebooks import the modules as a package from the `denoising/` folder (e.g. `from src.algorithm import remove_noise as rn`, `from src.algorithm.summary_plots import summary_plots`, `from src.evaluation.evaluation import read_results`), so they must be run with `denoising/` as the working directory.
 
-The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz). The exception is the evaluation (`evaluation_denoise.ipynb`, except its *Example* section): its clean signals and artifacts are read from `denoising/audio/`, an identical copy of those 78 fragments that is tracked by git (exception to `*.wav` in `.gitignore`), so the experiments can be reproduced without regenerating the dataset.
+The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz). The exception is the evaluation (`evaluation_denoise.ipynb`, except its *Example* section): its clean signals and artifacts are read from `denoising/audio/`, so the experiments can be reproduced without regenerating the dataset.
 
 ---
 
@@ -352,17 +352,17 @@ denoising/
         ├── candidates/
         │   ├── <name>/            ← get_candidates.py (-n, default: baseline)
         │   │   └── <set>.csv              # one row per mixture: metrics of its candidates (all.csv without -s)
-        │   └── screening/         ← screen_candidates.py
-        │       └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
-        └── search/                ← search_candidates.py (<run> = fold_1 … fold_5, all)
-            ├── <run>.db                   # Optuna studies a, b (b2) of the run (SQLite; resume)
-            ├── <run>_trials.csv           # one row per evaluated configuration: search, configuration, metrics, feasible
-            ├── <run>.json                 # constraints, C1 and its metrics and those of the baseline (training, validation)
-            ├── <runs>.log                 # log of an execution, identical to the terminal (e.g. fold_1.log)
-            └── summary.csv                # one row per finished run
+        │   ├── screening/         ← screen_candidates.py
+        │   │   └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
+        │   └── search/            ← search_candidates.py (<run> = fold_1 … fold_5, all)
+        │       ├── <run>.db               # Optuna studies a, b (b2) of the run (SQLite; resume)
+        │       ├── <run>_trials.csv       # one row per evaluated configuration: search, configuration, metrics, feasible
+        │       ├── <run>.json             # constraints, C1 and its metrics and those of the baseline (training, validation)
+        │       ├── <runs>.log             # log of an execution, identical to the terminal (e.g. fold_1.log)
+        │       └── summary.csv            # one row per finished run
 ```
 
-Versioned (exceptions to `*.csv` in `.gitignore`): `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the other tables of `get_candidates.py` (regenerated with the same parameters of the algorithm), and the `.db` (only to resume a run) and `.log` of the search.
+Every `.csv` and `.json` is versioned: among others, `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the `.db` (only to resume a run) and `.log` of the search.
 
 ---
 
@@ -422,7 +422,7 @@ python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker pr
     - `has_candidate`: some candidate touches the zone.
     - `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
     - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
-- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Only `baseline/tune.csv` is versioned (required by `search_candidates.py`); the others are not (`*.csv` in `.gitignore`).
+- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Versioned (`baseline/tune.csv` is required by `search_candidates.py`).
 
 The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
 

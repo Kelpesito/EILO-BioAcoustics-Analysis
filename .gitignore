@@ -12,7 +12,6 @@ wheels/
 # Images, audio and other data
 *.wav
 *.tiff
-*.csv
 *.sbatch
 
 # Data
@@ -24,26 +23,14 @@ dataset/full_dataset/
 dataset/good_quality/
 dataset/poor_quality/
 
-classification/classification/
-classification/splits/
 classification/results/
 classification/models/
 
 ICBHI/dataset/
 
 # Optuna studies (resume only) and logs of the Bayesian search of the denoising filter
-denoising/results/optimization/search/*.db
-denoising/results/optimization/search/*.log
-
-# Don't ignore certain .csv
-!denoising/results/experiments/experiment_1.csv
-!denoising/results/experiments/experiment_2.csv
-# Parameter optimization of the denoising filter: split and folds (shared by the HPC runs and the notebook), baseline
-# candidates (required by search_candidates.py), screening and search results (hours of HPC)
-!denoising/splits/*.csv
-!denoising/results/optimization/candidates/baseline/tune.csv
-!denoising/results/optimization/candidates/screening/*.csv
-!denoising/results/optimization/search/*.csv
+denoising/results/optimization/candidates/search/*.db
+denoising/results/optimization/candidates/search/*.log
 
 # Don't ignore the fragments of the denoising evaluation (clean signals and artifacts of evaluation_denoise.ipynb)
 !denoising/audio/*.wav
