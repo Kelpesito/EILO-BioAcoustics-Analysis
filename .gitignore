@@ -31,6 +31,8 @@ ICBHI/dataset/
 # Optuna studies (resume only) and logs of the Bayesian search of the denoising filter
 denoising/results/optimization/candidates/search/*.db
 denoising/results/optimization/candidates/search/*.log
+denoising/results/optimization/features/search/*/*.db
+denoising/results/optimization/features/search/*/*.log
 
 # Don't ignore the fragments of the denoising evaluation (clean signals and artifacts of evaluation_denoise.ipynb)
 !denoising/audio/*.wav

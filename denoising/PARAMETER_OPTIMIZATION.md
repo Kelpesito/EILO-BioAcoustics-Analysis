@@ -299,26 +299,52 @@ $$
 
 where $\mathcal{P}$ are the artifacts and $\mathcal{N}$ the rest.
 
-**Standardized partial AUC** (McClish, 1989), with $\text{FPR}_{\max} = 0.1$:
+**Region of the ROC curve** of each feature, according to its use in the click rules:
+
+- **Selectors** (`isolation`, `z_max`; conditions ≥): low false positive rate, $\text{FPR} \leq \text{FPR}_{\max} = 0.1$ (how many artifacts are detected before the rest).
+- **Vetoes** (`width_med`, `width_max`; conditions ≤): high sensitivity, $\text{TPR} \geq \text{TPR}_{\min} = 0.9$ (how much of the rest is removed while almost every artifact is kept).
+
+**Standardized partial AUC** (McClish, 1989):
 
 $$
 \text{pAUC} = \int_0^{\text{FPR}_{\max}} \text{TPR}\; d\,\text{FPR}, \qquad
 \text{sAUC} = \frac{1}{2}\left(1 + \frac{\text{pAUC} - \text{FPR}_{\max}^2/2}{\text{FPR}_{\max} - \text{FPR}_{\max}^2/2}\right)
 $$
 
-sAUC = 0.5: no better than chance; sAUC = 1: perfect separation at FPR ≤ 0.1. **Metric of each group:** mean sAUC of its features.
+**High sensitivity** (Jiang et al., 1996): the same sAUC, with $1 - \text{TPR}_{\min}$ instead of $\text{FPR}_{\max}$ and the area
+
+$$
+\text{pAUC}_{\text{sens}} = \int_{\text{TPR}_{\min}}^{1} \left(1 - \text{FPR}\right) d\,\text{TPR}
+$$
+
+which is the pAUC with the classes swapped and the sign of $x$ changed.
+
+sAUC = 0.5: no better than chance; sAUC = 1: perfect separation in the region. **Metric of each group:** mean sAUC of its features (width: `width_med` and `width_max`).
 
 **Baselines:** the default parameters of the features, with the candidates of the baseline and with those of C1.
 
 **Procedure:**
 
-1. **Search:** for each group and combination of parameters, compute the features.
-2. **Choice:** pick the combination with the best mean partial AUC → **C2'**. C1 together with C2' → **C2**.
+1. **Search:** a Bayesian optimization (Optuna TPE) of each group separately, maximizing its metric (the metric of a group only depends on its own parameters). The candidates are those of C1; the first configuration evaluated is the default one (baseline).
+
+   | Group | Parameter | Default | Search range | Scale | Configurations |
+   |:------|:----------|:-------:|:------------:|:-----:|:--------------:|
+   | **Width**         | `BG_FACTOR`      | 2      | [1, 8]        | Log     | 60 |
+   |                   | `WIDTH_FLOOR_DB` | 20 dB  | [6, 40] dB    | Linear  |    |
+   |                   | `EXTEND`         | 2 FWHM | [0, 4] FWHM   | Linear  |    |
+   | **Isolation**     | `ISO_WIN`        | 100 ms | [20, 500] ms  | Log     | 20 |
+   | **Impulsiveness** | `Z_WIN`          | 100 ms | [20, 500] ms  | Log     | 40 |
+   |                   | `AR_ORDER`       | 20     | [1, 40]       | Integer |    |
+
+   - **Nested cross-validation:** the same 5 folds as in [Phase 1](#1️⃣-phase-1--candidate-generation); in fold *k*, the search uses the signals and artifacts of the other folds, and its best configuration is evaluated (with the baseline) on those of fold *k* → 5 C2' of each group (stability of the parameters) + 5 validation metrics (optimism). The final C2' comes from the same search on the whole tuning set.
+2. **Choice:** the configuration with the best metric of each group → **C2'**. C1 together with C2' → **C2**.
 3. **Full run:** run of the filter on the tuning set with C2.
 
 **Outputs:**
 
-- AUC vs value (for each parameter).
+- History of the search of each run: metric of each configuration in the order of evaluation.
+- Metric vs value (for each parameter).
+- Nested cross-validation: best − baseline on the training and validation mixtures of each fold, optimism, and mean ± SD over the folds; stability of the parameters of C2' across the folds.
 - C2.
 - Candidate table: features of every candidate.
 - Scores: $q$, detection and false positives of every mixture, needed for $\hat{S}$ in [Phase 3](#3️⃣-phase-3--rule-selection).

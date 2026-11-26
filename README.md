@@ -144,6 +144,17 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.10**
+    - Phase 2 (feature definition) of the parameter optimization of the denoising algorithm: Bayesian search of the parameters of the features.
+    - Updated `denoising/parameter_optimization.ipynb` (phase 2):
+        - 5.1. Metric: region of the ROC curve of each feature according to its use in the click rules.
+    - Updated `denoising/src/algorithm/remove_noise.py`: `candidate_features` can compute only some features (`names`).
+    - New executable script `denoising/search_features.py`: Bayesian search (Optuna TPE) of the parameters of one group of features with a nested cross-validation.
+    - New modules:
+        - `denoising/src/optimization/feature_score.py`: metric of section 5.1
+        - `denoising/src/optimization/feature_search.py`: search space of each group, default configuration + TPE, choice of C2.
+    - Updated `denoising/get_features.py`: the configuration `C2` reads C2' from the results of the search (run `all` of each group) instead of the constant `C2_PRIME`.
+
 - **v2.3.9**
     - Phase 2 (feature definition) of the parameter optimization of the denoising algorithm: metric and baselines.
     - Updated `denoising/src/algorithm/remove_noise.py` (same results as before):

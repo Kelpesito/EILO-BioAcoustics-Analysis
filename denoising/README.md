@@ -59,11 +59,12 @@ denoising/
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
 ├── screen_candidates.py           ← screening of the candidate generation, one parameter at a time (phase 1 of parameter_optimization.ipynb)
 ├── search_candidates.py           ← Bayesian search of the candidate generation with a nested cross-validation (phase 1 of parameter_optimization.ipynb)
+├── search_features.py             ← Bayesian search of the parameters of a group of features with a nested cross-validation (phase 2 of parameter_optimization.ipynb)
 ├── src/                           ← importable modules (used by the notebooks and the scripts)
 │   ├── __init__.py
 │   ├── algorithm/                 ← the algorithm and its figures
 │   │   ├── __init__.py
-│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py, get_candidates.py and get_features.py)
+│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py, get_candidates.py, get_features.py and search_features.py)
 │   │   └── summary_plots.py       ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
 │   ├── evaluation/                ← evaluation of the algorithm (evaluation_denoise.ipynb)
 │   │   ├── __init__.py
@@ -73,6 +74,8 @@ denoising/
 │       ├── __init__.py
 │       ├── candidate_score.py     ← metrics of the candidate generation (same code as sections 2 and 4.1 of the notebook; used by screen_candidates.py)
 │       ├── candidate_search.py    ← protocol of the Bayesian search of phase 1: search space, constraints, searches (a)/(b), safeguard, choice of C1, folds (used by search_candidates.py)
+│       ├── feature_score.py       ← metric of the features (same code as section 5.1 of the notebook; used by search_features.py)
+│       ├── feature_search.py      ← protocol of the Bayesian search of phase 2: search space of each group, default configuration + TPE, choice of C2' (used by search_features.py)
 │       └── splits.py              ← loading of the tuning/test split and split of the results into the four sets (used by parameter_optimization.ipynb)
 └── results/
     ├── experiments/               ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
@@ -108,6 +111,9 @@ clean, details = rn.remove_noise(signal, fs, return_details=True)
 # Candidates only (steps 1-4, without classification nor attenuation)
 stages = rn.generate_candidates(signal, fs)  # stages["candidate_span"]: samples covered by some candidate
 
+# Candidates and their features (steps 1-5, without classification nor attenuation)
+stages = rn.generate_features(signal, fs)  # stages["features"]: span and features of each candidate
+
 # Summary figures: they need some constants of the algorithm (params); save_dir -> also saved as .png
 PARAMS = dict(G_FAC=rn.G_FAC, K=rn.K, Z_CLICK=rn.Z_CLICK, Z_TOLERANCE=rn.Z_TOLERANCE, AR_ORDER=rn.AR_ORDER,
               ISO_WIN=rn.ISO_WIN, ISOLATION=rn.ISOLATION, ISOLATION_IMPULSIVE=rn.ISOLATION_IMPULSIVE,
@@ -116,7 +122,7 @@ summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 ```
 
 - The parameters of the algorithm are module constants ([⚙️ Parameters](#️-parameters)): to change one, set it on the module before calling `remove_noise`, e.g. `rn.K = 6`.
-    - ⚠️ Except `MAX_EVENT` and `SPLIT_LEVELS`: they are the default values of the arguments `max_event` and `split_levels` of `remove_noise` and `generate_candidates`, fixed when the module is imported. To change them, pass them as arguments, e.g. `rn.remove_noise(signal, fs, max_event=0.2)`.
+    - ⚠️ Except `MAX_EVENT` and `SPLIT_LEVELS`: they are the default values of the arguments `max_event` and `split_levels` of `remove_noise`, `generate_candidates` and `generate_features`, fixed when the module is imported. To change them, pass them as arguments, e.g. `rn.remove_noise(signal, fs, max_event=0.2)`.
 - The **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) holds a copy of the same code, to read the algorithm step by step next to the original filter; [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) and [run_experiment.py](run_experiment.py) use the module.
 
 ---
@@ -362,11 +368,18 @@ denoising/
         │       ├── <runs>.log             # log of an execution, identical to the terminal (e.g. fold_1.log)
         │       └── summary.csv            # one row per finished run
         └── features/
-            └── <config>/          ← get_features.py (-c baseline, C1 or C2; default: baseline)
-                └── <set>.csv              # one row per candidate: mixture, span, touches_zone, features, rules (all.csv without -s)
+            ├── <config>/          ← get_features.py (-c baseline, C1 or C2; default: baseline)
+            │   └── <set>.csv              # one row per candidate: mixture, span, touches_zone, features, rules (all.csv without -s)
+            └── search/            ← search_features.py
+                └── <group>/       ← width, isolation, impulsiveness (<run> = fold_1 … fold_5, all)
+                    ├── <run>.db           # Optuna study of the run (SQLite; resume)
+                    ├── <run>_trials.csv   # one row per evaluated configuration: trial, baseline, configuration, metrics
+                    ├── <run>.json         # best configuration (C2' of the group) and its metrics and those of the baseline (training, validation)
+                    ├── <runs>.log         # log of an execution, identical to the terminal (e.g. fold_1.log)
+                    └── summary.csv        # one row per finished run
 ```
 
-Every `.csv` and `.json` is versioned: among others, `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the `.db` (only to resume a run) and `.log` of the search.
+Every `.csv` and `.json` is versioned: among others, `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the `.db` (only to resume a run) and `.log` of the searches (`candidates/search/` and `features/search/<group>/`).
 
 ---
 
@@ -428,22 +441,6 @@ python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker pr
     - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
 - It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Versioned (`baseline/tune.csv` is required by `search_candidates.py`).
 
-The features of the candidates of phase 2 of the notebook are computed **from the terminal** with [get_features.py](get_features.py), from any folder, once `experiment_1.csv` exists (the split, if a set is given, and the search of phase 1, for `C1` and `C2`):
-
-```bash
-python denoising/get_features.py -c baseline -s tune   # Baselines of phase 2: baseline and C1, on the tuning set
-python denoising/get_features.py -c C1 -s tune         # -c, --config: baseline, C1 or C2 (default: baseline)
-python denoising/get_features.py -s tune -p 4       # -p, --processes: worker processes (default: as many as CPU cores)
-```
-
-- **Configurations:** `baseline` = default constants of [remove_noise.py](src/algorithm/remove_noise.py); `C1` = baseline + C1 (`results/optimization/candidates/search/all.json`); the baselines of phase 2 are `baseline` and `C1`; `C2` = C1 + C2' (`C2_PRIME` of the script, set once it is chosen in section 5.5).
-- It rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates and their features with `generate_features` in parallel, and classifies them with the current click rules (`find_click_events`).
-- It saves `denoising/results/optimization/features/{config}/{set}.csv` (`all.csv` if no set is given), **one row per candidate** (a mixture without candidates has no row), overwriting the previous file:
-    - Identification of the mixture (as `get_candidates.py`) and `n_positions`: mixtures of its cell (s, a, c), $N_{a,c}$ (weights of the metric).
-    - `cand`, `start`, `end`: index of the candidate in the mixture and its first and last + 1 sample.
-    - `touches_zone`: the candidate touches the zone of the artifact (±25 ms; empty in the controls).
-    - The features (`bands`, `r_med`, `r_max`, `z_max`, `isolation`, `width_med`, `width_max`, `misalign`, `at_border`), whether it meets each rule (`rule_<name>`) and `is_click`.
-
 The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
 
 ```bash
@@ -483,6 +480,37 @@ python denoising/search_candidates.py --trials-a 100 --trials-b 100 -p 64   # co
 - **Resume:** the studies are saved in `<run>.db`; an interrupted run continues where it stopped, and a finished run (`<run>.json`) is skipped. The runs are independent, so they can be launched as separate jobs at the same time.
 - Three nested progress bars: runs (cross-validation), configurations of the current search, and mixtures of the current configuration. The terminal and `<runs>.log` show the same messages: the baseline (whole tuning set and training/validation of each run), each evaluated configuration (metrics and time; its parameters are in `<run>_trials.csv`), the constraints of (b), C1, its validation and the cross-validation summary over the finished folds.
 - Each configuration is a run of the training mixtures of the fold (~64 % of the tuning set; the whole tuning set in `all`): about 200 configurations per run (more with the safeguard).
+
+The features of the candidates of phase 2 of the notebook are computed **from the terminal** with [get_features.py](get_features.py), from any folder, once `experiment_1.csv` exists (the split, if a set is given, and the search of phase 1, for `C1` and `C2`):
+
+```bash
+python denoising/get_features.py -c baseline -s tune   # Baselines of phase 2: baseline and C1, on the tuning set
+python denoising/get_features.py -c C1 -s tune         # -c, --config: baseline, C1 or C2 (default: baseline)
+python denoising/get_features.py -s tune -p 4       # -p, --processes: worker processes (default: as many as CPU cores)
+```
+
+- **Configurations:** `baseline` = default constants of [remove_noise.py](src/algorithm/remove_noise.py); `C1` = baseline + C1 (`results/optimization/candidates/search/all.json`); the baselines of phase 2 are `baseline` and `C1`; `C2` = C1 + C2' (best configuration of the run `all` of each group, `results/optimization/features/search/<group>/all.json`, see `search_features.py`).
+- It rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates and their features with `generate_features` in parallel, and classifies them with the current click rules (`find_click_events`).
+- It saves `denoising/results/optimization/features/{config}/{set}.csv` (`all.csv` if no set is given), **one row per candidate** (a mixture without candidates has no row), overwriting the previous file:
+    - Identification of the mixture (as `get_candidates.py`) and `n_positions`: mixtures of its cell (s, a, c), $N_{a,c}$ (weights of the metric).
+    - `cand`, `start`, `end`: index of the candidate in the mixture and its first and last + 1 sample.
+    - `touches_zone`: the candidate touches the zone of the artifact (±25 ms; empty in the controls).
+    - The features (`bands`, `r_med`, `r_max`, `z_max`, `isolation`, `width_med`, `width_max`, `misalign`, `at_border`), whether it meets each rule (`rule_<name>`) and `is_click`.
+
+The search of the parameters of the features of phase 2 (sections 5.2.2, 5.3.2 and 5.4.2 of the notebook) is run **from the terminal** with [search_features.py](search_features.py), one group of features at a time, from any folder, once the features of the candidates of C1 on the tuning set (`get_features.py -c C1 -s tune`: spans of the candidates, labels and baseline), C1 (`search_candidates.py`) and the folds (`get_splits.py`) exist:
+
+```bash
+python denoising/search_features.py -g width                    # -g, --group: width, isolation or impulsiveness
+python denoising/search_features.py -g isolation --runs 1       # --runs: folds 1-5 and/or all (one job per run)
+python denoising/search_features.py -g width --trials 60 -p 64  # configurations per run (default: 60 / 20 / 40); processes
+```
+
+- **Search** ([feature_search.py](src/optimization/feature_search.py), Optuna TPE): one group at a time (the metric of a group only depends on its own parameters), maximizing its metric ([feature_score.py](src/optimization/feature_score.py), section 5.1). The first configuration is the default one (baseline); the best one of the run `all` is the C2' of the group, read by `get_features.py -c C2`.
+- **Search space:** width `BG_FACTOR` [1, 8] (log), `WIDTH_FLOOR_DB` [6, 40] dB, `EXTEND` [0, 4] FWHM; isolation `ISO_WIN` [20, 500] ms (log); impulsiveness `Z_WIN` [20, 500] ms (log), `AR_ORDER` [1, 40] (integer).
+- **Nested cross-validation:** the same 5 folds as phase 1; each fold searches on its training mixtures and evaluates its best configuration (and the baseline) on its validation mixtures; the run `all` repeats the search on the whole tuning set.
+- **Cost:** the candidates are those of C1 and only the features of the group are recomputed in each configuration (only the mixtures: the controls are not used by the metric). Width: candidate generation of each mixture and widths (~155 ms per mixture); isolation: envelope of each mixture and isolation of the spans of the candidates of C1 (~1 ms); impulsiveness: AR model of each mixture and `z_max` of those spans (~30 ms).
+- **Resume:** the study of each run is saved in `<run>.db`; an interrupted run continues where it stopped, and a finished run (`<run>.json`) is skipped. The terminal and `<runs>.log` show the same messages: the baseline, each evaluated configuration (metric, sAUC of each feature, parameters and time), the best configuration, its validation and the cross-validation summary over the finished folds.
+- `feature_score.py` is a copy of the metric of the notebook (section 5.1): if it is changed in the notebook, it must also be changed in the module.
 
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
@@ -626,8 +654,8 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
 
         - **Stability:** the C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness → C2' (C1 together with C2' → C2); full run with C2 (candidate table and scores).
-    - **5.1. Metric:** standardized partial ROC-AUC (FPR ≤ 0.1, McClish) of each feature over all the candidates of the tuning mixtures, from the features of [get_features.py](get_features.py): artifacts (one per mixture with some candidate in its zone, with the most artifact-like value of those candidates, weight $c_s / N_{a,c}$) vs the candidates of the mixtures out of the zone (weight $1 / N_{a,c}$). Metric of each group: mean over its features. Baselines of phase 2: the default parameters of the features, with the candidates of the baseline and with those of C1 (`get_features.py -c baseline -s tune` and `-c C1 -s tune`).
-    - **5.2–5.4. Width, isolation and impulsiveness:** for each group, metric of the two baselines, `baseline` and `C1` (`describe_feature_metric`), and figure (`plot_features`): weighted ROC curve of each baseline up to FPR = 0.1 and, for each baseline, weighted cumulative distribution of each feature in the artifacts and in the rest, with the thresholds of the current click rules.
+    - **5.1. Metric:** standardized partial ROC-AUC (McClish) of each feature over all the candidates of the tuning mixtures, in the region of the ROC curve of its use in the rules (selectors `isolation`, `z_max`: FPR ≤ 0.1; vetoes `width_med`, `width_max`: TPR ≥ 0.9), from the features of [get_features.py](get_features.py): artifacts (one per mixture with some candidate in its zone, with the most artifact-like value of those candidates, weight $c_s / N_{a,c}$) vs the candidates of the mixtures out of the zone (weight $1 / N_{a,c}$). Metric of each group: mean over its features. Figure `plot_features` (defined after the metric, general: any configurations and features; interactive plotly version of `plot_features_mpl`, with hover on the ROC curves and the distributions and a clickable key): weighted ROC curve of each configuration in the region of the feature and, for each configuration, weighted cumulative distribution of each feature in the artifacts and in the rest. Baselines of phase 2: the default parameters of the features, with the candidates of the baseline and with those of C1 (`get_features.py -c baseline -s tune` and `-c C1 -s tune`).
+    - **5.2–5.4. Width, isolation and impulsiveness:** for each group, metric (`describe_feature_metric`) and figure (`plot_features`) of the two baselines, `baseline` and `C1`. Optimization (5.2.2, 5.3.2, 5.4.2): results of [search_features.py](search_features.py).
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 2 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.

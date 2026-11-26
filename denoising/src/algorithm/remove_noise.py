@@ -617,8 +617,60 @@ def _band_resolution(fs: float, n_levels: int, split_levels: tuple | None, l_env
     return fwhm
 
 
-def candidate_features(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray, z: np.ndarray,
-                       env_signal: np.ndarray, levels, fs: float, fwhm: np.ndarray) -> list[dict]:
+FEATURE_NAMES = ("bands", "r_med", "r_max", "z_max", "isolation", "width_med", "width_max", "misalign", "at_border")
+
+
+def impulsiveness_near(z: np.ndarray, n: int, fs: float) -> np.ndarray:
+    """
+    Maximum impulsiveness score within +- Z_TOLERANCE of each sample (z_max of a span is its maximum in the span).
+
+    Parameters
+    ----------
+    z: np.ndarray
+        Impulsiveness score (unpadded signal, see impulsiveness)
+    n: int
+        Length of the output (>= len(z)): z is padded with zeros (e.g. to the length of the SWT)
+    fs: float
+        Sample frequency
+
+    Returns
+    -------
+    z_near: np.ndarray
+        Maximum of z in [j - Z_TOLERANCE, j + Z_TOLERANCE] for each sample j
+    """
+    return maximum_filter1d(np.r_[z, np.zeros(n - len(z))], 2*round(Z_TOLERANCE*fs) + 1)
+
+
+def span_isolation(env_signal: np.ndarray, a: int, b: int, fs: float) -> float:
+    """
+    Isolation of the span [a, b): peak of the full-band envelope in the span / the larger of its medians in the ISO_WIN
+    s before and after it. The event has to stand out over the background BEFORE and AFTER it (the onset of a sound
+    only stands out over what comes before). A side outside the fragment (shorter than ISO_WIN / 4) is ignored.
+
+    Parameters
+    ----------
+    env_signal: np.ndarray
+        Envelope of the full-band signal (unpadded, length N)
+    a, b: int
+        First and last + 1 sample of the span (b can be beyond N, e.g. in the padding of the SWT)
+    fs: float
+        Sample frequency
+
+    Returns
+    -------
+    isolation: float
+        Isolation of the span (0 if both sides are ignored)
+    """
+    N = len(env_signal)
+    iso_win = round(ISO_WIN*fs)
+    peak = env_signal[a:min(b, N)].max()
+    sides = [env_signal[max(0, a - iso_win):a], env_signal[min(b, N):min(N, b + iso_win)]]
+    sides = [np.median(side) for side in sides if len(side) >= iso_win // 4]
+    return peak / max(max(sides), EPS) if sides else 0
+
+
+def candidate_features(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray, z: np.ndarray | None,
+                       env_signal: np.ndarray, levels, fs: float, fwhm: np.ndarray, names=None) -> list[dict]:
     """
     Features of the candidates: the time spans where some band has a detection (after the long-event protection).
     They are the inputs of the click rules of find_click_events (see its docstring for the definition of each one).
@@ -631,8 +683,8 @@ def candidate_features(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray
         Envelope of each band (bands x samples, padded)
     ratio: np.ndarray
         Envelope / reference (bands x samples, padded)
-    z: np.ndarray
-        Impulsiveness score (unpadded signal)
+    z: np.ndarray or None
+        Impulsiveness score (unpadded signal). Only needed for z_max
     env_signal: np.ndarray
         Envelope of the full-band signal (unpadded)
     levels: iterable of int
@@ -641,21 +693,26 @@ def candidate_features(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray
         Sample frequency
     fwhm: np.ndarray
         FWHM (s) of each band (see band_resolution)
+    names: iterable of str or None
+        Features to compute (subset of FEATURE_NAMES, e.g. only the widths in the search of phase 2 of
+        parameter_optimization.ipynb). None -> all of them
 
     Returns
     -------
     candidates: list of dict
         For each candidate span (in time order; spans only in the padding are skipped):
         - a, b: first and last + 1 sample of the span (b can be in the padding)
-        - features: bands, r_med, r_max, z_max, isolation, width_med, width_max, misalign and at_border (closer
-          than EDGE_CLICK to a border of the fragment)
+        - features: the features of names, in the order of FEATURE_NAMES: bands, r_med, r_max, z_max, isolation,
+          width_med, width_max, misalign and at_border (closer than EDGE_CLICK to a border of the fragment)
     """
+    names = set(FEATURE_NAMES if names is None else names)
     rows = [l - 1 for l in levels]
     n_tot = mask.shape[1]
     N = len(env_signal)
-    z_near = maximum_filter1d(np.r_[z, np.zeros(n_tot - len(z))], 2*round(Z_TOLERANCE*fs) + 1)
-    iso_win = round(ISO_WIN*fs)
+    z_near = impulsiveness_near(z, n_tot, fs) if "z_max" in names else None
     edge = round(EDGE_CLICK*fs)
+    need_widths = bool(names & {"width_med", "width_max"})
+    need_peaks = need_widths or "misalign" in names
 
     reference = envelope / np.where(np.isnan(ratio), np.inf, np.maximum(ratio, EPS))
     min_floor = 10**(-WIDTH_FLOOR_DB/20)
@@ -667,35 +724,37 @@ def candidate_features(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray
         if a >= N:  # Only in the padding
             continue
         detected = [i for i in rows if mask[i, a:b].any()]
-        # Peak time and width of each detected band (width measured beyond the span: the span is set by the
-        # threshold K*reference, the width by the event)
-        t_peak, widths = [], []
-        for i in detected:
-            p = a + int(np.argmax(envelope[i, a:b]))
-            ext = round(EXTEND*fwhm[i]*fs)
-            lo, hi = max(0, a - ext), min(n_tot, b + ext)
-            env = envelope[i, lo:hi]
-            peak = env.max()
-            floor = min(max(BG_FACTOR*np.nanmedian(reference[i, lo:hi]), min_floor*peak), 0.99*peak)
-            t_peak.append(p)
-            widths.append(effective_width(env, fs, floor))
-        t_peak, widths = np.array(t_peak), np.array(widths)
-        width_med, width_max = np.median(widths), widths.max()
-        misalign = np.median(np.abs(t_peak - np.median(t_peak)) / fs / fwhm[detected])
-        r_med = np.median(ratio[detected, a:b].max(axis=1))  # Only the bands with a detection
-        r_max = ratio[rows, a:b].max()
-        z_max = z_near[a:b].max()
-        # Isolation: the event has to stand out over the background BEFORE and AFTER it (the onset of a
-        # sound only stands out over what comes before). A side outside the fragment is ignored
-        peak = env_signal[a:min(b, N)].max()
-        sides = [env_signal[max(0, a - iso_win):a], env_signal[min(b, N):min(N, b + iso_win)]]
-        sides = [np.median(side) for side in sides if len(side) >= iso_win // 4]
-        isolation = peak / max(max(sides), EPS) if sides else 0
+        values = {"bands": len(detected)}
+        if need_peaks:
+            # Peak time and width of each detected band (width measured beyond the span: the span is set by the
+            # threshold K*reference, the width by the event)
+            t_peak, widths = [], []
+            for i in detected:
+                p = a + int(np.argmax(envelope[i, a:b]))
+                t_peak.append(p)
+                if need_widths:
+                    ext = round(EXTEND*fwhm[i]*fs)
+                    lo, hi = max(0, a - ext), min(n_tot, b + ext)
+                    env = envelope[i, lo:hi]
+                    peak = env.max()
+                    floor = min(max(BG_FACTOR*np.nanmedian(reference[i, lo:hi]), min_floor*peak), 0.99*peak)
+                    widths.append(effective_width(env, fs, floor))
+            t_peak = np.array(t_peak)
+            if need_widths:
+                widths = np.array(widths)
+                values.update(width_med=np.median(widths), width_max=widths.max())
+            values["misalign"] = np.median(np.abs(t_peak - np.median(t_peak)) / fs / fwhm[detected])
+        if "r_med" in names:
+            values["r_med"] = np.median(ratio[detected, a:b].max(axis=1))  # Only the bands with a detection
+        if "r_max" in names:
+            values["r_max"] = ratio[rows, a:b].max()
+        if "z_max" in names:
+            values["z_max"] = z_near[a:b].max()
+        if "isolation" in names:
+            values["isolation"] = span_isolation(env_signal, a, b, fs)
+        values["at_border"] = a < edge or b > N - edge
 
-        at_border = a < edge or b > N - edge
-
-        features = dict(bands=len(detected), r_med=r_med, r_max=r_max, z_max=z_max, isolation=isolation,
-                        width_med=width_med, width_max=width_max, misalign=misalign, at_border=at_border)
+        features = {name: values[name] for name in FEATURE_NAMES if name in names}
         candidates.append(dict(a=a, b=b, features=features))
 
     return candidates
@@ -850,6 +909,19 @@ def find_click_events(mask: np.ndarray, envelope: np.ndarray, ratio: np.ndarray,
     return keep, click_span, click_reference, candidates
 
 
+def prepare_signal(signal: np.ndarray) -> np.ndarray:
+    """Signal processed by the algorithm: first channel (if multichannel), as float, with its mean removed"""
+    signal = np.asarray(signal, dtype=float)
+    if signal.ndim > 1:
+        signal = signal[:, 0]  # Multichannel -> first channel
+    return signal - signal.mean()
+
+
+def signal_envelope(signal: np.ndarray, fs: float) -> np.ndarray:
+    """Envelope of the full-band signal (prepared, see prepare_signal), smoothed ENV_SMOOTH (used by the isolation)"""
+    return uniform_filter1d(np.abs(hilbert(signal)), max(1, round(ENV_SMOOTH*fs)))
+
+
 def generate_candidates(signal: np.ndarray, fs: float, levels=None, max_event: float | None = MAX_EVENT,
                         split_levels=SPLIT_LEVELS) -> dict:
     """
@@ -887,10 +959,7 @@ def generate_candidates(signal: np.ndarray, fs: float, levels=None, max_event: f
           (detail ... mask_protected: bands x samples, padded to the length of the SWT)
         - candidate_span: samples covered by some candidate (unpadded, length N)
     """
-    signal = np.asarray(signal, dtype=float)
-    if signal.ndim > 1:
-        signal = signal[:, 0]  # Multichannel -> first channel
-    signal = signal - signal.mean()
+    signal = prepare_signal(signal)
     N = len(signal)
 
     # Parameters (in samples)
@@ -994,7 +1063,7 @@ def generate_features(signal: np.ndarray, fs: float, levels=None, max_event: flo
     signal, l_env = stages["signal"], stages["l_env"]
     envelope, reference = stages["envelope"], stages["reference"]
 
-    env_signal = uniform_filter1d(np.abs(hilbert(signal)), max(1, l_env))
+    env_signal = signal_envelope(signal, fs)
     ratio = envelope / np.where(np.isnan(reference), np.inf, np.maximum(reference, EPS))
     z, ed, scale, a, w = impulsiveness(signal, fs)
     fwhm = band_resolution(fs, stages["n_levels"], None if split_levels is None else tuple(split_levels), l_env)

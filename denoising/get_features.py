@@ -11,7 +11,8 @@ Configurations:
     baseline    default constants of remove_noise
     C1          baseline + parameters of the candidate generation chosen in phase 1 (C1 of the whole tuning set,
                 results/optimization/candidates/search/all.json)
-    C2          C1 + parameters of the features chosen in phase 2 (C2', constant C2_PRIME of this script)
+    C2          C1 + parameters of the features chosen in phase 2 (C2': best configuration of the run all of each group,
+                results/optimization/features/search/{width, isolation, impulsiveness}/all.json)
 The baselines of phase 2 are baseline and C1 (default parameters of the features, with the candidates of each one).
 
 Requires:
@@ -23,6 +24,8 @@ Requires:
         Tuning/test split (get_splits.py), only if a set is given
     denoising/results/optimization/candidates/search/all.json
         C1 (search_candidates.py), only for the configurations C1 and C2
+    denoising/results/optimization/features/search/{width, isolation, impulsiveness}/all.json
+        C2' (search_features.py), only for the configuration C2
 
 Generates:
     denoising/results/optimization/features/{config}/{set}.csv
@@ -60,9 +63,8 @@ FEATURES_PATH = OPTIMIZATION_PATH / "features"  # + /{config}
 C1_FILE = CANDIDATES_PATH / "search" / "all.json"  # C1 of the whole tuning set (search_candidates.py)
 EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
 
-# Parameters of the features chosen in phase 2 (C2', section 5.5 of the notebook), e.g. {"BG_FACTOR": 2, ...}.
-# None -> not chosen yet (configuration C2 not available)
-C2_PRIME = None
+# C2' of each group of features: best configuration of the run all (search_features.py), in FEATURES_PATH/search/<group>
+FEATURE_GROUPS = ["width", "isolation", "impulsiveness"]
 
 CONFIGS = ["baseline", "C1", "C2"]
 
@@ -111,9 +113,13 @@ def configuration(config: str) -> dict:
         params = json.load(f)["c1"]["params"]
     if config == "C1":
         return params
-    if C2_PRIME is None:
-        raise ValueError("C2' has not been chosen yet: set C2_PRIME in get_features.py (section 5.5 of the notebook)")
-    return {**params, **C2_PRIME}
+    for group in FEATURE_GROUPS:  # C2 = C1 + C2' (the best configuration of each group)
+        file = FEATURES_PATH / "search" / group / "all.json"
+        if not file.exists():
+            raise FileNotFoundError(f"{file} not found: C2' of {group} not chosen yet (run search_features.py -g {group} "
+                                    "--runs all)")
+        params = {**params, **json.loads(file.read_text(encoding="utf-8"))["best"]["params"]}
+    return params
 
 
 def process_mixture_features(row: dict) -> list[dict]:
