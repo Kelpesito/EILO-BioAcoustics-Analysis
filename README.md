@@ -144,10 +144,22 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.9**
+    - Phase 2 (feature definition) of the parameter optimization of the denoising algorithm: metric and baselines.
+    - Updated `denoising/src/algorithm/remove_noise.py` (same results as before):
+        - New function `candidate_features`: features of the candidates, split out of `find_click_events`, which now only applies the click rules.
+        - New function `generate_features`: candidate generation + inputs of the features + features of each candidate. `remove_noise` now calls it.
+        - Fixed `band_resolution`: its cache did not depend on `WAVELET`, so changing only the wavelet on the module returned the FWHM of the previous one.
+    - New executable script `denoising/get_features.py`: features of the candidates of the mixtures of experiment 1 for a configuration.
+    - Updated `denoising/parameter_optimization.ipynb` (phase 2):
+        - 5.1. Metric: standardized partial ROC-AUC (FPR ≤ 0.1, McClish) over all the candidates of the tuning mixtures: artifacts (one per mixture with some candidate in its zone, weight $c_s / N_{a,c}$) vs the candidates out of the zone (weight $1 / N_{a,c}$).
+        - 5.2.1, 5.3.1 and 5.4.1. Baselines: metric and figure (weighted ROC curve and distribution of each feature) of width, isolation and impulsiveness, with the configurations `baseline` and `C1`.
+    - Updated `denoising/PARAMETER_OPTIMIZATION.md`.
+
 - **v2.3.8**
     - Updated `denoising/PARAMETER_OPTIMIZATION.md`.
-    - Terminated Phase 1 of parameter optimization of denoising algorithm
-    - Updated `denoising/parameter_optimization.ipynb`
+    - Terminated Phase 1 of parameter optimization of denoising algorithm.
+    - Updated `denoising/parameter_optimization.ipynb`.
 
 - **v2.3.7**
     - Results of the Bayesian search of the candidate generation (phase 1 of the parameter optimization): 5 folds of the nested cross-validation and whole tuning set (`denoising/results/optimization/candidates/search/`). Every run needed the safeguard (b2).

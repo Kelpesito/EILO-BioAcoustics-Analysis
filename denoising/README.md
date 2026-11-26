@@ -53,6 +53,7 @@ denoising/
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
 ├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (in progress)
 ├── get_candidates.py              ← candidates of the mixtures of experiment 1 and their metrics (phase 1 of parameter_optimization.ipynb)
+├── get_features.py                ← features of the candidates of the mixtures of experiment 1 for a configuration (phase 2 of parameter_optimization.ipynb)
 ├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb, and the folds of the cross-validation of the tuning set
 ├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
 ├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
@@ -62,7 +63,7 @@ denoising/
 │   ├── __init__.py
 │   ├── algorithm/                 ← the algorithm and its figures
 │   │   ├── __init__.py
-│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py and get_candidates.py)
+│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py, get_candidates.py and get_features.py)
 │   │   └── summary_plots.py       ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
 │   ├── evaluation/                ← evaluation of the algorithm (evaluation_denoise.ipynb)
 │   │   ├── __init__.py
@@ -136,7 +137,7 @@ summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 
 Before step 1, only the first channel is used and its mean is removed. The signal is padded at the end (mirror) up to a multiple of 2⁸ samples, as required by the SWT, and cropped back at the end.
 
-Steps 1–4 (candidate generation) are the function `generate_candidates`, which `remove_noise` calls first; it can also be called alone to get the candidates without classifying them (phase 1 of [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization)).
+Steps 1–4 (candidate generation) are the function `generate_candidates`, and steps 1–5 (candidates and their features) the function `generate_features`, which `remove_noise` calls first; they can also be called alone to get the candidates (phase 1 of [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization)) or their features (phase 2) without classifying them.
 
 ---
 
@@ -191,7 +192,7 @@ Clicks, crackles and S1/S2 are short; respiratory and adventitious sounds (wheez
 
 ### 5️⃣ Candidate features
 
-The time spans where **some band** still has a detection (union over the bands) are the **candidates**. For each one, these features are measured (`find_click_events`):
+The time spans where **some band** still has a detection (union over the bands) are the **candidates**. For each one, these features are measured (`candidate_features`):
 
 - **`bands`** — number of bands with a detection in the span.
 - **`r_med` / `r_max`** — intensity (envelope / reference): median over the detected bands of the maximum in the span / maximum over all the bands.
@@ -360,6 +361,9 @@ denoising/
         │       ├── <run>.json             # constraints, C1 and its metrics and those of the baseline (training, validation)
         │       ├── <runs>.log             # log of an execution, identical to the terminal (e.g. fold_1.log)
         │       └── summary.csv            # one row per finished run
+        └── features/
+            └── <config>/          ← get_features.py (-c baseline, C1 or C2; default: baseline)
+                └── <set>.csv              # one row per candidate: mixture, span, touches_zone, features, rules (all.csv without -s)
 ```
 
 Every `.csv` and `.json` is versioned: among others, `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the `.db` (only to resume a run) and `.log` of the search.
@@ -423,6 +427,22 @@ python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker pr
     - `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
     - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
 - It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Versioned (`baseline/tune.csv` is required by `search_candidates.py`).
+
+The features of the candidates of phase 2 of the notebook are computed **from the terminal** with [get_features.py](get_features.py), from any folder, once `experiment_1.csv` exists (the split, if a set is given, and the search of phase 1, for `C1` and `C2`):
+
+```bash
+python denoising/get_features.py -c baseline -s tune   # Baselines of phase 2: baseline and C1, on the tuning set
+python denoising/get_features.py -c C1 -s tune         # -c, --config: baseline, C1 or C2 (default: baseline)
+python denoising/get_features.py -s tune -p 4       # -p, --processes: worker processes (default: as many as CPU cores)
+```
+
+- **Configurations:** `baseline` = default constants of [remove_noise.py](src/algorithm/remove_noise.py); `C1` = baseline + C1 (`results/optimization/candidates/search/all.json`); the baselines of phase 2 are `baseline` and `C1`; `C2` = C1 + C2' (`C2_PRIME` of the script, set once it is chosen in section 5.5).
+- It rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates and their features with `generate_features` in parallel, and classifies them with the current click rules (`find_click_events`).
+- It saves `denoising/results/optimization/features/{config}/{set}.csv` (`all.csv` if no set is given), **one row per candidate** (a mixture without candidates has no row), overwriting the previous file:
+    - Identification of the mixture (as `get_candidates.py`) and `n_positions`: mixtures of its cell (s, a, c), $N_{a,c}$ (weights of the metric).
+    - `cand`, `start`, `end`: index of the candidate in the mixture and its first and last + 1 sample.
+    - `touches_zone`: the candidate touches the zone of the artifact (±25 ms; empty in the controls).
+    - The features (`bands`, `r_med`, `r_max`, `z_max`, `isolation`, `width_med`, `width_max`, `misalign`, `at_border`), whether it meets each rule (`rule_<name>`) and `is_click`.
 
 The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
 
@@ -606,6 +626,8 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
 
         - **Stability:** the C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
 5. **Phase 2 — Feature definition:** width, isolation and impulsiveness → C2' (C1 together with C2' → C2); full run with C2 (candidate table and scores).
+    - **5.1. Metric:** standardized partial ROC-AUC (FPR ≤ 0.1, McClish) of each feature over all the candidates of the tuning mixtures, from the features of [get_features.py](get_features.py): artifacts (one per mixture with some candidate in its zone, with the most artifact-like value of those candidates, weight $c_s / N_{a,c}$) vs the candidates of the mixtures out of the zone (weight $1 / N_{a,c}$). Metric of each group: mean over its features. Baselines of phase 2: the default parameters of the features, with the candidates of the baseline and with those of C1 (`get_features.py -c baseline -s tune` and `-c C1 -s tune`).
+    - **5.2–5.4. Width, isolation and impulsiveness:** for each group, metric of the two baselines, `baseline` and `C1` (`describe_feature_metric`), and figure (`plot_features`): weighted ROC curve of each baseline up to FPR = 0.1 and, for each baseline, weighted cumulative distribution of each feature in the artifacts and in the rest, with the thresholds of the current click rules.
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 2 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.

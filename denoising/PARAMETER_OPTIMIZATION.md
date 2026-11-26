@@ -278,7 +278,37 @@ where:
 | **Isolation** (`isolation`) | `ISO_WIN` |
 | **Impulsiveness** (`z_max`) | `Z_WIN`, `AR_ORDER` |
 
-- **Metric:** standardized partial ROC-AUC with a false positive rate ≤ 0.1, within the cases where each feature is used.
+- **Metric:** standardized partial ROC-AUC with a false positive rate ≤ 0.1, over all the candidates of the tuning mixtures, between:
+    - **Artifacts (positives):** each artifact $i$ with some candidate in its zone $Z_i$ (artifact ± 25 ms). Its value is the most artifact-like among those candidates (the narrowest width, the highest isolation or $z_{\max}$): with a threshold, the artifact is detected if any of its candidates is.
+    - **Rest (negatives):** the candidates of the mixtures that do not touch $Z_i$ (those that give the false positives of $FP$).
+
+**Weights** (averaged as $Q$ and $FP$):
+
+$$
+v_i = \frac{c_s}{N_{a,c}} \ \text{(artifact)}, \qquad v_j = \frac{1}{N_{a,c}} \ \text{(rest)}, \qquad c_s = 1 - q(s)
+$$
+
+where $c_s$ is the cost of missing an artifact at SNR $s$, as in the candidate recall ([Phase 1](#1️⃣-phase-1--candidate-generation)): the artifacts with SNR ≥ 0 dB weigh 0.
+
+**Weighted ROC curve:** for a threshold $t$ on the feature $x$ (with its sign: $-x$ for the widths):
+
+$$
+\text{TPR}(t) = \frac{\sum\limits_{i\in\mathcal{P}} v_i\,\mathbb{1}[x_i \geq t]}{\sum\limits_{i\in\mathcal{P}} v_i}, \qquad
+\text{FPR}(t) = \frac{\sum\limits_{j\in\mathcal{N}} v_j\,\mathbb{1}[x_j \geq t]}{\sum\limits_{j\in\mathcal{N}} v_j}
+$$
+
+where $\mathcal{P}$ are the artifacts and $\mathcal{N}$ the rest.
+
+**Standardized partial AUC** (McClish, 1989), with $\text{FPR}_{\max} = 0.1$:
+
+$$
+\text{pAUC} = \int_0^{\text{FPR}_{\max}} \text{TPR}\; d\,\text{FPR}, \qquad
+\text{sAUC} = \frac{1}{2}\left(1 + \frac{\text{pAUC} - \text{FPR}_{\max}^2/2}{\text{FPR}_{\max} - \text{FPR}_{\max}^2/2}\right)
+$$
+
+sAUC = 0.5: no better than chance; sAUC = 1: perfect separation at FPR ≤ 0.1. **Metric of each group:** mean sAUC of its features.
+
+**Baselines:** the default parameters of the features, with the candidates of the baseline and with those of C1.
 
 **Procedure:**
 
