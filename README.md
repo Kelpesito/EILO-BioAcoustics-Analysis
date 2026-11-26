@@ -144,6 +144,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.8**
+    - Updated `denoising/PARAMETER_OPTIMIZATION.md`.
+    - Terminated Phase 1 of parameter optimization of denoising algorithm
+    - Updated `denoising/parameter_optimization.ipynb`
+
 - **v2.3.7**
     - Results of the Bayesian search of the candidate generation (phase 1 of the parameter optimization): 5 folds of the nested cross-validation and whole tuning set (`denoising/results/optimization/candidates/search/`). Every run needed the safeguard (b2).
     - Updated `denoising/parameter_optimization.ipynb` (sections 4.3–4.5):

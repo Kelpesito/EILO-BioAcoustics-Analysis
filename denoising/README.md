@@ -584,12 +584,29 @@ Notebook of the **parameter optimization** of the algorithm, which will replace 
     - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py). The tables are loaded with `load_screening` and shown in one figure (`plot_screening`): one row per parameter and one column per metric (recall, load, median $w_i$), with the same y axis in each column, the default value and the baseline.
     - **4.4. Search:** results of [search_candidates.py](search_candidates.py) ((a) maximum recall, (b) minimum load, safeguard (b2); nested 5-fold cross-validation and whole tuning set): table of each run and history of the searches (recall, load and overflow of each configuration in the order of evaluation, with the best feasible configuration so far and the best recall of (a)). Every run needed the safeguard.
     - **4.5. Choice:** C1 of each run with its recall–load and load–overflow Pareto fronts, parameters of C1, nested cross-validation (C1 − baseline on the training and validation mixtures of each fold, optimism, mean ± SD over the folds) and stability of the parameters of C1.
-        - **Final C1** (whole tuning set): `db8`, `K` = 5.50, `ENV_SMOOTH` = 15.8 ms, `MASK_DILATION` = 8.8 ms, `REF_INNER` = 36.1 ms, `REF_OUTER` = 233.1 ms → recall = 0.993, load = 3.3 candidates per control, median $w_i$ = 0.876 (baseline: 0.986, 7.4, 0.860).
-        - **Validation** (mean ± SD over the 5 folds, C1 − baseline): recall +0.010 ± 0.011, load −1.8 ± 2.7, median $w_i$ +0.005 ± 0.025.
+        - **Final C1** (whole tuning set; search (b2), trial 289):
+
+          | Parameter | Baseline | C1 |
+          |:----------|:--------:|:--:|
+          | `WAVELET`       | db4    | db8      |
+          | `K`             | 5      | 5.50     |
+          | `ENV_SMOOTH`    | 4 ms   | 15.8 ms  |
+          | `MASK_DILATION` | 15 ms  | 8.8 ms   |
+          | `REF_INNER`     | 100 ms | 36.1 ms  |
+          | `REF_OUTER`     | 400 ms | 233.1 ms |
+          | `MAX_EVENT`     | 140 ms | 140 ms (fixed) |
+
+          | Metric | Baseline | C1 | Validation: C1 − baseline (mean ± SD over the 5 folds) |
+          |:-------|:--------:|:--:|:------------------------------------------------------:|
+          | Candidate recall                | 0.986   | 0.993   | +0.010 ± 0.011 |
+          | Load (candidates per control)   | 7.4     | 3.3     | −1.8 ± 2.7     |
+          | Median $w_i$                    | 0.860   | 0.876   | +0.005 ± 0.025 |
+          | Unweighted recall (SNR ≤ 0 dB)  | 0.943   | 0.962   | +0.025 ± 0.017 |
+          | Median overflow                 | 15.3 ms | 13.3 ms | −0.6 ± 2.8 ms  |
+
         - **Stability:** the C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
-    - **4.6:** full run.
-5. **Phase 2 — Feature definition:** width, isolation and impulsiveness.
-6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 1 and imputation of the missing values), importance of each condition and backward pruning.
+5. **Phase 2 — Feature definition:** width, isolation and impulsiveness → C2' (C1 together with C2' → C2); full run with C2 (candidate table and scores).
+6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 2 and imputation of the missing values), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.
 

@@ -105,7 +105,7 @@ The optimization is split into 6 phases. Each phase fixes its parameters before 
 |:-----:|:------------------|:-----------|:-------|:-------|
 | **0** | Preparation | — | Score, Q, FP | Tuning/test split, $\lambda$, baseline |
 | **1** | Candidate generation | `WAVELET`, `K`, `ENV_SMOOTH`, `MASK_DILATION`, `REF_INNER`, `REF_OUTER` (`MAX_EVENT` fixed) | Candidate recall, load, overflow | C1 |
-| **2** | Feature definition | `BG_FACTOR`, `WIDTH_FLOOR_DB`, `EXTEND`, `ISO_WIN`, `Z_WIN`, `AR_ORDER` | Standardized partial ROC-AUC | Candidate table |
+| **2** | Feature definition | `BG_FACTOR`, `WIDTH_FLOOR_DB`, `EXTEND`, `ISO_WIN`, `Z_WIN`, `AR_ORDER` | Standardized partial ROC-AUC | C2, candidate table and scores |
 | **3** | Rule selection | Rule structure and thresholds | $\hat{S}$ (estimated score) | Final rules and thresholds |
 | **4** | Attenuation | `G_FAC`, `GAIN_SMOOTH`, `LOCAL_BG` | Score | Optimized version |
 | **5** | Validation | — | S, Q, FP | Comparison and generalization |
@@ -228,7 +228,6 @@ where:
     - The recall, load and overflow of every evaluated configuration (of every search) are saved.
     - **Nested cross-validation:** the tuning clean signals and artifacts are split into 5 folds (grouped and stratified as the tuning/test split); in fold *k*, the searches and the choice use the signals and artifacts of the other folds, and the C1 of the fold is evaluated (with the baseline) on the signals and artifacts of fold *k* → 5 C1 (stability of the parameters) + 5 validation metrics (optimism). The final C1 comes from the same protocol on the whole tuning set.
 3. **Choice:** among all the evaluated configurations (a, b and, with the safeguard, b2) that meet the constraints of (b), the one with the minimum load → **C1**. The load–overflow Pareto front of those configurations is used to check it (e.g. whether a little more load would give much less overflow).
-4. **Full run:** computation of the estimates needed for the Score in [Phase 3](#3️⃣-phase-3--rule-selection).
 
 > **Tolerance $SE$:** the recall of the baseline has $SE$ = 0.0041 (2000 resamples of signals and artifacts), so differences of recall smaller than $SE$ cannot be told apart from the sampling of signals and artifacts (1-SE rule, as in the [backward pruning](#34-backward-pruning)). In terms of the Score, giving up 0.004 of recall costs at most $0.004 \cdot \sum_s c_s / |\mathcal{S}| \approx 0.001$ of $Q$.
 >
@@ -245,6 +244,26 @@ where:
 - Recall–load and load–overflow Pareto fronts, with the constraints of (b) and the chosen point.
 - Nested cross-validation: C1 − baseline on the training and validation mixtures of each fold, optimism, and mean ± SD over the folds; stability of the parameters of C1 across the folds.
 - C1.
+
+**C1** (whole tuning set; search (b2), trial 289):
+
+| Parameter | Baseline | C1 |
+|:----------|:--------:|:--:|
+| `WAVELET`       | db4    | db8      |
+| `K`             | 5      | 5.50     |
+| `ENV_SMOOTH`    | 4 ms   | 15.8 ms  |
+| `MASK_DILATION` | 15 ms  | 8.8 ms   |
+| `REF_INNER`     | 100 ms | 36.1 ms  |
+| `REF_OUTER`     | 400 ms | 233.1 ms |
+| `MAX_EVENT`     | 140 ms | 140 ms (fixed) |
+
+| Metric | Baseline | C1 | Validation: C1 − baseline (mean ± SD over the 5 folds) |
+|:-------|:--------:|:--:|:------------------------------------------------------:|
+| Candidate recall                | 0.986   | 0.993   | +0.010 ± 0.011 |
+| Load (candidates per control)   | 7.4     | 3.3     | −1.8 ± 2.7     |
+| Median $w_i$                    | 0.860   | 0.876   | +0.005 ± 0.025 |
+| Unweighted recall (SNR ≤ 0 dB)  | 0.943   | 0.962   | +0.025 ± 0.017 |
+| Median overflow                 | 15.3 ms | 13.3 ms | −0.6 ± 2.8 ms  |
 
 ---
 
@@ -264,13 +283,15 @@ where:
 **Procedure:**
 
 1. **Search:** for each group and combination of parameters, compute the features.
-2. **Choice:** pick the combination with the best mean partial AUC.
-3. **Run:** computation of the features.
+2. **Choice:** pick the combination with the best mean partial AUC → **C2'**. C1 together with C2' → **C2**.
+3. **Full run:** run of the filter on the tuning set with C2.
 
 **Outputs:**
 
 - AUC vs value (for each parameter).
-- Candidate table.
+- C2.
+- Candidate table: features of every candidate.
+- Scores: $q$, detection and false positives of every mixture, needed for $\hat{S}$ in [Phase 3](#3️⃣-phase-3--rule-selection).
 
 ---
 
@@ -330,7 +351,7 @@ $$
 where:
 
 - $\widehat{\text{Det}}_{s,a,c}$ is the fraction of the $N_{a,c}$ positions of the cell detected by the rules.
-- $\hat{q}^{\text{det}}_{s,a,c}$ and $\hat{q}^{\text{undet}}_{s,a,c}$ are the quality of the detected and the undetected positions of the cell used by $\hat{S}$: the values $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ measured in the full run of [Phase 1](#1️⃣-phase-1--candidate-generation) ([Decomposition of the quality](#decomposition-of-the-quality)), or imputed when missing ([Imputation](#imputation)). They do not depend on the rules: only $\widehat{\text{Det}}_{s,a,c}$ and $\widehat{FP}$ change.
+- $\hat{q}^{\text{det}}_{s,a,c}$ and $\hat{q}^{\text{undet}}_{s,a,c}$ are the quality of the detected and the undetected positions of the cell used by $\hat{S}$: the values $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ measured in the full run of [Phase 2](#2️⃣-phase-2--feature-definition) ([Decomposition of the quality](#decomposition-of-the-quality)), or imputed when missing ([Imputation](#imputation)). They do not depend on the rules: only $\widehat{\text{Det}}_{s,a,c}$ and $\widehat{FP}$ change.
 - $\widehat{FP}$ is the number of false positives with the rules, averaged as $FP$.
 
 ##### Decomposition of the quality
@@ -434,7 +455,7 @@ A value is missing when an artifact is never detected (or never missed) in a cel
 ## 📋 Status
 
 - [x] **Phase 0** — Preparation
-- [ ] **Phase 1** — Candidate generation
+- [x] **Phase 1** — Candidate generation
 - [ ] **Phase 2** — Feature definition
 - [ ] **Phase 3** — Rule selection
 - [ ] **Phase 4** — Attenuation
