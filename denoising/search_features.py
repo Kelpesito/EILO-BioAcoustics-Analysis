@@ -78,7 +78,6 @@ C1_FEATURES_FILE = FEATURES_PATH / "C1" / "tune.csv"  # get_features.py -c C1 -s
 
 GROUPS = {"width": "Width", "isolation": "Isolation", "impulsiveness": "Impulsiveness"}  # Option -> group
 RUNS = [str(k) for k in range(1, N_CV_FOLDS + 1)] + ["all"]
-CHUNKSIZE = {"Width": 2, "Isolation": 64, "Impulsiveness": 8}  # Mixtures sent to a worker at a time
 
 
 # ====================================================================================================================
@@ -165,7 +164,7 @@ def run_group(table: pd.DataFrame, group: str, clean_dict: dict, artifact_dict: 
              for _, rows in mix.groupby("id", sort=False)]
     params = {"remove_noise": ev.constants(rn), "evaluation": ev.constants(ev)}
     with Pool(processes, initializer=ev.init_worker, initargs=(clean_dict, artifact_dict, params)) as pool:
-        results = list(tqdm(pool.imap(group_values, tasks, chunksize=CHUNKSIZE[group]), total=len(tasks),
+        results = list(tqdm(pool.imap(group_values, tasks, chunksize=ev.CHUNKSIZE), total=len(tasks),
                             desc="Mixtures", position=position, leave=leave))
     values = pd.DataFrame([v for mixture in results for v in mixture])
     mix[values.columns] = values.to_numpy()
