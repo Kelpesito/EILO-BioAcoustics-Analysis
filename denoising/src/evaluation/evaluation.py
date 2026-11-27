@@ -32,6 +32,7 @@ TOL = int(0.025 * FS)         # Tolerance around the artifact (delays between ba
 ATEN_DB = 3                   # Minimum ΔSNR for considering the artifact "attenuated"
 RMS_WIN = int(0.03 * FS)      # 30 ms: Duration of window for RMS calculation
 RESULTS_DIR = Path(__file__).resolve().parents[2] / "results" / "experiments"  # denoising/results/experiments (independent of the cwd)
+DEFAULT_CONFIG = "baseline"   # Configuration of the constants of remove_noise of the experiments (see experiment_file)
 CHUNKSIZE = 1                 # Mixtures sent to a worker at a time
 
 # Data of the worker processes (see init_worker)
@@ -317,6 +318,14 @@ def init_worker(clean_dict: dict, artifact_dict: dict, params: dict) -> None:
             setattr(module, name, value)
 
 
+def _default_args() -> dict:
+    """
+    Arguments of remove_noise whose defaults are constants of remove_noise: their defaults are fixed when the module is
+    imported, so they are passed explicitly with the current values (set by init_worker)
+    """
+    return dict(max_event=rn.MAX_EVENT, split_levels=rn.SPLIT_LEVELS)
+
+
 def process_mixture(row: dict) -> dict:
     """
     Experiment 1. Rebuilds a mixture (row of exp_df; art_id = "Control" -> clean signal without artifact),
@@ -331,7 +340,7 @@ def process_mixture(row: dict) -> dict:
         k1 = k0 + len(art)
         mixed, _ = insert_artifact(clean, art, k0, row["snr_db"])  # Rebuild the mixture
 
-    out, det = rn.remove_noise(mixed, FS, return_details=True)  # Apply the algorithm
+    out, det = rn.remove_noise(mixed, FS, return_details=True, **_default_args())  # Apply the algorithm
     m = metrics(hp15(clean), hp15(mixed), out, k0, k1, det["click_span"])  # References > 15 Hz
 
     return {**row, **m}
@@ -366,7 +375,7 @@ def process_mixture_multi(row: dict) -> dict:
     mix_hp = hp15(mixed)
 
     # First pass
-    out, det = rn.remove_noise(mixed, FS, return_details=True)
+    out, det = rn.remove_noise(mixed, FS, return_details=True, **_default_args())
     m = metrics_multi(ref, mix_hp, out, arts, k0s, k1s, det["click_span"])
     union = m.pop("_union")
 
@@ -374,7 +383,7 @@ def process_mixture_multi(row: dict) -> dict:
     m["snr_global_mix_db"] = (10*np.log10(np.mean(clean**2) / np.mean((mixed - clean)**2)) if k0s else np.nan)
 
     # Second pass (idempotence): the output is processed again
-    out2, det2 = rn.remove_noise(out, FS, return_details=True)
+    out2, det2 = rn.remove_noise(out, FS, return_details=True, **_default_args())
     lab2, n2 = ndi.label(det2["click_span"])
     m["n_clicks_pass2"] = n2                                                  # Ideal: 0
     m["n_clicks_pass2_in_zones"] = len(set(np.unique(lab2[union])) - {0})    # Of them, in the artifact zones
@@ -414,8 +423,16 @@ def _tuples_to_json(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def experiment_file(experiment: int, config: str = DEFAULT_CONFIG) -> str:
+    """
+    Results .csv of an experiment run with a configuration of the constants of remove_noise (baseline: default
+    constants; C1, C2: see src/optimization/configs.py), relative to RESULTS_DIR: <config>/experiment_<experiment>.csv
+    """
+    return f"{config}/experiment_{experiment}.csv"
+
+
 def read_results(csv_file: str) -> pd.DataFrame:
-    """Reads a results .csv of RESULTS_DIR, converting the JSON lists back to tuples"""
+    """Reads a results .csv of RESULTS_DIR (e.g. experiment_file(1)), converting the JSON lists back to tuples"""
     df = pd.read_csv(Path(RESULTS_DIR) / csv_file, low_memory=False)   # whole file at once: one type per column
     for col in df.select_dtypes(include=["object", "string"]).columns:    # text columns (pandas 3: dtype str)
         is_list = df[col].map(lambda v: isinstance(v, str) and v.startswith("["))
@@ -437,7 +454,8 @@ def run_experiment(exp_df: pd.DataFrame, csv_file: str, clean_dict: dict, artifa
     exp_df: pd.DataFrame
         Mixtures to evaluate (see get_mixes). Control rows: clean signal without artifacts
     csv_file: str
-        Name of the .csv file of the results (in RESULTS_DIR)
+        Path of the .csv file of the results, relative to RESULTS_DIR (e.g. experiment_file(1) =
+        "baseline/experiment_1.csv"); its folder is created if needed
     clean_dict: dict
         Clean signals: clean_id -> {"signal", "id", "label"}
     artifact_dict: dict

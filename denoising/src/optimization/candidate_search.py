@@ -156,7 +156,7 @@ def remove_noise_params(params: dict):
 
 def format_params(params: dict) -> str:
     """Configuration as text (times in ms), for the logs"""
-    times = ("ENV_SMOOTH", "MASK_DILATION", "REF_INNER", "REF_OUTER", "MAX_EVENT")
+    times = ("ENV_SMOOTH", "MASK_DILATION", "REF_INNER", "REF_OUTER", "MAX_EVENT", "ISO_WIN", "Z_WIN")
     return ", ".join(f"{name} = {1000*value:.1f} ms" if name in times else
                      f"{name} = {value:.2f}" if isinstance(value, float) else f"{name} = {value}"
                      for name, value in params.items())

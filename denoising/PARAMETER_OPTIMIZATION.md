@@ -79,7 +79,7 @@ $$
 S = Q - \lambda\cdot FP
 $$
 
-where $\lambda$ is a parameter that penalizes the score according to the detected false positives (see [0.2](#02-penalty-λ)):
+where $\lambda$ is a parameter that penalizes the score according to the detected false positives (see [0.2](#02-penalty-lambda)):
 
 | $\lambda$ | One false positive is worth… |
 |:---------:|:-----------------------------|
@@ -165,11 +165,11 @@ where:
 
 If $\bar{q}^{\text{det}}_{s^*}$ is close to 1, both values of $\lambda$ are almost equal and the approximation can be kept.
 
-Its effect on the rule selection is studied in [5.1](#51-sensitivity-to-λ).
+Its effect on the rule selection is studied in [5.1](#51-sensitivity-to-lambda).
 
 #### 0.3. Baseline
 
-Compute the Score, Q and FP on the tuning set, with the $\lambda$ of [0.2](#02-penalty-λ).
+Compute the Score, Q and FP on the tuning set, with the $\lambda$ of [0.2](#02-penalty-lambda).
 
 ---
 
@@ -191,7 +191,7 @@ $$
 where:
 
 - $\text{Recall}_s$ is the proportion of artifacts with SNR $s$ that have some candidate in their zone $Z_i$ (artifact ± 25 ms).
-- $c_s$ is the cost of missing an artifact at SNR $s$, with ideal elimination ([Penalty λ](#02-penalty-λ)): $-s/30$ between $-30$ and $0$ dB, $0$ above. The measured $\Delta q_s$ can be used instead.
+- $c_s$ is the cost of missing an artifact at SNR $s$, with ideal elimination ([Penalty λ](#02-penalty-lambda)): $-s/30$ between $-30$ and $0$ dB, $0$ above. The measured $\Delta q_s$ can be used instead.
 
 > Missing an artifact at SNR ≥ 0 dB costs nothing, and there most of the candidates in $Z_i$ are background candidates that touch it by chance (recall ≈ 0.54 at 20 dB in the baseline).
 
@@ -435,7 +435,7 @@ where:
 
 ##### Decomposition of the quality
 
-$\hat{S}$ only uses the cell level; the aggregated means are used for $\lambda$ ([0.2](#02-penalty-λ)) and the [imputation](#imputation).
+$\hat{S}$ only uses the cell level; the aggregated means are used for $\lambda$ ([0.2](#02-penalty-lambda)) and the [imputation](#imputation).
 
 **Cell:** if $p_k$ is the fraction of the positions of cell $k$ detected in the full run, and $\bar{q}_k^{\text{det}}$ and $\bar{q}_k^{\text{undet}}$ are the mean $q$ of its detected and undetected positions:
 

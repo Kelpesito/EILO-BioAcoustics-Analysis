@@ -1,25 +1,31 @@
 """
-run_experiments.py
+run_experiment.py
 
 EVALUATION OF THE TRANSIENT REMOVAL FILTER (remove_noise)
 ---------------------------------------------------------
 Runs the evaluation experiments of evaluation_denoise.ipynb from the terminal: loads the clean signals and the
 artifacts, generates the mixtures (get_mixes_1 / get_mixes_2, same code and constants as the notebook) and processes
-them in parallel with run_experiment (src/evaluation/evaluation.py, one worker process per CPU core by default).
+them in parallel with run_experiment (src/evaluation/evaluation.py, one worker process per CPU core by default),
+with the constants of remove_noise of a configuration (src/optimization/configs.py).
     - Experiment 1: insertion of a single artifact (+ controls without artifact)
     - Experiment 2: insertion of several artifacts (paired subsets, equal / unequal SNR) + idempotence (+ controls)
 
 Requires:
     denoising/audio/{id}.wav
         The 38 clean signals and the 32 fragments the artifacts are cut from
+    denoising/results/optimization/candidates/search/all.json
+        C1 (search_candidates.py), only for the configurations C1 and C2
+    denoising/results/optimization/features/search/{width, isolation, impulsiveness}/all.json
+        C2' (search_features.py), only for the configuration C2
 
 Generates:
-    denoising/results/experiments/experiment_{1, 2}.csv
-        Metrics of each mixture (same file as the notebook, wherever the script is run from)
+    denoising/results/experiments/{config}/experiment_{1, 2}.csv
+        Metrics of each mixture (baseline: same file as the notebook; wherever the script is run from)
 
 Execution:
-    python denoising/run_experiments.py -e <experiment> [-p <processes>]
+    python denoising/run_experiment.py -e <experiment> [-c <config>] [-p <processes>]
         - experiment: 1 or 2
+        -c, --config: baseline (default constants of remove_noise), C1 or C2 (default: baseline)
         -p, --processes: number of worker processes (default: as many as CPU cores)
 """
 
@@ -34,7 +40,10 @@ import soundfile as sf
 from scipy.signal import detrend
 from scipy.signal.windows import tukey
 
-from src.evaluation.evaluation import FS, insert_artifact, insert_artifacts, process_mixture, process_mixture_multi, run_experiment
+from src.evaluation.evaluation import (FS, RESULTS_DIR, experiment_file, insert_artifact, insert_artifacts, process_mixture,
+                                       process_mixture_multi, run_experiment)
+from src.optimization.candidate_search import format_params, remove_noise_params
+from src.optimization.configs import CONFIGS, configuration
 
 
 # Paths
@@ -98,10 +107,6 @@ SNR_LIST_2 = [-30, -20, -10, -5, 0, 5, 10, 20]      # Equal condition: SNR of ev
 SNR_STRONG = -20                               # Unequal condition: SNR of the strong artifact (dB)
 SNR_WEAK_LIST = [-10, -5, 0]                   # Unequal condition: SNR of the weak artifacts (dB)
 N_GROUPS = 20                                  # Artifact triplets per clean signal
-
-# Output files (in src.evaluation.RESULTS_DIR = denoising/results/experiments)
-CSV_FILES = {1: "experiment_1.csv", 2: "experiment_2.csv"}
-
 
 def load_clean_signals() -> dict:
     """
@@ -326,9 +331,14 @@ def main():
     parser = argparse.ArgumentParser(description="Run an evaluation experiment of the transient removal filter")
     parser.add_argument("-e", "--experiment", required=True, type=int, choices=[1, 2],
                         help="Experiment to run: 1 (single artifact) or 2 (several artifacts + idempotence)")
+    parser.add_argument("-c", "--config", choices=CONFIGS, default="baseline",
+                        help="Configuration of the constants of remove_noise: baseline, C1 or C2 (default: baseline)")
     parser.add_argument("-p", "--processes", type=int, default=None,
                         help="Number of worker processes (default: as many as CPU cores)")
     args = parser.parse_args()
+
+    params = configuration(args.config)
+    print(f"Configuration {args.config}: {format_params(params) if params else 'default constants of remove_noise'}\n")
 
     print("Loading signals...")
     clean_dict = load_clean_signals()
@@ -344,9 +354,10 @@ def main():
         worker = process_mixture_multi
     print(f"{len(exp_df)} mixtures (controls included)\n")
 
-    csv_file = CSV_FILES[args.experiment]
-    run_experiment(exp_df, csv_file, clean_dict, artifact_dict, processes=args.processes, worker=worker)
-    print(f"\nResults saved in denoising/results/experiments/{csv_file}")
+    csv_file = experiment_file(args.experiment, args.config)
+    with remove_noise_params(params):
+        run_experiment(exp_df, csv_file, clean_dict, artifact_dict, processes=args.processes, worker=worker)
+    print(f"\nResults saved in {(RESULTS_DIR / csv_file).relative_to(Path(__file__).resolve().parent.parent)}")
 
 
 if __name__ == "__main__":  # Required by multiprocessing (spawn) on Windows

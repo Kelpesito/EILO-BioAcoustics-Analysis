@@ -4,7 +4,7 @@ This folder is **not** a data-preparation pipeline for the classification pipeli
 
 The **[ICBHI 2017 Challenge](https://bhichallenge.med.auth.gr/ICBHI_2017_Challenge)** database, in contrast, segments every recording into individual **respiratory cycles**. This folder runs a small subset of the [📊 Dataset pipeline](../dataset/README.md) steps over ICBHI 2017, restricted to patients **≤ 21 years old**, purely to characterize how respiratory-cycle durations are distributed in a pediatric population, as a sanity check for whether SPRSound's fragments should be filtered by duration before being used for training.
 
-> **Result:** the duration distributions of both datasets turned out to be comparable (see [📝 EDA results](#-eda-results)), so no duration-based filtering was applied to SPRSound.
+> **Result:** the duration distributions of both datasets turned out to be comparable (see [📝 EDA results](#-results)), so no duration-based filtering was applied to SPRSound.
 
 ---
 

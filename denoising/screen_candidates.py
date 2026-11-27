@@ -11,8 +11,8 @@ The parameters are module constants of remove_noise: each value is set on the mo
 worker processes by run_candidates, then the default value is restored.
 
 Requires:
-    denoising/results/experiments/experiment_1.csv
-        Mixtures of experiment 1 (run_experiment.py -e 1)
+    denoising/results/experiments/baseline/experiment_1.csv
+        Mixtures of experiment 1 (run_experiment.py -e 1, configuration baseline)
     denoising/audio/{id}.wav
         The 38 clean signals and the 32 fragments the artifacts are cut from
     denoising/splits/{clean, artifact}_split.csv
@@ -48,7 +48,7 @@ from src.optimization.splits import SETS, split_results
 
 # Paths
 SCREENING_PATH = CANDIDATES_PATH / "screening"  # denoising/results/optimization/candidates/screening
-EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
+EXPERIMENT_FILE = "baseline/experiment_1.csv"  # Mixtures of experiment 1, in denoising/results/experiments
 
 # Values of each parameter (the default value of remove_noise.py is included in each list)
 SCREENING = {

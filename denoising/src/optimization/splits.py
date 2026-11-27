@@ -63,7 +63,7 @@ def split_results(results_df: pd.DataFrame, clean_split: pd.DataFrame | None = N
     Parameters
     ----------
     results_df: pd.DataFrame
-        Results (mixtures + controls), e.g. read_results("experiment_1.csv")
+        Results (mixtures + controls), e.g. read_results("baseline/experiment_1.csv")
     clean_split, artifact_split: pd.DataFrame or None
         Split of the clean signals and of the artifacts (load_split). None -> loaded from SPLITS_PATH
 

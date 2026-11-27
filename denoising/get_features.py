@@ -16,8 +16,8 @@ Configurations:
 The baselines of phase 2 are baseline and C1 (default parameters of the features, with the candidates of each one).
 
 Requires:
-    denoising/results/experiments/experiment_1.csv
-        Mixtures of experiment 1 (run_experiment.py -e 1)
+    denoising/results/experiments/baseline/experiment_1.csv
+        Mixtures of experiment 1 (run_experiment.py -e 1, configuration baseline)
     denoising/audio/{id}.wav
         The 38 clean signals and the 32 fragments the artifacts are cut from
     denoising/splits/{clean, artifact}_split.csv
@@ -42,7 +42,6 @@ Execution:
 
 
 import argparse
-import json
 from multiprocessing import Pool
 from pathlib import Path
 
@@ -50,23 +49,18 @@ import numpy as np
 import pandas as pd
 from tqdm.auto import tqdm
 
-from get_candidates import CANDIDATES_PATH, ID_COLUMNS, OPTIMIZATION_PATH
+from get_candidates import ID_COLUMNS, OPTIMIZATION_PATH
 from run_experiment import load_artifacts, load_clean_signals
 from src.algorithm import remove_noise as rn
 from src.evaluation import evaluation as ev
 from src.optimization.candidate_search import format_params, remove_noise_params
+from src.optimization.configs import CONFIGS, configuration
 from src.optimization.splits import SETS, split_results
 
 
 # Paths
 FEATURES_PATH = OPTIMIZATION_PATH / "features"  # + /{config}
-C1_FILE = CANDIDATES_PATH / "search" / "all.json"  # C1 of the whole tuning set (search_candidates.py)
-EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
-
-# C2' of each group of features: best configuration of the run all (search_features.py), in FEATURES_PATH/search/<group>
-FEATURE_GROUPS = ["width", "isolation", "impulsiveness"]
-
-CONFIGS = ["baseline", "C1", "C2"]
+EXPERIMENT_FILE = ev.experiment_file(1)  # Mixtures of experiment 1 (baseline/experiment_1.csv in RESULTS_DIR)
 
 # Columns of the output (besides ID_COLUMNS)
 CELL = ["snr_db", "art_id", "clean_id"]  # Cell (s, a, c) of a mixture (controls: one cell per clean signal)
@@ -89,37 +83,6 @@ def create_folder_structure(config: str) -> None:
     OPTIMIZATION_PATH.mkdir(exist_ok=True)
     FEATURES_PATH.mkdir(exist_ok=True)
     (FEATURES_PATH / config).mkdir(exist_ok=True)
-
-
-def configuration(config: str) -> dict:
-    """
-    Constants of remove_noise of a configuration (only those that differ from the defaults).
-
-    Parameters
-    ----------
-    config: str
-        baseline, C1 or C2
-
-    Returns
-    -------
-    params: dict
-        Name of the constant -> value
-    """
-    if config == "baseline":
-        return {}
-    if not C1_FILE.exists():
-        raise FileNotFoundError(f"{C1_FILE} not found (run search_candidates.py --runs all)")
-    with open(C1_FILE) as f:
-        params = json.load(f)["c1"]["params"]
-    if config == "C1":
-        return params
-    for group in FEATURE_GROUPS:  # C2 = C1 + C2' (the best configuration of each group)
-        file = FEATURES_PATH / "search" / group / "all.json"
-        if not file.exists():
-            raise FileNotFoundError(f"{file} not found: C2' of {group} not chosen yet (run search_features.py -g {group} "
-                                    "--runs all)")
-        params = {**params, **json.loads(file.read_text(encoding="utf-8"))["best"]["params"]}
-    return params
 
 
 def process_mixture_features(row: dict) -> list[dict]:

@@ -144,6 +144,17 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.12**
+    - Configurations of the constants of the denoising algorithm in the evaluation experiments (preparation of the full run of phase 2 of the parameter optimization):
+        - New module `denoising/src/optimization/configs.py`: configurations `baseline`, `C1` and `C2`.
+        - `denoising/run_experiment.py` and `denoising/save_figures.py`: new option `-c, --config` (default: `baseline`). The results are saved in `denoising/results/experiments/<config>/experiment_{1,2}.csv` and the figures in `denoising/results/figures/<config>/experiment_{1,2}/`.
+        - `denoising/src/evaluation/evaluation.py`: new function `experiment_file(experiment, config)`.
+        - `denoising/src/evaluation/evaluation_plots.py`: new function `save_figures(experiment, config)`.
+        - The results and figures of the current experiments moved to `baseline/`. The optimization scripts and the notebooks read `baseline/experiment_1.csv`.
+    - Phase 2 of parameter optimization:
+        - Get features from C2 configuration
+        - Execution of section 5.5. Choice
+
 - **v2.3.11**
     - Results of the Bayesian search of the parameters of the features (phase 2 of the parameter optimization) → C2'.
     - Updated `denoising/parameter_optimization.ipynb` (phase 2):

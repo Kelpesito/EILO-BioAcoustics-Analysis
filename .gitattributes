@@ -1,1 +1,1 @@
-denoising/results/experiments/experiment_2.csv filter=lfs diff=lfs merge=lfs -text
+denoising/results/experiments/*/experiment_2.csv filter=lfs diff=lfs merge=lfs -text

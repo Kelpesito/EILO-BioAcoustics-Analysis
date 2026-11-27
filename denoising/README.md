@@ -80,7 +80,8 @@ denoising/
 │       ├── candidate_score.py     ← metrics of the candidate generation (copy of sections 2 and 4.1 of the notebook)
 │       ├── candidate_search.py    ← protocol of the search of phase 1: search space, constraints, (a)/(b)/b2, choice of C1, folds
 │       ├── feature_score.py       ← metric of the features (copy of section 5.1 of the notebook)
-│       └── feature_search.py      ← protocol of the search of phase 2: search space of each group, default + TPE, choice of C2'
+│       ├── feature_search.py      ← protocol of the search of phase 2: search space of each group, default + TPE, choice of C2'
+│       └── configs.py             ← configurations baseline, C1 and C2 (constants of remove_noise; option -c of the scripts)
 └── results/                       ← experiments and their figures (see 📁 Final folder layout)
 ```
 
@@ -292,8 +293,8 @@ Terminal versions of the heavy parts of the notebooks (e.g. for the HPC), **in o
 
 | Step | Script | Notebook (sections) | Requires | Output |
 |:----:|:-------|:--------------------|:---------|:-------|
-| **1** | `run_experiment.py` | evaluation (4, 5.1, 6.1) | `audio/` | `results/experiments/experiment_{1,2}.csv` |
-| **2** | `save_figures.py` | evaluation (5.4, 6.4) | step 1 | `results/figures/experiment_{1,2}/` |
+| **1** | `run_experiment.py` | evaluation (4, 5.1, 6.1); optimization (5.6, `C2`) | `audio/`; 6 (`C1`); 8 (`C2`) | `results/experiments/<config>/experiment_{1,2}.csv` |
+| **2** | `save_figures.py` | evaluation (5.4, 6.4) | step 1 (same configuration) | `results/figures/<config>/experiment_{1,2}/` |
 | **3** | `get_splits.py` | optimization (3.1) | — | `splits/` |
 | **4** | `get_candidates.py` | optimization (4.1–4.2) | steps 1, 3 | `results/optimization/candidates/<name>/` |
 | **5** | `screen_candidates.py` | optimization (4.3) | steps 1, 3 | `results/optimization/candidates/screening/` |
@@ -307,28 +308,35 @@ Terminal versions of the heavy parts of the notebooks (e.g. for the HPC), **in o
 
 ### 1️⃣ Evaluation experiments — [run_experiment.py](run_experiment.py)
 
-Rebuilds the mixtures of experiment 1 or 2 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) (`get_mixes_1`, `get_mixes_2`: identical to the notebook) and processes them with `run_experiment` ([evaluation.py](src/evaluation/evaluation.py)), with the default constants of the algorithm.
+Rebuilds the mixtures of experiment 1 or 2 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) (`get_mixes_1`, `get_mixes_2`: identical to the notebook) and processes them with `run_experiment` ([evaluation.py](src/evaluation/evaluation.py)), with the constants of the algorithm of a configuration (`-c`, [configs.py](src/optimization/configs.py)):
+
+| Configuration (`-c`) | Constants of `remove_noise` |
+|:---------------------|:----------------------------|
+| `baseline` (default) | Default constants (the evaluation of the notebook) |
+| `C1` | + C1 (`results/optimization/candidates/search/all.json`, step 6) |
+| `C2` | + C1 + C2' (`results/optimization/features/search/<group>/all.json`, step 8): full run of phase 2 |
 
 ```bash
-python denoising/run_experiment.py -e 1        # Experiment 1: single artifact
+python denoising/run_experiment.py -e 1        # Experiment 1: single artifact (baseline)
 python denoising/run_experiment.py -e 2 -p 4   # Experiment 2: several artifacts + idempotence
+python denoising/run_experiment.py -e 1 -c C2  # Experiment 1 with C2 (full run of phase 2, optimization 5.6)
 ```
 
-**Generates:** `results/experiments/experiment_{1,2}.csv`, the **same file** as the notebook (load it with `read_results`); overwritten.
+**Generates:** `results/experiments/<config>/experiment_{1,2}.csv` (`baseline`: the **same file** as the notebook; load it with `read_results(experiment_file(1, config))`); overwritten. Steps 4–8 read the mixtures of `baseline/experiment_1.csv`.
 
 ---
 
 ### 2️⃣ Result figures — [save_figures.py](save_figures.py)
 
-Saves (does not show) the plotly result figures of the experiments ([evaluation_plots.py](src/evaluation/evaluation_plots.py), entry point `save_figures(experiment)`), once the `.csv` of the experiment exists.
+Saves (does not show) the plotly result figures of the experiments ([evaluation_plots.py](src/evaluation/evaluation_plots.py), entry point `save_figures(experiment, config)`), once the `.csv` of the experiment exists with the same configuration (`-c`, as step 1).
 
 ```bash
-python denoising/save_figures.py                       # Experiments 1 and 2
-python denoising/save_figures.py -e 1                  # -e: only experiment 1 or 2
+python denoising/save_figures.py                       # Experiments 1 and 2 (baseline)
+python denoising/save_figures.py -e 1 -c C2            # -e: only experiment 1 or 2; -c: configuration
 python denoising/save_figures.py -e 2 -f idempotence   # -f: only some figures; -s: scale of the .png (default: 5)
 ```
 
-**Generates:** `results/figures/experiment_{1,2}/<name>.{png,svg,html}` (plotly.js from the CDN); overwritten. Names: `detection`, `elimination`, `conservation`, `amplitude`, `factor_analysis` (experiment 1); `experiment_comparison` (also reads `experiment_1.csv`), `interaction_artifacts`, `mixture_performance`, `conservation_multiple`, `idempotence` (experiment 2).
+**Generates:** `results/figures/<config>/experiment_{1,2}/<name>.{png,svg,html}` (plotly.js from the CDN); overwritten. Names: `detection`, `elimination`, `conservation`, `amplitude`, `factor_analysis` (experiment 1); `experiment_comparison` (also reads `experiment_1.csv` of the same configuration), `interaction_artifacts`, `mixture_performance`, `conservation_multiple`, `idempotence` (experiment 2).
 
 ---
 
@@ -349,7 +357,7 @@ python denoising/get_splits.py
 
 ### 4️⃣ Candidates — [get_candidates.py](get_candidates.py)
 
-Rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates (`generate_candidates`, default constants) and computes their metrics against the zone of the artifact (±25 ms, `candidate_metrics`).
+Rebuilds each mixture of `baseline/experiment_1.csv` (all the SNR) and its control, generates its candidates (`generate_candidates`, default constants) and computes their metrics against the zone of the artifact (±25 ms, `candidate_metrics`).
 
 ```bash
 python denoising/get_candidates.py               # All the mixtures of experiment 1
@@ -411,7 +419,7 @@ python denoising/search_candidates.py --trials-a 100 --trials-b 100 -p 64
 
 ### 7️⃣ Features of the candidates — [get_features.py](get_features.py)
 
-Rebuilds each mixture of `experiment_1.csv` and its control, generates its candidates and their features (`generate_features`) and classifies them with the current click rules (`find_click_events`), for a configuration:
+Rebuilds each mixture of `baseline/experiment_1.csv` and its control, generates its candidates and their features (`generate_features`) and classifies them with the current click rules (`find_click_events`), for a configuration:
 
 | `-c` | Constants of the algorithm |
 |:-----|:---------------------------|
@@ -473,8 +481,8 @@ denoising/
 │   ├── cv_clean_folds.csv                   # clean_id, label, fold (1-5) of the tuning clean signals
 │   └── cv_artifact_folds.csv                # art_id, art_duration_ms, fold (1-5) of the tuning artifacts
 └── results/
-    ├── experiments/                 ← step 1: experiment_1.csv, experiment_2.csv
-    ├── figures/                     ← step 2: experiment_{1,2}/<name>.{png,svg,html}
+    ├── experiments/<config>/        ← step 1: experiment_1.csv, experiment_2.csv (baseline, C2)
+    ├── figures/<config>/            ← step 2: experiment_{1,2}/<name>.{png,svg,html}
     └── optimization/
         ├── candidates/
         │   ├── <name>/<set>.csv     ← step 4: one row per mixture (metrics of its candidates)
@@ -485,7 +493,7 @@ denoising/
             └── search/<group>/      ← step 8: <run>.db, <run>_trials.csv, <run>.json, <runs>.log, summary.csv
 ```
 
-Every `.csv` and `.json` is versioned (`experiment_2.csv` with git LFS): among others, `splits/` (the HPC and the notebook must use the same split and folds) and `candidates/baseline/tune.csv` (required by step 6). Not versioned: the `.db` (only to resume a run) and `.log` of the searches.
+Every `.csv` and `.json` is versioned (each `experiment_2.csv` with git LFS): among others, `splits/` (the HPC and the notebook must use the same split and folds) and `candidates/baseline/tune.csv` (required by step 6). Not versioned: the `.db` (only to resume a run) and `.log` of the searches.
 
 ---
 
@@ -517,7 +525,7 @@ Artifacts are added to clean signals, where the expected result is known, and th
     - **Mixtures:** each clean signal × each artifact that fits, at `N_REPS = 5` random positions (≥ 0.1 s from the borders) and local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB (repeated positions dropped); ~60 700 rows. **Control:** each clean signal without artifact (`art_id` = `snr_db` = `"Control"`).
     - **Descriptors** (`insert_artifact`): duration of the artifact, local relative power of the clean signal around it (±25 ms) and global SNR.
     - **Metrics** (`metrics`, reference: clean signal > 15 Hz): *detection* (click in the artifact zone ±25 ms) and false clicks; *elimination*: SNR in / out, ΔSNR and `attenuated` (ΔSNR ≥ 3 dB); *conservation*: NMSE out of the zone; *amplitude*: error (%) of the maximum and mean moving RMS (30 ms), local and global, before and after the filter.
-    - **Execution:** `run_experiment` (parallel, `multiprocessing`) → `results/experiments/experiment_1.csv` (also [script 1](#1️⃣-evaluation-experiments--run_experimentpy)).
+    - **Execution:** `run_experiment` (parallel, `multiprocessing`) → `results/experiments/baseline/experiment_1.csv` (also [script 1](#1️⃣-evaluation-experiments--run_experimentpy)).
 5. **Experiment 2 — Insertion of several artifacts:** close artifacts, masking and idempotence.
     - **Layouts:** for each clean signal, `N_GROUPS = 20` random triplets of artifacts, placed one after another with an edge-to-edge gap of `GAP_LIST` = 25, 50, 100, 300 and 500 ms at a random position.
     - **Paired subsets:** every non-empty subset of each layout (3 singles, 3 pairs and the triplet) at **the same positions** (`group_id`, `subset`): each artifact is compared alone and accompanied, everything else equal.
@@ -525,7 +533,7 @@ Artifacts are added to clean signals, where the expected result is known, and th
     - **Mixtures** (`insert_artifacts`): each artifact scaled with respect to the **clean** signal (independent of the others).
     - **Metrics** (`metrics_multi`): zones ±25 ms cut at the midpoint of the gap when they overlap (`artifact_zones`); *per artifact*: detection, `merged` (its click also touches another zone), SNR in / out (with that artifact alone), ΔSNR, `attenuated`, local amplitude errors; *per mixture*: detected artifacts (`n_detected`, `all_detected`), false clicks, NMSE out of the zones and **between** consecutive artifacts, global errors and global SNR.
     - **Idempotence:** every mixture is processed twice, f(f(x)): clicks of the second pass (`n_clicks_pass2`, in the zones), its change (`idem_nmse_db`), the metrics recomputed after the second pass (suffix `_pass2`), artifacts detected in either pass (`_any`) and global SNR before / after each pass (`snr_glob_*`).
-    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` → `results/experiments/experiment_2.csv` (tuples saved as JSON lists; `read_results` reads them back).
+    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` → `results/experiments/baseline/experiment_2.csv` (tuples saved as JSON lists; `read_results` reads them back).
 6. **Results:** each figure is a function of the results table; the notebook saves it as `assets/exp{1,2}_<name>.png` (below) and [script 2](#2️⃣-result-figures--save_figurespy) saves its plotly version.
 
 **Experiment 1**
@@ -599,7 +607,7 @@ Optimization of the parameters of the algorithm, following [PARAMETER_OPTIMIZATI
     - **5.1. Metric:** standardized partial ROC-AUC (McClish) of each feature over all the candidates of the tuning mixtures ([script 7](#7️⃣-features-of-the-candidates--get_featurespy)), in the region of its use in the rules (selectors `isolation`, `z_max`: FPR ≤ 0.1; vetoes `width_med`, `width_max`: TPR ≥ 0.9). Artifacts: one per mixture with candidates in its zone (most artifact-like value, weight $c_s/N_{a,c}$); rest: the candidates out of the zone (weight $1/N_{a,c}$). Metric of a group: mean over its features.
         - Below: the figure `plot_features` (general: any configurations and features; plotly version of `plot_features_mpl`): weighted ROC curve of each configuration and cumulative distribution of each feature; and the general functions of the results of the search (`load_feature_search`, `describe_feature_search`, `plot_feature_search_history`, `plot_feature_search_values`, `plot_feature_search_cv`).
     - **5.2–5.4. Width, isolation and impulsiveness:** baseline (metric and figure with `baseline` and `C1`) and optimization ([script 8](#8️⃣-search-of-the-features--search_featurespy)): C2' of the group, nested cross-validation, history, metric vs value of each parameter and stability.
-    - **5.5. Choice:** C2' of each group (parameters, limit of the range, metric and validation), C2 = C1 + C2', and check with `baseline`, `C1` and `C2` (metric and new ROC curves; pending `get_features.py -c C2`):
+    - **5.5. Choice:** C2' of each group (parameters, limit of the range, metric and validation), C2 = C1 + C2', and check with `baseline`, `C1` and `C2` (metric and new ROC curves):
 
       | Group | Parameters (default → C2') | Metric (default → C2') | Validation (C2' − default) |
       |:--|:--|:--:|:--:|
@@ -607,8 +615,8 @@ Optimization of the parameters of the algorithm, following [PARAMETER_OPTIMIZATI
       | **Isolation** | `ISO_WIN` 100 → 493.4 ms | 0.781 → 0.840 | +0.052 ± 0.072 |
       | **Impulsiveness** | `Z_WIN` 100 → 108.5 ms, `AR_ORDER` 20 → 6 | 0.918 → 0.943 | +0.012 ± 0.054 |
 
-      Width and isolation end at the limit of their ranges (kept). In width, the floor is the peak − 6 dB, so `BG_FACTOR` has almost no effect, and `width_max` stays at the level of chance (sAUC ≈ 0.50); `width_med` improves from 0.576 to 0.643.
-    - **5.6. Full run:** candidate table and scores of every mixture with C2 (pending).
+      Width and isolation end at the limit of their ranges (kept). In width, the floor is the peak − 6 dB, so `BG_FACTOR` has almost no effect, and `width_max` stays at the level of chance (sAUC ≈ 0.50); `width_med` improves from 0.576 to 0.643. Check: the features of C2 (`get_features.py -c C2`, same candidates as C1) give the metric of the C2' of each group; isolation stays below that of `baseline` (0.863: the `ENV_SMOOTH` of C1).
+    - **5.6. Full run:** candidate table (`get_features.py -c C2`, done) and scores of every mixture with C2 (`run_experiment.py -e 1 -c C2` → `results/experiments/C2/experiment_1.csv`; pending).
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.

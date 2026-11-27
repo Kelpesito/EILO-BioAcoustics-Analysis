@@ -3,7 +3,7 @@ evaluation_plots.py
 
 Result figures of the evaluation of the transient removal filter (remove_noise): interactive (plotly) versions of the
 figures of evaluation_denoise.ipynb (sections 5.4 and 6.4), built from the metrics saved by run_experiment
-(results/experiments/experiment_{1, 2}.csv). Copied from the plotly cells of the notebook: a change in a figure of
+(results/experiments/<config>/experiment_{1, 2}.csv). Copied from the plotly cells of the notebook: a change in a figure of
 the notebook must also be made here.
 
 Each figure reproduces its matplotlib/seaborn version of the notebook pixel by pixel: the positions of the axes,
@@ -16,8 +16,8 @@ Experiment 2: insertion of several artifacts    -> plot_experiment_comparison, p
               (+ idempotence)                      plot_mixture_performance, plot_conservation_multiple,
                                                    plot_idempotence
 
-Entry point: save_figures(experiment) builds every figure of an experiment and saves it in
-results/figures/experiment_{experiment}/{name}.{png, svg, html} (terminal version: denoising/save_figures.py).
+Entry point: save_figures(experiment, config) builds every figure of an experiment and saves it in
+results/figures/<config>/experiment_{experiment}/{name}.{png, svg, html} (terminal version: denoising/save_figures.py).
 """
 
 # ====================================================================================================================
@@ -43,8 +43,8 @@ from matplotlib.patches import Patch
 from scipy.stats import gaussian_kde
 from seaborn.utils import relative_luminance
 
-from .evaluation import FS, RESULTS_DIR, TOL, read_results
-from ..algorithm.remove_noise import REF_INNER, REF_OUTER
+from .evaluation import DEFAULT_CONFIG, FS, RESULTS_DIR, TOL, experiment_file, read_results
+from ..algorithm import remove_noise as rn
 from ..algorithm.summary_plots import (DASH_PATTERNS, FONT, MPL_COLORS, MPL_TICKFORMAT, mpl_colorscale, mpl_dashes, mpl_nticks,
                             mpl_range, mpl_text_size, rgba, rounded_rect)
 
@@ -54,8 +54,7 @@ from ..algorithm.summary_plots import (DASH_PATTERNS, FONT, MPL_COLORS, MPL_TICK
 # ====================================================================================================================
 
 # Paths
-FIGURES_DIR = RESULTS_DIR.parent / "figures"  # denoising/results/figures (independent of the cwd)
-CSV_FILES = {1: "experiment_1.csv", 2: "experiment_2.csv"}  # Results of each experiment (in RESULTS_DIR)
+FIGURES_DIR = RESULTS_DIR.parent / "figures"  # denoising/results/figures (+ /<config>; independent of the cwd)
 
 # Experiment parameters needed by the figures
 SNR_STRONG = -20  # Experiment 2, unequal condition: SNR of the strong artifact (dB), as in run_experiment.py
@@ -2625,7 +2624,8 @@ def _comparison_geometry(fig_w: float, fig_h: float, dpi: float, spec: dict) -> 
     return out
 
 
-def plot_experiment_comparison(results_df: pd.DataFrame, width: int | None = None, dpi: float = 100) -> go.Figure:
+def plot_experiment_comparison(results_df: pd.DataFrame, width: int | None = None, dpi: float = 100,
+                               config: str = DEFAULT_CONFIG) -> go.Figure:
     """
     Interactive (plotly) version of plot_experiment_comparison (matplotlib/seaborn, section 6.4.1 of
     evaluation_denoise.ipynb): same layout (layout="constrained", figsize 14 x 12 in), sizes, fonts, colors and
@@ -2655,8 +2655,8 @@ def plot_experiment_comparison(results_df: pd.DataFrame, width: int | None = Non
     Parameters
     ----------
     results_df: pd.DataFrame
-        Results of experiment 2 (read_results("experiment_2.csv")). It is not modified.
-        Also reads results/experiments/experiment_1.csv (read_results)
+        Results of experiment 2 (read_results(experiment_file(2, config))). It is not modified.
+        Also reads the results of experiment 1 of the same configuration (read_results(experiment_file(1, config)))
     width: int or None
         Width of the figure (px). Only the width of the axes changes (the fonts and the margins do not). None -> as
         matplotlib
@@ -2684,7 +2684,7 @@ def plot_experiment_comparison(results_df: pd.DataFrame, width: int | None = Non
         art2[col] = art2[col].astype(bool).astype(float)
     art2["n_art"] = art2["n_art"].astype(int)
 
-    results1 = read_results("experiment_1.csv")
+    results1 = read_results(experiment_file(1, config))
     results1["snr_db"] = pd.to_numeric(results1["snr_db"], errors="coerce")
     mix1 = results1[results1["art_id"] != "Control"]
 
@@ -3233,7 +3233,7 @@ def plot_interaction_artifacts(results_df: pd.DataFrame, width: int | None = Non
     upper legend of E for each SNR of the weak artifact and on the legend of F for each group (F and F'); the "Total /
     Own detection" legends only show the line style. Zoom: A, B and E move the gap axis together (sharex), F and F' the
     SNR one, and the two heatmaps both axes (in matplotlib they only share the y axis).
-    Uses FS, TOL (evaluation), REF_INNER, REF_OUTER (remove_noise) and SNR_STRONG (module constant).
+    Uses FS, TOL (evaluation), REF_INNER, REF_OUTER (current values of remove_noise) and SNR_STRONG (module constant).
     The positions of the axes, texts, colorbars and legends and the ticks are taken from the constrained layout of
     matplotlib applied to the same figure without data (_interaction_geometry).
     Limits: the y axis of F' has a step of 25 (plotly only picks 1-2-5 steps), so it is fixed and does not adapt when
@@ -3290,8 +3290,8 @@ def plot_interaction_artifacts(results_df: pd.DataFrame, width: int | None = Non
     lv = np.sort(art2["snrs_db"].unique())
     gaps_ms = np.sort(acc["gap_ms"].unique())
     REF_LINES = {f"2·TOL = {2 * TOL / FS * 1000:g} ms": 2 * TOL / FS * 1000,
-                 f"REF_INNER = {REF_INNER * 1000:g} ms": REF_INNER * 1000,
-                 f"REF_OUTER = {REF_OUTER * 1000:g} ms": REF_OUTER * 1000}
+                 f"REF_INNER = {rn.REF_INNER * 1000:g} ms": rn.REF_INNER * 1000,
+                 f"REF_OUTER = {rn.REF_OUTER * 1000:g} ms": rn.REF_OUTER * 1000}
     REF_DASHES = dict(zip(REF_LINES, (DASH_PATTERNS["--"], DASH_PATTERNS["-."], [5, 2, 1, 2])))
 
     # A, B: one row per clean signal, gap and n_art (mean over artifacts, positions and SNR)
@@ -5107,16 +5107,20 @@ FIGURES = {
 }
 
 
-def save_figures(experiment: int, names: list[str] | None = None, scale: float = PNG_SCALE,
-                 verbose: bool = True) -> None:
+def save_figures(experiment: int, config: str = DEFAULT_CONFIG, names: list[str] | None = None,
+                 scale: float = PNG_SCALE, verbose: bool = True) -> None:
     """
-    Builds the figures of an experiment from its results (RESULTS_DIR/experiment_{experiment}.csv) and saves each
-    one in FIGURES_DIR/experiment_{experiment}/{name}.{png, svg, html}.
+    Builds the figures of an experiment from its results with a configuration (RESULTS_DIR/<config>/
+    experiment_{experiment}.csv) and saves each one in FIGURES_DIR/<config>/experiment_{experiment}/{name}.{png, svg,
+    html}. The figures that show constants of remove_noise (REF_INNER, REF_OUTER) use their current values: set those of
+    the configuration first (as save_figures.py).
 
     Parameters
     ----------
     experiment: int
         Experiment: 1 (single artifact) or 2 (several artifacts + idempotence)
+    config: str
+        Configuration of the constants of remove_noise of the results: baseline, C1 or C2 (src/optimization/configs.py)
     names: list of str or None
         Figures to save (keys of FIGURES[experiment]). None -> all of them
     scale: float
@@ -5126,7 +5130,7 @@ def save_figures(experiment: int, names: list[str] | None = None, scale: float =
 
     Examples
     --------
-    >>> save_figures(1)                                   # Every figure of experiment 1
+    >>> save_figures(1)                                   # Every figure of experiment 1 (baseline)
     >>> save_figures(2, names=["idempotence"])            # Only one figure of experiment 2
     """
     if experiment not in FIGURES:
@@ -5137,10 +5141,11 @@ def save_figures(experiment: int, names: list[str] | None = None, scale: float =
     if unknown:
         raise ValueError(f"Unknown figures of experiment {experiment}: {unknown} (available: {list(figures)})")
 
-    results_df = read_results(CSV_FILES[experiment])
-    out_dir = FIGURES_DIR / f"experiment_{experiment}"
+    results_df = read_results(experiment_file(experiment, config))
+    out_dir = FIGURES_DIR / config / f"experiment_{experiment}"
     for name in names:
-        fig = figures[name](results_df)
+        kwargs = {"config": config} if name == "experiment_comparison" else {}  # It also reads experiment 1
+        fig = figures[name](results_df, **kwargs)
         save_figure(fig, out_dir / name, scale=scale)
         if verbose:
-            print(f"  results/figures/experiment_{experiment}/{name} (.png, .svg, .html)")
+            print(f"  results/figures/{config}/experiment_{experiment}/{name} (.png, .svg, .html)")

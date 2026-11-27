@@ -14,8 +14,8 @@ Each configuration evaluated = candidates of the training mixtures of the run (r
 their metrics (score_candidates: recall and its SE, load, median w_i and diagnostics).
 
 Requires:
-    denoising/results/experiments/experiment_1.csv
-        Mixtures of experiment 1 (run_experiment.py -e 1)
+    denoising/results/experiments/baseline/experiment_1.csv
+        Mixtures of experiment 1 (run_experiment.py -e 1, configuration baseline)
     denoising/audio/{id}.wav
         The 38 clean signals and the 32 fragments the artifacts are cut from
     denoising/splits/{clean, artifact}_split.csv, denoising/splits/cv_{clean, artifact}_folds.csv
@@ -65,7 +65,7 @@ from src.optimization.splits import N_CV_FOLDS, load_cv_folds, load_split, split
 # Paths
 SEARCH_PATH = CANDIDATES_PATH / "search"  # denoising/results/optimization/candidates/search
 BASELINE_FILE = CANDIDATES_PATH / "baseline" / "tune.csv"  # get_candidates.py -s tune
-EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
+EXPERIMENT_FILE = "baseline/experiment_1.csv"  # Mixtures of experiment 1, in denoising/results/experiments
 
 RUNS = [str(k) for k in range(1, N_CV_FOLDS + 1)] + ["all"]
 LOG_METRICS = ["recall", "load", "w_med"]  # Metrics of the summary of the cross-validation

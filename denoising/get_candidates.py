@@ -11,8 +11,8 @@ Candidates: connected time spans of the union over the bands of the detections a
 events.
 
 Requires:
-    denoising/results/experiments/experiment_1.csv
-        Mixtures of experiment 1 (run_experiment.py -e 1)
+    denoising/results/experiments/baseline/experiment_1.csv
+        Mixtures of experiment 1 (run_experiment.py -e 1, configuration baseline)
     denoising/audio/{id}.wav
         The 38 clean signals and the 32 fragments the artifacts are cut from
     denoising/splits/{clean, artifact}_split.csv
@@ -50,7 +50,7 @@ from src.optimization.splits import SETS, split_results
 # Paths
 OPTIMIZATION_PATH = Path(__file__).resolve().parent / "results" / "optimization"
 CANDIDATES_PATH = OPTIMIZATION_PATH / "candidates"  # + /{name}
-EXPERIMENT_FILE = "experiment_1.csv"  # In denoising/results/experiments
+EXPERIMENT_FILE = "baseline/experiment_1.csv"  # Mixtures of experiment 1, in denoising/results/experiments
 
 # Columns of experiment_1.csv kept in the output (identification of the mixture)
 ID_COLUMNS = ["id", "clean_id", "clean_file", "label", "art_id", "rep", "snr_db", "k0", "k1", "art_duration_ms"]
