@@ -616,7 +616,14 @@ Optimization of the parameters of the algorithm, following [PARAMETER_OPTIMIZATI
       | **Impulsiveness** | `Z_WIN` 100 → 108.5 ms, `AR_ORDER` 20 → 6 | 0.918 → 0.943 | +0.012 ± 0.054 |
 
       Width and isolation end at the limit of their ranges (kept). In width, the floor is the peak − 6 dB, so `BG_FACTOR` has almost no effect, and `width_max` stays at the level of chance (sAUC ≈ 0.50); `width_med` improves from 0.576 to 0.643. Check: the features of C2 (`get_features.py -c C2`, same candidates as C1) give the metric of the C2' of each group; isolation stays below that of `baseline` (0.863: the `ENV_SMOOTH` of C1).
-    - **5.6. Full run:** candidate table (`get_features.py -c C2`, done) and scores of every mixture with C2 (`run_experiment.py -e 1 -c C2` → `results/experiments/C2/experiment_1.csv`; pending).
+    - **5.6. Full run:** candidate table (`get_features.py -c C2`) and scores of every mixture with C2 (`run_experiment.py -e 1 -c C2` → `results/experiments/C2/experiment_1.csv`), compared with the baseline:
+
+      | | $S$ | $Q$ | $FP$ | SNR at 50 % detection |
+      |:--|:--:|:--:|:--:|:--:|
+      | **Baseline** | 0.8987 | 0.9176 | 0.090 | −7.2 dB |
+      | **C2** | 0.9089 | 0.9197 | 0.052 | −9.4 dB |
+
+      The candidate table reproduces the detection and the false positives of the full run (100 % of the mixtures). With the current rules, C2 has fewer false positives (Rhonchi 0.156 → 0) and attenuates the detected artifacts better, but detects fewer at −10 and −5 dB (1905 mixtures lost vs 756 gained). The undetected artifacts keep $q = q(s)$. Last: the scores of each cell (inputs of $\hat{S}$ in phase 3).
 6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.
@@ -649,5 +656,5 @@ Figure functions of `denoise_summary_plots.ipynb`, from `remove_noise(..., retur
 - [x] Click-only transient removal (4 rules + border rule), checked by eye and by ear on real fragments.
 - [x] Summary figures (`summary_plots.py`) and example in `denoise_soundwaveletSWT.ipynb`.
 - [x] Evaluation (`evaluation_denoise.ipynb`): experiment 1 (single artifact) and experiment 2 (several artifacts + idempotence).
-- [ ] Optimization of the thresholds (in progress: phases 0–1 done, phase 2 in progress).
+- [ ] Optimization of the thresholds (in progress: phases 0–2 done).
 - [ ] Port of the current version to the dataset pipeline.

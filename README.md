@@ -144,6 +144,11 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.13**
+    - Phase 2 (feature definition) of the parameter optimization of the denoising algorithm: done.
+        - Full run with C2.
+        - Updated `denoising/parameter_optimization.ipynb`: 5.6. Full run: candidate table of C2, comparison of the scores with the baseline and scores of each cell.
+
 - **v2.3.12**
     - Configurations of the constants of the denoising algorithm in the evaluation experiments (preparation of the full run of phase 2 of the parameter optimization):
         - New module `denoising/src/optimization/configs.py`: configurations `baseline`, `C1` and `C2`.

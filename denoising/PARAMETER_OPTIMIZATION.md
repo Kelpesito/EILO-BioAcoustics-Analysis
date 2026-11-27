@@ -372,6 +372,24 @@ sAUC = 0.5: no better than chance; sAUC = 1: perfect separation in the region. *
 - **Range limits:** the trends are monotonic but flatten close to the limits; the ranges were not extended.
 - The searches of every fold evaluate the same configurations at the start (same seed), so equal C2' across the folds (width, isolation) do not prove stability.
 
+**Full run** (tuning set, $\lambda = 0.21$): candidate table of C2 (104 408 candidates) and scores of every mixture with C2, compared with the baseline. The rules are still those of the current version (selected by eye), so the differences come from the candidates and the features:
+
+| | Baseline | C2 | Δ |
+|:--|:--:|:--:|:--:|
+| $S$ | 0.8987 | 0.9089 | +0.0102 |
+| $Q$ | 0.9176 | 0.9197 | +0.0021 |
+| $FP$ | 0.090 | 0.052 | −0.038 |
+| $1 - Q$: missed artifacts | 0.0335 | 0.0400 | +0.0065 |
+| $1 - Q$: imperfect attenuation | 0.0489 | 0.0402 | −0.0086 |
+| SNR at 50 % detection | −7.2 dB | −9.4 dB | −2.2 dB |
+| NMSE of the controls (median) | −53.8 dB | −57.2 dB | −3.5 dB |
+
+- **Check:** the detection and the false positives recomputed from the candidate table are those of the full run in 100 % of the mixtures and controls.
+- **False positives:** fewer, mainly in Rhonchi (0.156 → 0 per mixture).
+- **Detection:** lower at −10 and −5 dB (−0.13 and −0.14): 1905 mixtures lost vs 756 gained. The detected artifacts are better attenuated ($\bar{q}^{\text{det}}_s$ +0.05 at −30 dB).
+- $\bar{q}^{\text{undet}}_s = q(s)$ exactly at every SNR: the filter does not touch the undetected artifacts (as assumed in the [imputation](#imputation)).
+- **Scores of each cell** (inputs of $\hat{S}$): 5336 cells, 1289 always detected, 2667 never detected and 1380 partly detected.
+
 ---
 
 ### 3️⃣ Phase 3 — Rule selection
@@ -463,7 +481,7 @@ $$
 
 A value is missing when an artifact is never detected (or never missed) in a cell in the full run, but the new rules do detect (or miss) it. Each value used by $\hat{S}$ is taken from the closest level with data:
 
-- **$\hat{q}^{\text{undet}}_{s,a,c}$:** $\bar{q}_k^{\text{undet}}$; if missing, the filter does not touch the zone of the artifact, so $\text{SNR}^{\text{out}} \approx s$ and $\hat{q}^{\text{undet}}_{s,a,c} \approx q(s)$.
+- **$\hat{q}^{\text{undet}}_{s,a,c}$:** $\bar{q}_k^{\text{undet}}$; if missing, the filter does not touch the zone of the artifact, so $\text{SNR}^{\text{out}} = s$ and $\hat{q}^{\text{undet}}_{s,a,c} = q(s)$ (checked in the full run of [Phase 2](#2️⃣-phase-2--feature-definition)).
 - **$\hat{q}^{\text{det}}_{s,a,c}$:** $\bar{q}_k^{\text{det}}$; if missing, $\bar{q}^{\text{det}}_{s,a}$ (same artifact in the other clean signals); if the artifact is not detected in any clean signal at that SNR, $\bar{q}^{\text{det}}_s$.
 
 > If the full run gives $q^{\text{det}}$ of every mixture (forcing the attenuation of its candidate), no imputation is needed.
@@ -535,7 +553,7 @@ A value is missing when an artifact is never detected (or never missed) in a cel
 
 - [x] **Phase 0** — Preparation
 - [x] **Phase 1** — Candidate generation
-- [ ] **Phase 2** — Feature definition
+- [x] **Phase 2** — Feature definition
 - [ ] **Phase 3** — Rule selection
 - [ ] **Phase 4** — Attenuation
 - [ ] **Phase 5** — Validation
