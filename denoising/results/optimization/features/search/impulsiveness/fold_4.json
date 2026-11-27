@@ -1,0 +1,37 @@
+{
+  "run": "fold_4",
+  "group": "Impulsiveness",
+  "n_trials": 40,
+  "best": {
+    "trial": 34,
+    "baseline": false,
+    "params": {
+      "Z_WIN": 0.11149600432444019,
+      "AR_ORDER": 5
+    }
+  },
+  "train": {
+    "best": {
+      "auc_z_max": 0.9744002181181545,
+      "metric": 0.9343714951432236,
+      "sauc_z_max": 0.9343714951432236
+    },
+    "baseline": {
+      "metric": 0.9147134977238613,
+      "sauc_z_max": 0.9147134977238613,
+      "auc_z_max": 0.9707797333140333
+    }
+  },
+  "validation": {
+    "best": {
+      "metric": 0.9746864263198383,
+      "sauc_z_max": 0.9746864263198383,
+      "auc_z_max": 0.9868384096100635
+    },
+    "baseline": {
+      "metric": 0.9590691808049562,
+      "sauc_z_max": 0.9590691808049562,
+      "auc_z_max": 0.9836571341718339
+    }
+  }
+}

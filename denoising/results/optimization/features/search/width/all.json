@@ -1,0 +1,31 @@
+{
+  "run": "all",
+  "group": "Width",
+  "n_trials": 60,
+  "best": {
+    "trial": 17,
+    "baseline": false,
+    "params": {
+      "BG_FACTOR": 1.0187283696681502,
+      "WIDTH_FLOOR_DB": 6.424040598231632,
+      "EXTEND": 3.9821678031674237
+    }
+  },
+  "train": {
+    "best": {
+      "auc_width_max": 0.3060522575383308,
+      "auc_width_med": 0.618737969628903,
+      "metric": 0.5716252242906932,
+      "sauc_width_max": 0.500122524947057,
+      "sauc_width_med": 0.6431279236343292
+    },
+    "baseline": {
+      "metric": 0.5341283438515114,
+      "sauc_width_med": 0.5761885282961445,
+      "sauc_width_max": 0.49206815940687826,
+      "auc_width_med": 0.5476455957924617,
+      "auc_width_max": 0.21165076227981233
+    }
+  },
+  "validation": null
+}

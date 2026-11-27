@@ -1,0 +1,25 @@
+{
+  "run": "all",
+  "group": "Isolation",
+  "n_trials": 20,
+  "best": {
+    "trial": 15,
+    "baseline": false,
+    "params": {
+      "ISO_WIN": 0.493374309203237
+    }
+  },
+  "train": {
+    "best": {
+      "auc_isolation": 0.9195115743531989,
+      "metric": 0.8401735477414078,
+      "sauc_isolation": 0.8401735477414078
+    },
+    "baseline": {
+      "metric": 0.7812063407199967,
+      "sauc_isolation": 0.7812063407199967,
+      "auc_isolation": 0.9182768740183698
+    }
+  },
+  "validation": null
+}

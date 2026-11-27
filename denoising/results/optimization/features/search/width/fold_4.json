@@ -1,0 +1,46 @@
+{
+  "run": "fold_4",
+  "group": "Width",
+  "n_trials": 60,
+  "best": {
+    "trial": 17,
+    "baseline": false,
+    "params": {
+      "BG_FACTOR": 1.0187283696681502,
+      "WIDTH_FLOOR_DB": 6.424040598231632,
+      "EXTEND": 3.9821678031674237
+    }
+  },
+  "train": {
+    "best": {
+      "auc_width_max": 0.31573256993129306,
+      "auc_width_med": 0.5981390455633211,
+      "metric": 0.563912743910841,
+      "sauc_width_max": 0.49348144402583166,
+      "sauc_width_med": 0.6343440437958504
+    },
+    "baseline": {
+      "metric": 0.5342589243260493,
+      "sauc_width_med": 0.5794774637379124,
+      "sauc_width_max": 0.48904038491418617,
+      "auc_width_med": 0.5329627629859498,
+      "auc_width_max": 0.21497640812096866
+    }
+  },
+  "validation": {
+    "best": {
+      "metric": 0.6035953428520735,
+      "sauc_width_med": 0.6808553265644766,
+      "sauc_width_max": 0.5263353591396703,
+      "auc_width_med": 0.7065354994894147,
+      "auc_width_max": 0.25887470237868937
+    },
+    "baseline": {
+      "metric": 0.5372558848176361,
+      "sauc_width_med": 0.5751851736902459,
+      "sauc_width_max": 0.49932659594502615,
+      "auc_width_med": 0.5796735294646657,
+      "auc_width_max": 0.18960649393564552
+    }
+  }
+}

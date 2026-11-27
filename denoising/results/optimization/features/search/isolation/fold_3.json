@@ -1,0 +1,36 @@
+{
+  "run": "fold_3",
+  "group": "Isolation",
+  "n_trials": 20,
+  "best": {
+    "trial": 15,
+    "baseline": false,
+    "params": {
+      "ISO_WIN": 0.493374309203237
+    }
+  },
+  "train": {
+    "best": {
+      "auc_isolation": 0.9146553904467167,
+      "metric": 0.8329790713816563,
+      "sauc_isolation": 0.8329790713816563
+    },
+    "baseline": {
+      "metric": 0.7651020506466422,
+      "sauc_isolation": 0.7651020506466422,
+      "auc_isolation": 0.9069535407678667
+    }
+  },
+  "validation": {
+    "best": {
+      "metric": 0.8828751495891043,
+      "sauc_isolation": 0.8828751495891043,
+      "auc_isolation": 0.9357904179903855
+    },
+    "baseline": {
+      "metric": 0.8634710777834976,
+      "sauc_isolation": 0.8634710777834976,
+      "auc_isolation": 0.9536568256473592
+    }
+  }
+}

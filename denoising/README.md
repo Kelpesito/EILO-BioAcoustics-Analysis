@@ -1,12 +1,12 @@
 # 🧹 Denoising — Transient (Click) Removal Filter
 
-This folder contains the development of the **transient removal filter** of the **EILO-BioAcoustics-Analysis** project: a pre-processing step that attenuates **clicks, crackles and other short broadband transients** in the respiratory sound fragments produced by the [📊 Dataset pipeline](../dataset/README.md).
+Development of the **transient removal filter** of **EILO-BioAcoustics-Analysis**: a pre-processing step that attenuates **clicks, crackles and other short broadband transients** in the respiratory sound fragments produced by the [📊 Dataset pipeline](../dataset/README.md).
 
 - **Why:** some fragments contain impulsive noise (stethoscope friction, contact noise, saturation of the original recording, …) loud enough to **mask the respiratory sound, or to fake one**.
 - **Goal:** remove those transients **without damaging** the respiratory, adventitious or heart sounds. When in doubt, the signal is kept.
-- **Origin:** the filter is a modification of `soundwaveletSWT`, an adaptive wavelet filter originally designed to attenuate heart sounds (inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)). Heart sounds are **no longer a target**: they are present in every class, `Normal` included.
+- **Origin:** a modification of `soundwaveletSWT`, an adaptive wavelet filter originally designed to attenuate heart sounds (inspired by [Zhan et al., 2010](https://doi.org/10.1016/j.jelekin.2009.07.007)). Heart sounds are **no longer a target**: they are present in every class, `Normal` included.
 
-> ⚠️ The thresholds of the algorithm have been **selected by eye** (visual and listening inspection of real fragments), **pending a deeper optimization** (plan: [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
+> ⚠️ The thresholds were **selected by eye** (visual and listening inspection of real fragments); their optimization is in progress ([PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
 
 > ⚠️ The current version is **not yet ported to the dataset pipeline**: `dataset/src/remove_heart_sounds.py` (used by `dataset/get_rtf.py`) still implements a previous version (see [📋 Status](#-status)).
 
@@ -27,9 +27,17 @@ This folder contains the development of the **transient removal filter** of the 
     - [⚙️ Parameters](#️-parameters)
     - [⚠️ Known limitations](#️-known-limitations)
 - [🖼️ Example](#️-example)
+- [▶️ Scripts](#️-scripts)
+    - [1️⃣ Evaluation experiments — run_experiment.py](#1️⃣-evaluation-experiments--run_experimentpy)
+    - [2️⃣ Result figures — save_figures.py](#2️⃣-result-figures--save_figurespy)
+    - [3️⃣ Tuning/test split and folds — get_splits.py](#3️⃣-tuningtest-split-and-folds--get_splitspy)
+    - [4️⃣ Candidates — get_candidates.py](#4️⃣-candidates--get_candidatespy)
+    - [5️⃣ Screening of the candidate generation — screen_candidates.py](#5️⃣-screening-of-the-candidate-generation--screen_candidatespy)
+    - [6️⃣ Search of the candidate generation — search_candidates.py](#6️⃣-search-of-the-candidate-generation--search_candidatespy)
+    - [7️⃣ Features of the candidates — get_features.py](#7️⃣-features-of-the-candidates--get_featurespy)
+    - [8️⃣ Search of the features — search_features.py](#8️⃣-search-of-the-features--search_featurespy)
 - [📁 Final folder layout](#-final-folder-layout)
 - [📓 Notebooks](#-notebooks)
-    - [▶️ How to run](#️-how-to-run)
     - [denoise_soundwaveletSWT.ipynb — Transient removal filter](#denoise_soundwaveletswtipynb--transient-removal-filter)
     - [denoise_summary_plots.ipynb — Development of the summary figures](#denoise_summary_plotsipynb--development-of-the-summary-figures)
     - [evaluation_denoise.ipynb — Evaluation of the algorithm](#evaluation_denoiseipynb--evaluation-of-the-algorithm)
@@ -43,56 +51,47 @@ This folder contains the development of the **transient removal filter** of the 
 
 ```
 denoising/
-├── assets/                        ← summary figures of the example fragment and result figures of the evaluation (used in this file)
-├── audio/                         ← the 70 fragments of evaluation_denoise.ipynb (38 clean signals + 32 artifact sources)
+├── assets/                        ← summary figures of the example and result figures of the evaluation (used in this file)
+├── audio/                         ← the 70 fragments of the evaluation (38 clean signals + 32 artifact sources)
 ├── README.md                      ← this file
-├── PARAMETER_OPTIMIZATION.md      ← plan of the parameter optimization of the algorithm (score + phases 0–5)
+├── PARAMETER_OPTIMIZATION.md      ← plan of the parameter optimization (score + phases 0–5)
 ├── __init__.py
 ├── denoise_soundwaveletSWT.ipynb  ← original filter + current version of the algorithm + example
-├── denoise_summary_plots.ipynb    ← development of the interactive (Plotly) summary figures
+├── denoise_summary_plots.ipynb    ← development of the interactive (plotly) summary figures
 ├── evaluation_denoise.ipynb       ← evaluation experiments of the algorithm
 ├── parameter_optimization.ipynb   ← parameter optimization of the algorithm (in progress)
-├── get_candidates.py              ← candidates of the mixtures of experiment 1 and their metrics (phase 1 of parameter_optimization.ipynb)
-├── get_features.py                ← features of the candidates of the mixtures of experiment 1 for a configuration (phase 2 of parameter_optimization.ipynb)
-├── get_splits.py                  ← tuning/test split of the clean signals and the artifacts of parameter_optimization.ipynb, and the folds of the cross-validation of the tuning set
-├── run_experiment.py              ← runs experiment 1 or 2 of evaluation_denoise.ipynb from the terminal
-├── save_figures.py                ← saves the result figures of experiment 1, 2 or both from the terminal
-├── screen_candidates.py           ← screening of the candidate generation, one parameter at a time (phase 1 of parameter_optimization.ipynb)
-├── search_candidates.py           ← Bayesian search of the candidate generation with a nested cross-validation (phase 1 of parameter_optimization.ipynb)
-├── search_features.py             ← Bayesian search of the parameters of a group of features with a nested cross-validation (phase 2 of parameter_optimization.ipynb)
+├── run_experiment.py              ← script 1: experiment 1 or 2 of the evaluation
+├── save_figures.py                ← script 2: result figures of the experiments
+├── get_splits.py                  ← script 3: tuning/test split and folds of the cross-validation
+├── get_candidates.py              ← script 4: candidates of the mixtures and their metrics (phase 1)
+├── screen_candidates.py           ← script 5: screening of the candidate generation (phase 1)
+├── search_candidates.py           ← script 6: Bayesian search of the candidate generation → C1 (phase 1)
+├── get_features.py                ← script 7: features of the candidates for a configuration (phase 2)
+├── search_features.py             ← script 8: Bayesian search of the parameters of the features → C2' (phase 2)
 ├── src/                           ← importable modules (used by the notebooks and the scripts)
-│   ├── __init__.py
-│   ├── algorithm/                 ← the algorithm and its figures
-│   │   ├── __init__.py
-│   │   ├── remove_noise.py        ← the algorithm, as a module (same code as the Funciones cell; used by evaluation.py, get_candidates.py, get_features.py and search_features.py)
-│   │   └── summary_plots.py       ← the summary figures, as a module (used by denoise_soundwaveletSWT.ipynb)
-│   ├── evaluation/                ← evaluation of the algorithm (evaluation_denoise.ipynb)
-│   │   ├── __init__.py
-│   │   ├── evaluation.py          ← mixtures, metrics and parallel execution of experiments 1 and 2 (used by evaluation_denoise.ipynb)
-│   │   └── evaluation_plots.py    ← plotly result figures of experiments 1 and 2 (same code as the notebook; used by save_figures.py)
-│   └── optimization/              ← parameter optimization of the algorithm (parameter_optimization.ipynb)
-│       ├── __init__.py
-│       ├── candidate_score.py     ← metrics of the candidate generation (same code as sections 2 and 4.1 of the notebook; used by screen_candidates.py)
-│       ├── candidate_search.py    ← protocol of the Bayesian search of phase 1: search space, constraints, searches (a)/(b), safeguard, choice of C1, folds (used by search_candidates.py)
-│       ├── feature_score.py       ← metric of the features (same code as section 5.1 of the notebook; used by search_features.py)
-│       ├── feature_search.py      ← protocol of the Bayesian search of phase 2: search space of each group, default configuration + TPE, choice of C2' (used by search_features.py)
-│       └── splits.py              ← loading of the tuning/test split and split of the results into the four sets (used by parameter_optimization.ipynb)
-└── results/
-    ├── experiments/               ← metrics of each experiment (experiment_1.csv, experiment_2.csv)
-    └── figures/                   ← plotly figures of the results, as .png, .svg and .html (save_figures.py)
-        ├── experiment_1/
-        └── experiment_2/
+│   ├── algorithm/
+│   │   ├── remove_noise.py        ← the algorithm (same code as the Funciones cell of denoise_soundwaveletSWT.ipynb)
+│   │   └── summary_plots.py       ← summary figures of one fragment (used by denoise_soundwaveletSWT.ipynb)
+│   ├── evaluation/
+│   │   ├── evaluation.py          ← mixtures, metrics and parallel execution of experiments 1 and 2
+│   │   └── evaluation_plots.py    ← plotly result figures of experiments 1 and 2 (copy of the notebook; used by save_figures.py)
+│   └── optimization/
+│       ├── splits.py              ← loading of the tuning/test split and folds, split of the results into the four sets
+│       ├── candidate_score.py     ← metrics of the candidate generation (copy of sections 2 and 4.1 of the notebook)
+│       ├── candidate_search.py    ← protocol of the search of phase 1: search space, constraints, (a)/(b)/b2, choice of C1, folds
+│       ├── feature_score.py       ← metric of the features (copy of section 5.1 of the notebook)
+│       └── feature_search.py      ← protocol of the search of phase 2: search space of each group, default + TPE, choice of C2'
+└── results/                       ← experiments and their figures (see 📁 Final folder layout)
 ```
 
-The notebooks import the modules as a package from the `denoising/` folder (e.g. `from src.algorithm import remove_noise as rn`, `from src.algorithm.summary_plots import summary_plots`, `from src.evaluation.evaluation import read_results`), so they must be run with `denoising/` as the working directory.
-
-The notebooks read the fragments produced by step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz). The exception is the evaluation (`evaluation_denoise.ipynb`, except its *Example* section): its clean signals and artifacts are read from `denoising/audio/`, so the experiments can be reproduced without regenerating the dataset.
+- The notebooks import the modules as a package from `denoising/` (e.g. `from src.algorithm import remove_noise as rn`), so they must be run with `denoising/` as the working directory.
+- They read the fragments of step 4 of the [📊 Dataset pipeline](../dataset/README.md#4️⃣-extract-annotated-respiratory-fragments--get_fragmentspy) (`dataset/dataset/audio/{id}.wav`, 4 kHz), except the evaluation (`evaluation_denoise.ipynb`, but its *Example*), which reads `denoising/audio/`, so the experiments can be reproduced without regenerating the dataset.
 
 ---
 
 ## ⚙️ Quickstart
 
-The algorithm is the module [src/algorithm/remove_noise.py](src/algorithm/remove_noise.py) and its summary figures are in [src/algorithm/summary_plots.py](src/algorithm/summary_plots.py). From the `denoising/` folder (working directory):
+The algorithm is [src/algorithm/remove_noise.py](src/algorithm/remove_noise.py) and its summary figures [src/algorithm/summary_plots.py](src/algorithm/summary_plots.py). From `denoising/`:
 
 ```python
 import soundfile as sf
@@ -102,28 +101,21 @@ from src.algorithm.summary_plots import summary_plots
 
 signal, fs = sf.read(rf"..\dataset\dataset\audio\{file}.wav")  # file: fragment id
 
-# Filtered signal only (same length as signal)
-clean = rn.remove_noise(signal, fs)
+clean = rn.remove_noise(signal, fs)                                 # Filtered signal (same length as signal)
+clean, details = rn.remove_noise(signal, fs, return_details=True)   # + intermediate results
+stages = rn.generate_candidates(signal, fs)  # Steps 1-4: candidates (stages["candidate_span"]), no classification
+stages = rn.generate_features(signal, fs)    # Steps 1-5: candidates and their features (stages["features"])
 
-# Filtered signal + intermediate results
-clean, details = rn.remove_noise(signal, fs, return_details=True)
-
-# Candidates only (steps 1-4, without classification nor attenuation)
-stages = rn.generate_candidates(signal, fs)  # stages["candidate_span"]: samples covered by some candidate
-
-# Candidates and their features (steps 1-5, without classification nor attenuation)
-stages = rn.generate_features(signal, fs)  # stages["features"]: span and features of each candidate
-
-# Summary figures: they need some constants of the algorithm (params); save_dir -> also saved as .png
+# Summary figures: they need some constants of the algorithm; save_dir -> also saved as .png
 PARAMS = dict(G_FAC=rn.G_FAC, K=rn.K, Z_CLICK=rn.Z_CLICK, Z_TOLERANCE=rn.Z_TOLERANCE, AR_ORDER=rn.AR_ORDER,
               ISO_WIN=rn.ISO_WIN, ISOLATION=rn.ISOLATION, ISOLATION_IMPULSIVE=rn.ISOLATION_IMPULSIVE,
               ISOLATION_ALIGNED=rn.ISOLATION_ALIGNED, MAX_MISALIGN=rn.MAX_MISALIGN)
 summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 ```
 
-- The parameters of the algorithm are module constants ([⚙️ Parameters](#️-parameters)): to change one, set it on the module before calling `remove_noise`, e.g. `rn.K = 6`.
-    - ⚠️ Except `MAX_EVENT` and `SPLIT_LEVELS`: they are the default values of the arguments `max_event` and `split_levels` of `remove_noise`, `generate_candidates` and `generate_features`, fixed when the module is imported. To change them, pass them as arguments, e.g. `rn.remove_noise(signal, fs, max_event=0.2)`.
-- The **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) holds a copy of the same code, to read the algorithm step by step next to the original filter; [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) and [run_experiment.py](run_experiment.py) use the module.
+- The parameters ([⚙️ Parameters](#️-parameters)) are module constants: set them before calling, e.g. `rn.K = 6`.
+    - ⚠️ Except `MAX_EVENT` and `SPLIT_LEVELS`: they are the default values of the arguments `max_event` and `split_levels` of `remove_noise`, `generate_candidates` and `generate_features`, fixed when the module is imported. Pass them as arguments, e.g. `rn.remove_noise(signal, fs, max_event=0.2)`.
+- The **Funciones** cell of [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter) holds a copy of the same code, to read it step by step next to the original filter.
 
 ---
 
@@ -141,50 +133,35 @@ summary_plots(signal, fs, details, PARAMS, save_dir="assets", scale=5)
 | **6** | 4 click rules + border rule | Click spans |
 | **7** | Gain < 1 inside the clicks, sum of the bands | Filtered signal |
 
-Before step 1, only the first channel is used and its mean is removed. The signal is padded at the end (mirror) up to a multiple of 2⁸ samples, as required by the SWT, and cropped back at the end.
-
-Steps 1–4 (candidate generation) are the function `generate_candidates`, and steps 1–5 (candidates and their features) the function `generate_features`, which `remove_noise` calls first; they can also be called alone to get the candidates (phase 1 of [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization)) or their features (phase 2) without classifying them.
-
----
+- Before step 1, only the first channel is used and its mean is removed; the signal is padded at the end (mirror) up to a multiple of 2⁸ samples, as the SWT requires, and cropped back at the end.
+- Steps 1–4 (candidate generation) are `generate_candidates` and steps 1–5 (candidates and their features) `generate_features`, which `remove_noise` calls first. They can be called alone (phases 1 and 2 of the [parameter optimization](#parameter_optimizationipynb--parameter-optimization)).
 
 ### 1️⃣ Decomposition into 10 bands
 
-1. **SWT:** the signal is decomposed with the **Stationary Wavelet Transform** (`db4`) until the approximation is below ~15 Hz (`F_APPROX`). At 4 kHz, this gives **7 detail levels** (one octave each).
-2. **Band splitting:** levels 3, 4 and 5 (62–500 Hz, `SPLIT_LEVELS`) are split into 2 half-bands with one more SWT step on the detail coefficients, using the filters dilated to that level (*stationary wavelet packet*).
-3. The result is **10 bands**, ordered from high to low frequency:
+1. **SWT** (`db4`) until the approximation is below ~15 Hz (`F_APPROX`): **7 detail levels** at 4 kHz, one octave each.
+2. **Band splitting:** levels 3, 4 and 5 (62–500 Hz, `SPLIT_LEVELS`) are split into 2 half-bands with one more SWT step, with the filters dilated to that level (*stationary wavelet packet*).
+3. **10 bands**, from high to low frequency. The approximation (< 15 Hz) is discarded.
 
-| Band | Frequency (Hz) | FWHM (ms) | 
-|:----:|:--------------:|:---------:|
-| D1  | 1000–2000 | 4.0  | 
-| D2  | 500–1000  | 4.0  | 
-| D3a | 375–500   | 6.0  | 
-| D3b | 250–375   | 7.5  | 
-| D4a | 188–250   | 11.0 | 
-| D4b | 125–188 | 13.5 |
-| D5a | 94–125  | 21.5 |
-| D5b | 62–94   | 27.0 |
-| D6  | 31–62   | 27.0 |
-| D7  | 16–31   | 53.5 |
+| Band | D1 | D2 | D3a | D3b | D4a | D4b | D5a | D5b | D6 | D7 |
+|:-----|:--:|:--:|:---:|:---:|:---:|:---:|:---:|:---:|:--:|:--:|
+| **Frequency (Hz)** | 1000–2000 | 500–1000 | 375–500 | 250–375 | 188–250 | 125–188 | 94–125 | 62–94 | 31–62 | 16–31 |
+| **FWHM (ms)** | 4.0 | 4.0 | 6.0 | 7.5 | 11.0 | 13.5 | 21.5 | 27.0 | 27.0 | 53.5 |
 
-> **FWHM** = Time resolution of each band: Full Width at Half Maximum of the envelope of its response to a unit impulse (`band_resolution`). It is the narrowest an event can look in that band.
-
-> The approximation (< 15 Hz) is discarded: the output has no component below 15 Hz.
+> **FWHM:** time resolution of each band, the Full Width at Half Maximum of the envelope of its response to a unit impulse (`band_resolution`): the narrowest an event can look in that band.
 
 ### 2️⃣ Band signals (MRA)
 
-Each band is reconstructed **alone** (the coefficients of the rest set to 0): this is a **multiresolution analysis** (MRA, `band_signals`).
+Each band is reconstructed **alone**, the coefficients of the rest set to 0 (multiresolution analysis, `band_signals`):
 
-- Each band signal is the output of a **zero-phase** filter (analysis followed by its adjoint), so an event appears at the **same instant in every band** (no delay between bands).
-- By linearity, the sum of the 10 band signals is exactly the original signal (> 15 Hz).
-- Every following step (envelope, gain) works on these band signals, so the filtered signal only changes **where some gain is < 1**.
+- Each band signal is the output of a **zero-phase** filter (analysis + its adjoint): an event appears at the **same instant in every band**.
+- By linearity, the sum of the 10 band signals is the original signal (> 15 Hz).
+- The following steps work on these band signals, so the filtered signal only changes **where some gain is < 1**.
 
 ### 3️⃣ Detection per band
 
-For each band:
-
 1. **Envelope:** magnitude of the analytic signal (Hilbert), smoothed with a 4 ms moving average (`ENV_SMOOTH`).
-2. **Local reference:** median of the envelope between **0.1 and 0.4 s at each side** of every sample (`REF_INNER`, `REF_OUTER`). The central ±0.1 s are excluded so the event does not raise its own reference. It is computed every 5 ms and interpolated (`REF_STEP`).
-3. **Detection:** where the envelope exceeds **`K = 5` times the reference** (~14 dB), an event is detected. The mask is widened with a 15 ms window (`MASK_DILATION`).
+2. **Local reference:** median of the envelope **0.1–0.4 s at each side** of every sample (`REF_INNER`, `REF_OUTER`); the central ±0.1 s are excluded so the event does not raise its own reference. Computed every 5 ms and interpolated (`REF_STEP`).
+3. **Detection:** envelope > **`K = 5` × reference** (~14 dB). The mask is widened 15 ms (`MASK_DILATION`).
 
 > Very short fragments (< ~0.2 s) can have no reference at all: no detection there.
 
@@ -192,35 +169,26 @@ For each band:
 
 Clicks, crackles and S1/S2 are short; respiratory and adventitious sounds (wheezes, stridor, rhonchi) are long.
 
-- A detected event **longer than 140 ms** (`MAX_EVENT`) in a band is a respiratory/adventitious sound: it is removed from the mask (kept in the signal).
-- The protection only applies to the **band where the long event is detected** (`PROTECT_LEVELS = 0`). In the low bands, the long SWT filters merge close, short impulses into one "long" event; protecting it in all bands would keep those impulses everywhere.
+- A detected event **longer than 140 ms** (`MAX_EVENT`) is a respiratory/adventitious sound: removed from the mask (kept in the signal).
+- Only in the **band where it is detected** (`PROTECT_LEVELS = 0`): in the low bands, the long filters merge close short impulses into one "long" event, which would otherwise protect them in every band.
 - Border protection is disabled (`EDGE = 0`): the borders are handled by the border rule of step 6.
 
 ### 5️⃣ Candidate features
 
-The time spans where **some band** still has a detection (union over the bands) are the **candidates**. For each one, these features are measured (`candidate_features`):
+The time spans where **some band** still has a detection are the **candidates**. Their features (`candidate_features`):
 
-- **`bands`** — number of bands with a detection in the span.
-- **`r_med` / `r_max`** — intensity (envelope / reference): median over the detected bands of the maximum in the span / maximum over all the bands.
-- **`width_med` / `width_max`** — **effective width** of the event, median / maximum over the detected bands (`effective_width`):
-    - Area / height of the band envelope above a floor, scaled to the FWHM of a Gaussian (÷ 1.0645).
-    - Floor = the larger of 2 × the median reference (`BG_FACTOR`) and the peak − 20 dB (`WIDTH_FLOOR_DB`).
-    - Measured on the span extended 2 FWHM of the band at each side (`EXTEND`): the span is set by the threshold, the width by the event.
-    - Unlike the time above the threshold, it does not grow with the intensity of the event. It includes the time resolution of each band.
-- **`misalign`** — alignment of the band peaks: median over the detected bands of |t_peak − t_ref| / FWHM of the band (t_ref = median of the peak times).
-    - A click is a singularity: its maxima are aligned across scales (`misalign` ≈ 0).
-    - A respiratory or adventitious sound builds up and decays at different times in different bands (`misalign` ~0.3–1).
-- **`z_max`** — maximum **impulsiveness** in the span (±10 ms, `Z_TOLERANCE`):
-    - A robust **AR(20)** model of the whole fragment (Huber M-estimator, IRLS) predicts each sample from the previous ones (AR click detector of Godsill & Rayner).
-    - `z` = |prediction error| / local robust scale of the error (0.1 s window, `Z_WIN`).
-    - Respiratory, heart and tonal adventitious sounds are predictable (low `z`); the onset of a click is not.
-- **`isolation`** — peak of the full-band envelope in the span / the larger of its medians in the **0.1 s before and after** (`ISO_WIN`).
-    - The onset of a wheeze or a stridor only stands out over what comes before it.
-    - A click or a crackle stands out over **both** sides.
+| Feature | Definition |
+|:--------|:-----------|
+| `bands` | Number of bands with a detection in the span |
+| `r_med` / `r_max` | Intensity (envelope / reference): median over the detected bands of the maximum in the span / maximum over all the bands |
+| `width_med` / `width_max` | **Effective width**, median / maximum over the detected bands (`effective_width`): area / height of the band envelope above a floor (the larger of 2 × the median reference, `BG_FACTOR`, and the peak − 20 dB, `WIDTH_FLOOR_DB`), scaled to the FWHM of a Gaussian, measured on the span extended 2 FWHM of the band at each side (`EXTEND`). Unlike the time above the threshold, it does not grow with the intensity; it includes the time resolution of each band |
+| `misalign` | Alignment of the band peaks: median over the detected bands of \|t_peak − t_ref\| / FWHM (t_ref: median of the peak times). A click is a singularity, aligned across scales (≈ 0); a respiratory or adventitious sound builds up and decays at different times in each band (~0.3–1) |
+| `z_max` | Maximum **impulsiveness** in the span (±10 ms, `Z_TOLERANCE`): a robust **AR(20)** model of the fragment (Huber M-estimator, IRLS; AR click detector of Godsill & Rayner) predicts each sample, and `z` = \|prediction error\| / local robust scale (0.1 s, `Z_WIN`). Respiratory, heart and tonal adventitious sounds are predictable (low `z`); the onset of a click is not |
+| `isolation` | Peak of the full-band envelope in the span / the larger of its medians in the **0.1 s before and after** (`ISO_WIN`). The onset of a wheeze or stridor only stands out over what comes before; a click or crackle stands out over **both** sides |
 
 ### 6️⃣ Click rules
 
-A candidate is a **click** (to be attenuated) if it meets **all the conditions of any** of these rules:
+A candidate is a **click** (attenuated) if it meets **all the conditions of any** rule:
 
 | Rule | Target | Conditions |
 |:-----|:-------|:-----------|
@@ -229,27 +197,25 @@ A candidate is a **click** (to be attenuated) if it meets **all the conditions o
 | **3. Isolated transient** | Crackles, even in a single band | `r_max` ≥ 12 · `width_max` ≤ 35 ms · `isolation` ≥ 12 |
 | **4. Aligned transient** | Thumps, short scrapes, low-band clicks | `bands` ≥ 4 · `misalign` ≤ 0.3 · `width_med` ≤ 25 ms · `r_med` ≥ 8 · `isolation` ≥ 4 |
 
-**Border rule:** a candidate closer than 10 ms to a border of the fragment (`EDGE_CLICK`) is only a click if also `z_max` > 20 (`Z_EDGE`), since its real duration is unknown (e.g. an adventitious sound cut by the annotation).
+- **Border rule:** a candidate closer than 10 ms to a border (`EDGE_CLICK`) is only a click if also `z_max` > 20 (`Z_EDGE`): its real duration is unknown (e.g. an adventitious sound cut by the annotation).
+- All the other candidates (heart sounds, bursts of adventitious sounds, breathing, …) are **kept**.
 
-All the other candidates (heart sounds, bursts of adventitious sounds, breathing, …) are **kept**.
+> No single feature works alone: after the 70–1900 Hz band-pass filter, many clear clicks have a low `z`, and bursts of wheeze, stridor and rhonchi are also broadband.
 
-> No single feature works alone: after the 70–1900 Hz band-pass filter, many clear clicks have a low `z`, and bursts of wheeze, stridor and rhonchi are also broadband. The rules combine intensity, width, alignment, impulsiveness and isolation.
-
-> Crackles are removed on purpose: the target classes of the project are the continuous adventitious sounds (in SPRSound this also removes the crackle part of `Wheeze+Crackle`, see [dataset step 6](../dataset/README.md#6️⃣-filter-fragments-by-label-and-duration--filter_datasetpy)).
+> Crackles are removed on purpose: the target classes are the continuous adventitious sounds (in SPRSound this also removes the crackle part of `Wheeze+Crackle`, see [dataset step 6](../dataset/README.md#6️⃣-filter-fragments-by-label-and-duration--filter_datasetpy)).
 
 ### 7️⃣ Attenuation and reconstruction
 
-1. **Where:** inside each click span, only the samples **detected in each band** (mask after the long-event protection). A protected long event is never attenuated, not even under a click.
-2. **Reference:** the **immediate background** — median envelope in the 50 ms before and after the click (`LOCAL_BG`), if lower than the 0.1–0.4 s reference (which can include a nearby loud sound).
-3. **Gain:** the band envelope is brought down to **`G_FAC = 1.5` times** that reference: gain = min(1, `G_FAC` · reference / envelope). Gain = 1 everywhere else.
-4. **Smoothing:** the gain is smoothed with a 5 ms moving average (`GAIN_SMOOTH`); an abrupt gain step leaves audible tics.
-5. **Reconstruction:** filtered signal = Σ (gain × band signal) over the 10 bands. Same length as the input, without the < 15 Hz component.
+1. **Where:** inside each click span, only the samples **detected in each band** (after the protection): a protected long event is never attenuated, not even under a click.
+2. **Reference:** the **immediate background**, median envelope in the 50 ms before and after the click (`LOCAL_BG`), if lower than the 0.1–0.4 s reference (which can include a nearby loud sound).
+3. **Gain:** min(1, `G_FAC` · reference / envelope), with **`G_FAC = 1.5`**; 1 everywhere else. Smoothed 5 ms (`GAIN_SMOOTH`): an abrupt step leaves audible tics.
+4. **Reconstruction:** Σ (gain × band signal) over the 10 bands: same length as the input, without the < 15 Hz component.
 
-> `K` decides **where** to act, `G_FAC` **how much** to attenuate: `G_FAC = 0` leaves gaps, `1` leaves the event at the background median, `1.5` approximately at the respiratory sound level, `K` almost does not attenuate.
+> `K` decides **where** to act, `G_FAC` **how much**: `G_FAC = 0` leaves gaps, `1` leaves the event at the background median, `1.5` approximately at the respiratory sound level, `K` almost does not attenuate.
 
 ### ⚙️ Parameters
 
-All the thresholds have been **selected by eye**, pending a deeper optimization (see [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
+All the thresholds were **selected by eye**, pending their optimization ([PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md)).
 
 | Group | Parameter | Value | Role |
 |:------|:----------|:------|:-----|
@@ -276,180 +242,134 @@ All the thresholds have been **selected by eye**, pending a deeper optimization 
 ### ⚠️ Known limitations
 
 - A click **inside a long sound** (e.g. within a stridor) is protected by step 4.
-- **Weak** clicks and crackles (little above their band background, or not isolated) are missed.
-- Long scrapes and weak low-frequency thumps are usually missed.
-- Transients at the **borders** of the fragment are only removed if they are very impulsive (`z_max` > 20).
-- The rules were tuned by eye on a limited set of real fragments: a missed noise is accepted as long as it does not mask the respiratory sound.
+- **Weak** clicks and crackles (little above their band background, or not isolated) are missed; so are long scrapes and weak low-frequency thumps.
+- Transients at the **borders** are only removed if they are very impulsive (`z_max` > 20).
+- The rules were tuned by eye on a limited set of fragments: a missed noise is accepted as long as it does not mask the respiratory sound.
 
 ---
 
 ## 🖼️ Example
 
-Summary figures of the filter applied to a fragment of the dataset, generated with [denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter). In all the figures, **red** spans are clicks (attenuated) and **green** spans are candidates that are not clicks (kept).
+Summary figures of the filter applied to a fragment ([denoise_soundwaveletSWT.ipynb](#denoise_soundwaveletswtipynb--transient-removal-filter)). **Red** spans: clicks (attenuated); **green**: candidates that are not clicks (kept).
 
-### Decomposition summary
-
-Top: original signal. Middle, one row per band: band signal (gray) and filtered (green) with its envelope (blue) and threshold `K` × reference (red); gain applied; component removed in the band. Bottom: filtered signal and removed component.
+**Decomposition summary:** original signal; one row per band with the band signal (gray), filtered (green), envelope (blue), threshold `K` × reference (red), gain and removed component; filtered signal and removed component.
 
 ![Decomposition summary](assets/decomposition_summary.png)
 
-### Detection map
-
-Top: original and filtered signal with the candidate spans. Bottom: envelope / reference (dB) of each band in time (log frequency axis), with the contours of the detections: red = attenuated (click), green = kept (not a click), orange = protected long event, dashed blue = threshold `K`.
+**Detection map:** original and filtered signal with the candidates; envelope / reference (dB) of each band in time, with the detections (red: attenuated, green: kept, orange: protected long event; dashed blue: `K`).
 
 ![Detection map](assets/detection_map.png)
 
-### Impulsiveness
-
-Robust AR(20) model: signal vs. prediction, prediction error with its local scale, Huber weights of each sample (dark = down-weighted, e.g. clicks), impulsiveness `z` with `z_max` of each candidate and `Z_CLICK`. Right / bottom: PSD of signal, prediction and error; frequency response and poles of the AR model.
+**Impulsiveness:** robust AR(20) model (signal vs. prediction, prediction error and local scale, Huber weights, `z` with the `z_max` of each candidate and `Z_CLICK`); PSD of signal, prediction and error, frequency response and poles of the model.
 
 ![Impulsiveness](assets/impulsiveness.png)
 
-### Isolation
-
-Full-band envelope, the isolation windows (0.1 s before and after each candidate) with their medians, and the `isolation` of each candidate with the thresholds of rules 2, 3 and 4.
+**Isolation:** full-band envelope, the windows before and after each candidate with their medians, and its `isolation` with the thresholds of rules 2, 3 and 4.
 
 ![Isolation](assets/isolation.png)
 
-### Misalign
-
-Normalized envelope of each band with its peak in each candidate (B), `misalign` of each candidate (C) and deviation of the peak of each band from t_ref with the tolerance ±0.3 FWHM (D). The clicks have their peaks aligned in almost every band.
+**Misalign:** normalized envelope of each band with its peak in each candidate, `misalign` of each candidate and deviation of each peak from t_ref (±0.3 FWHM). The clicks have their peaks aligned in almost every band.
 
 ![Misalign](assets/misalign.png)
 
-### Click classification
-
-Table with every condition of every rule for each candidate (✓/✗, value and threshold; green = rule met). In the notebook, hovering over the number of a candidate shows the same conditions.
+**Click classification:** every condition of every rule for each candidate (✓/✗, value and threshold; green: rule met).
 
 ![Click classification](assets/click_criteria.png)
 
-### Noise removal
-
-Original (> 15 Hz), filtered signal and residual (removed component), each with its spectrogram (linear power, same STFT range as the RTFs, 50–1050 Hz). The residual is normalized to the maximum of the original, so its colors show how much was removed.
+**Noise removal:** original (> 15 Hz), filtered and residual, each with its spectrogram (50–1050 Hz, as the RTFs; the residual normalized to the maximum of the original).
 
 ![Noise removal](assets/noise_removal.png)
 
-### Effect in frequency
-
-Original vs. filtered signal and residual (top), PSD of the three signals and attenuation (filtered / original, dB), and removed energy per band (% of the energy of each band). In this example the clicks hold most of the energy of the 31–1000 Hz bands.
+**Effect in frequency:** original vs. filtered and residual, PSD of the three and attenuation (dB), and removed energy per band (% of its energy).
 
 ![Effect in frequency](assets/frequency_response.png)
 
 ---
 
-## 📁 Final folder layout
+## ▶️ Scripts
 
-After running the scripts (see [▶️ How to run](#️-how-to-run)), the relevant outputs are (compare with [📂 Repository layout](#-repository-layout) to see what ships with the repo vs. what the scripts produce):
+Terminal versions of the heavy parts of the notebooks (e.g. for the HPC), **in order of execution**. All of them run from any folder (e.g. the repository root) and accept `-p, --processes` (worker processes; default: one per CPU core).
 
-```
-denoising/
-├── splits/                        ← get_splits.py
-│   ├── clean_split.csv                    # clean_id, label, set (tune / test)
-│   ├── artifact_split.csv                 # art_id, art_duration_ms, set (tune / test)
-│   ├── cv_clean_folds.csv                 # clean_id, label, fold (1-5) of the tuning clean signals
-│   └── cv_artifact_folds.csv              # art_id, art_duration_ms, fold (1-5) of the tuning artifacts
-└── results/
-    ├── experiments/               ← run_experiment.py (versioned; overwritten when an experiment is run again)
-    │   ├── experiment_1.csv
-    │   └── experiment_2.csv
-    ├── figures/                   ← save_figures.py (versioned; overwritten)
-    │   ├── experiment_1/                  # <name>.png, .svg, .html
-    │   └── experiment_2/
-    └── optimization/
-        ├── candidates/
-        │   ├── <name>/            ← get_candidates.py (-n, default: baseline)
-        │   │   └── <set>.csv              # one row per mixture: metrics of its candidates (all.csv without -s)
-        │   ├── screening/         ← screen_candidates.py
-        │   │   └── <PARAMETER>.csv        # one row per value: metrics of the candidates (e.g. K.csv)
-        │   └── search/            ← search_candidates.py (<run> = fold_1 … fold_5, all)
-        │       ├── <run>.db               # Optuna studies a, b (b2) of the run (SQLite; resume)
-        │       ├── <run>_trials.csv       # one row per evaluated configuration: search, configuration, metrics, feasible
-        │       ├── <run>.json             # constraints, C1 and its metrics and those of the baseline (training, validation)
-        │       ├── <runs>.log             # log of an execution, identical to the terminal (e.g. fold_1.log)
-        │       └── summary.csv            # one row per finished run
-        └── features/
-            ├── <config>/          ← get_features.py (-c baseline, C1 or C2; default: baseline)
-            │   └── <set>.csv              # one row per candidate: mixture, span, touches_zone, features, rules (all.csv without -s)
-            └── search/            ← search_features.py
-                └── <group>/       ← width, isolation, impulsiveness (<run> = fold_1 … fold_5, all)
-                    ├── <run>.db           # Optuna study of the run (SQLite; resume)
-                    ├── <run>_trials.csv   # one row per evaluated configuration: trial, baseline, configuration, metrics
-                    ├── <run>.json         # best configuration (C2' of the group) and its metrics and those of the baseline (training, validation)
-                    ├── <runs>.log         # log of an execution, identical to the terminal (e.g. fold_1.log)
-                    └── summary.csv        # one row per finished run
-```
+| Step | Script | Notebook (sections) | Requires | Output |
+|:----:|:-------|:--------------------|:---------|:-------|
+| **1** | `run_experiment.py` | evaluation (4, 5.1, 6.1) | `audio/` | `results/experiments/experiment_{1,2}.csv` |
+| **2** | `save_figures.py` | evaluation (5.4, 6.4) | step 1 | `results/figures/experiment_{1,2}/` |
+| **3** | `get_splits.py` | optimization (3.1) | — | `splits/` |
+| **4** | `get_candidates.py` | optimization (4.1–4.2) | steps 1, 3 | `results/optimization/candidates/<name>/` |
+| **5** | `screen_candidates.py` | optimization (4.3) | steps 1, 3 | `results/optimization/candidates/screening/` |
+| **6** | `search_candidates.py` | optimization (4.4–4.5) | steps 1, 3, 4 (`baseline/tune.csv`) | `results/optimization/candidates/search/` |
+| **7** | `get_features.py` | optimization (5.1–5.5) | steps 1, 3; 6 (`C1`); 8 (`C2`) | `results/optimization/features/<config>/` |
+| **8** | `search_features.py` | optimization (5.2.2–5.4.2) | steps 3, 6, 7 (`C1/tune.csv`) | `results/optimization/features/search/<group>/` |
 
-Every `.csv` and `.json` is versioned: among others, `splits/` (the HPC runs and the notebook must use the same split and folds), `candidates/baseline/tune.csv` (required by `search_candidates.py`), and the results of the screening and of the search (`<run>_trials.csv`, `<run>.json`, `summary.csv`). Not versioned: the `.db` (only to resume a run) and `.log` of the searches (`candidates/search/` and `features/search/<group>/`).
+> Some modules are **copies of notebook code**: if the notebook changes, they must also be changed. `run_experiment.py` (constants, signals and mixtures of evaluation 4, 5.1 and 6.1), `evaluation_plots.py` (evaluation 5.4 and 6.4), `candidate_score.py` (optimization 2 and 4.1) and `feature_score.py` (optimization 5.1).
 
 ---
 
-## 📓 Notebooks
+### 1️⃣ Evaluation experiments — [run_experiment.py](run_experiment.py)
 
-The notebooks are **development and documentation** tools: running them does not modify the dataset pipeline outputs.
-
-### ▶️ How to run
-
-From the `denoising/` folder, launch Jupyter / VS Code and open the notebook of interest, then run all cells in order (after editing a notebook, restart the kernel before running it again). The fragments must exist in `dataset/dataset/audio/` (step 4 of the [📊 Dataset pipeline](../dataset/README.md)); the experiments of `evaluation_denoise.ipynb` only need `denoising/audio/`.
-
-The experiments can also be run **from the terminal** (e.g. on a remote machine, without Jupyter) with [run_experiment.py](run_experiment.py), from any folder (e.g. the repository root):
+Rebuilds the mixtures of experiment 1 or 2 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm) (`get_mixes_1`, `get_mixes_2`: identical to the notebook) and processes them with `run_experiment` ([evaluation.py](src/evaluation/evaluation.py)), with the default constants of the algorithm.
 
 ```bash
 python denoising/run_experiment.py -e 1        # Experiment 1: single artifact
-python denoising/run_experiment.py -e 2        # Experiment 2: several artifacts + idempotence
-python denoising/run_experiment.py -e 2 -p 4   # -p, --processes: worker processes (default: as many as CPU cores)
+python denoising/run_experiment.py -e 2 -p 4   # Experiment 2: several artifacts + idempotence
 ```
 
-- The script holds the same constants, signal selection and mixture generation (`get_mixes_1`, `get_mixes_2`) as sections 4, 5.1 and 6.1 of the notebook (identical mixtures), and calls `run_experiment`. If a constant is changed in the notebook, it must also be changed in the script.
-- The algorithm runs with the default constants of [remove_noise.py](src/algorithm/remove_noise.py).
-- Notebook and script write to the **same file**, `denoising/results/experiments/experiment_{1, 2}.csv` (`RESULTS_DIR` of [evaluation.py](src/evaluation/evaluation.py) is relative to the module, not to the working directory), so the results of the script can be loaded in the notebook with `read_results`. Running an experiment overwrites its previous `.csv`.
+**Generates:** `results/experiments/experiment_{1,2}.csv`, the **same file** as the notebook (load it with `read_results`); overwritten.
 
-The result figures are saved (not shown) **from the terminal** with [save_figures.py](save_figures.py), from any folder, once the `.csv` of the experiment exists:
+---
+
+### 2️⃣ Result figures — [save_figures.py](save_figures.py)
+
+Saves (does not show) the plotly result figures of the experiments ([evaluation_plots.py](src/evaluation/evaluation_plots.py), entry point `save_figures(experiment)`), once the `.csv` of the experiment exists.
 
 ```bash
-python denoising/save_figures.py                     # Experiments 1 and 2 (default)
-python denoising/save_figures.py -e 1                # Only experiment 1 (-e 2: only experiment 2)
-python denoising/save_figures.py -e 2 -f idempotence # -f, --figures: only some figures (names: see below)
-python denoising/save_figures.py -s 3                # -s, --scale: scale factor of the .png images (default: 5)
+python denoising/save_figures.py                       # Experiments 1 and 2
+python denoising/save_figures.py -e 1                  # -e: only experiment 1 or 2
+python denoising/save_figures.py -e 2 -f idempotence   # -f: only some figures; -s: scale of the .png (default: 5)
 ```
 
-- Each figure is saved as `denoising/results/figures/experiment_{1, 2}/<name>.png` (`scale=5`), `.svg` and `.html` (plotly.js from the CDN), overwriting the previous files. Names: `detection`, `elimination`, `conservation`, `amplitude`, `factor_analysis` (experiment 1) and `experiment_comparison`, `interaction_artifacts`, `mixture_performance`, `conservation_multiple`, `idempotence` (experiment 2; `experiment_comparison` also reads `experiment_1.csv`).
-- The figure functions are in [src/evaluation/evaluation_plots.py](src/evaluation/evaluation_plots.py), a copy of the plotly cells of sections 5.4 and 6.4 of the notebook (entry point: `save_figures(experiment)`). If a figure is changed in the notebook, it must also be changed in the module. The notebook saves only the `.png` images of this file (`assets/exp{1, 2}_<name>.png`, see below).
+**Generates:** `results/figures/experiment_{1,2}/<name>.{png,svg,html}` (plotly.js from the CDN); overwritten. Names: `detection`, `elimination`, `conservation`, `amplitude`, `factor_analysis` (experiment 1); `experiment_comparison` (also reads `experiment_1.csv`), `interaction_artifacts`, `mixture_performance`, `conservation_multiple`, `idempotence` (experiment 2).
 
-The tuning/test split of [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization) is generated **from the terminal** with [get_splits.py](get_splits.py), from any folder, before running the notebook:
+---
+
+### 3️⃣ Tuning/test split and folds — [get_splits.py](get_splits.py)
+
+Split of the mixtures of experiment 1 for [parameter_optimization.ipynb](#parameter_optimizationipynb--parameter-optimization) (`StratifiedGroupKFold`, `RANDOM_STATE = 42`): the clean signals grouped by `clean_id` and stratified by label, the artifacts grouped by `art_id` and stratified by duration.
+
+- **Tuning/test:** the first of 4 folds is the test set.
+- **Cross-validation:** the tuning clean signals and artifacts are split again into 5 folds, the same way (nested cross-validation of phases 1 and 2).
 
 ```bash
 python denoising/get_splits.py
 ```
 
-- It generates the mixtures of experiment 1 (`get_mixes_1` of [run_experiment.py](run_experiment.py), without the controls) and takes the first of 4 folds as test (`StratifiedGroupKFold`, `RANDOM_STATE = 42`): the clean signals grouped by `clean_id` and stratified by label, and the artifacts grouped by `art_id` and stratified by duration.
-- It saves `denoising/splits/clean_split.csv` (`clean_id`, `label`, `set`) and `denoising/splits/artifact_split.csv` (`art_id`, `art_duration_ms`, `set`), with `set` = `tune` / `test`. Versioned, so the HPC runs and the notebook use the same split; it is regenerated identically with the same seed.
-- Then it splits the tuning clean signals and artifacts into 5 folds for a nested cross-validation, in the same way (grouped and stratified, on the tuning mixtures): `denoising/splits/cv_clean_folds.csv` (`clean_id`, `label`, `fold`) and `denoising/splits/cv_artifact_folds.csv` (`art_id`, `art_duration_ms`, `fold`).
+**Generates:** `splits/clean_split.csv` (`clean_id`, `label`, `set`), `splits/artifact_split.csv` (`art_id`, `art_duration_ms`, `set`), with `set` = `tune` / `test`; `splits/cv_clean_folds.csv` and `splits/cv_artifact_folds.csv` (`fold` = 1–5). Versioned, so the HPC and the notebook use the same split (regenerated identically with the same seed).
 
-The candidates of phase 1 of the notebook are generated **from the terminal** with [get_candidates.py](get_candidates.py), from any folder, once `experiment_1.csv` exists (and the split, if a set is given):
+---
 
-```bash
-python denoising/get_candidates.py                  # All the mixtures of experiment 1 (and the controls)
-python denoising/get_candidates.py -s tune          # -s, --set: only one set (tune, test, new_signals or new_artifacts)
-python denoising/get_candidates.py -n baseline      # -n, --name: name of the output folder (default: baseline)
-python denoising/get_candidates.py -s tune -p 4     # -p, --processes: worker processes (default: as many as CPU cores)
-```
+### 4️⃣ Candidates — [get_candidates.py](get_candidates.py)
 
-- It rebuilds each mixture of `experiment_1.csv` (all the SNR), generates its candidates with `generate_candidates` ([remove_noise.py](src/algorithm/remove_noise.py), default constants) in parallel, and computes the metrics of its candidates (`candidate_metrics`), with the artifact zone of experiment 1 (±25 ms):
-    - `n_candidates`: candidates of the signal; `n_candidates_out`: candidates that do not touch the zone.
-    - `has_candidate`: some candidate touches the zone.
-    - `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
-    - `cand_start`, `cand_end`: first and last + 1 sample of each candidate (tuples, saved as JSON lists; read them with `read_results`).
-- It saves `denoising/results/optimization/candidates/{name}/{set}.csv` (`all.csv` if no set is given), one row per mixture and per control (the metrics of the zone are NaN in the controls), overwriting the previous file. Versioned (`baseline/tune.csv` is required by `search_candidates.py`).
-
-The screening of phase 1 (section 4.3 of the notebook) is run **from the terminal** with [screen_candidates.py](screen_candidates.py), from any folder, once `experiment_1.csv` and the split exist:
+Rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates (`generate_candidates`, default constants) and computes their metrics against the zone of the artifact (±25 ms, `candidate_metrics`).
 
 ```bash
-python denoising/screen_candidates.py                            # All the parameters, on the tuning set
-python denoising/screen_candidates.py --params K MASK_DILATION   # --params: only some parameters
-python denoising/screen_candidates.py -s tune -p 8               # -s, --set (default: tune); -p, --processes
+python denoising/get_candidates.py               # All the mixtures of experiment 1
+python denoising/get_candidates.py -s tune       # -s: tune, test, new_signals or new_artifacts
+python denoising/get_candidates.py -n baseline   # -n: output folder (default: baseline)
 ```
 
-- Each parameter of the candidate generation is varied **alone**, over the values of `SCREENING` (the default value of [remove_noise.py](src/algorithm/remove_noise.py) is included in each list), with the others at their default value:
+**Generates:** `results/optimization/candidates/<name>/<set>.csv` (`all.csv` without `-s`), one row per mixture and control (zone metrics NaN in the controls):
+
+- `n_candidates` (candidates of the signal), `n_candidates_out` (that do not touch the zone), `has_candidate` (some touches it).
+- `zone_ms` / `overflow_ms`: length of the zone / time of the candidates that touch it outside it.
+- `cand_start`, `cand_end`: span of each candidate (JSON lists; read with `read_results`).
+
+`baseline/tune.csv` is required by step 6 (versioned).
+
+---
+
+### 5️⃣ Screening of the candidate generation — [screen_candidates.py](screen_candidates.py)
+
+Each parameter of the candidate generation is varied **alone** (the others at their default value, **bold**), on the tuning set; its candidates are generated with `run_candidates` (step 4, not saved) and scored with `candidate_score` ([candidate_score.py](src/optimization/candidate_score.py)).
 
 | Parameter | Values |
 |:----------|:-------|
@@ -461,211 +381,243 @@ python denoising/screen_candidates.py -s tune -p 8               # -s, --set (de
 | `REF_OUTER` | 250, 300, **400**, 500, 600, 700, 800, 900 ms |
 | `MAX_EVENT` | 60, 80, 100, 110, 120, 130, **140**, 160 ms |
 
-- For each value, the parameter is set on the module (e.g. `rn.K = 4`; `run_candidates` copies the constants to the worker processes), the candidates of the mixtures are generated with `run_candidates` of [get_candidates.py](get_candidates.py) (not saved) and their metrics are computed with `candidate_score` ([candidate_score.py](src/optimization/candidate_score.py)); then the default value is restored.
-- It saves `denoising/results/optimization/candidates/screening/<PARAMETER>.csv`, one row per value: `value`, `default` (whether it is the default value), the metrics (`recall`, `load`, `w_med`), the scalar diagnostics (`recall_unweighted`, `recall_w`, `overflow_ms_med`, `load_mix`) and the recall at each SNR (`recall_-30` … `recall_20`). The file is rewritten after each value, so an interrupted run keeps the values already done. Versioned.
-- Three nested progress bars: parameters done, values done of the current parameter, and mixtures of the current value; the metrics of each value are printed above them.
-- Each value is a full run of the tuning set (~26 700 mixtures): 56 runs with all the parameters.
-- `candidate_score.py` is a copy of `quality` and `candidate_score` of the notebook (sections 2 and 4.1): if one of them is changed in the notebook, it must also be changed in the module.
-
-The Bayesian search of phase 1 (sections 4.4 and 4.5 of the notebook) is run **from the terminal** with [search_candidates.py](search_candidates.py), from any folder, once `experiment_1.csv`, the split and folds (`get_splits.py`) and the candidates of the baseline on the tuning set (`get_candidates.py -s tune`: metrics of the baseline and constraint of (b)) exist:
-
 ```bash
-python denoising/search_candidates.py                            # The 5 folds and the whole tuning set
-python denoising/search_candidates.py --runs 1                   # --runs: folds 1-5 and/or all (one job per run)
-python denoising/search_candidates.py --trials-a 100 --trials-b 100 -p 64   # configurations of (a) and (b); processes
+python denoising/screen_candidates.py                            # All the parameters, on the tuning set
+python denoising/screen_candidates.py --params K MASK_DILATION   # --params: only some; -s: set (default: tune)
 ```
 
-- **Nested cross-validation:** the tuning clean signals (stratified by label) and artifacts (stratified by duration) are split into 5 folds; fold *k* trains on the signals and artifacts of the other folds and validates on those of fold *k* (as the tuning/test split). Each fold runs the whole protocol and its C1 is evaluated on its validation mixtures, next to the baseline; the run `all` repeats it on the whole tuning set (final C1).
-- **Protocol** ([candidate_search.py](src/optimization/candidate_search.py), Optuna TPE): (a) maximum recall → recall<sub>max</sub> and its SE (bootstrap grouped by signal and artifact); (b) minimum load with recall ≥ recall<sub>max</sub> − SE and median $w_i$ ≥ that of the baseline, starting from the configurations of (a); safeguard (b2) if no configuration meets both; C1 = minimum load among the configurations that meet them. `REF_OUTER` is searched from `REF_INNER` + `MAX_EVENT` (constraint met by construction); `MAX_EVENT` is fixed (140 ms).
-- **Resume:** the studies are saved in `<run>.db`; an interrupted run continues where it stopped, and a finished run (`<run>.json`) is skipped. The runs are independent, so they can be launched as separate jobs at the same time.
-- Three nested progress bars: runs (cross-validation), configurations of the current search, and mixtures of the current configuration. The terminal and `<runs>.log` show the same messages: the baseline (whole tuning set and training/validation of each run), each evaluated configuration (metrics and time; its parameters are in `<run>_trials.csv`), the constraints of (b), C1, its validation and the cross-validation summary over the finished folds.
-- Each configuration is a run of the training mixtures of the fold (~64 % of the tuning set; the whole tuning set in `all`): about 200 configurations per run (more with the safeguard).
+**Generates:** `results/optimization/candidates/screening/<PARAMETER>.csv`, one row per value: `value`, `default`, metrics (`recall`, `load`, `w_med`), diagnostics (`recall_unweighted`, `recall_w`, `overflow_ms_med`, `load_mix`) and recall per SNR (`recall_-30` … `recall_20`). Rewritten after each value (an interrupted run keeps the values done). Each value is a full run of the tuning set (~26 700 mixtures): 56 runs in total.
 
-The features of the candidates of phase 2 of the notebook are computed **from the terminal** with [get_features.py](get_features.py), from any folder, once `experiment_1.csv` exists (the split, if a set is given, and the search of phase 1, for `C1` and `C2`):
+---
+
+### 6️⃣ Search of the candidate generation — [search_candidates.py](search_candidates.py)
+
+Bayesian search (Optuna TPE) of phase 1 ([candidate_search.py](src/optimization/candidate_search.py)) → **C1**:
+
+- **(a) Maximum recall** → recall<sub>max</sub> and its SE (bootstrap grouped by signal and artifact).
+- **(b) Minimum load** with recall ≥ recall<sub>max</sub> − SE and median $w_i$ ≥ that of the baseline, starting from the configurations of (a); **safeguard (b2)** if no configuration meets both.
+- **C1:** minimum load among the configurations that meet the constraints. `REF_OUTER` is searched from `REF_INNER` + `MAX_EVENT` (constraint met by construction); `MAX_EVENT` is fixed (140 ms).
+- **Nested cross-validation:** each of the 5 folds runs the protocol on its training mixtures (~64 % of the tuning set) and evaluates its C1 and the baseline on its validation mixtures; the run `all` repeats it on the whole tuning set (final C1).
 
 ```bash
-python denoising/get_features.py -c baseline -s tune   # Baselines of phase 2: baseline and C1, on the tuning set
-python denoising/get_features.py -c C1 -s tune         # -c, --config: baseline, C1 or C2 (default: baseline)
-python denoising/get_features.py -s tune -p 4       # -p, --processes: worker processes (default: as many as CPU cores)
+python denoising/search_candidates.py                       # The 5 folds and the whole tuning set
+python denoising/search_candidates.py --runs 1              # --runs: folds 1-5 and/or all (one job per run)
+python denoising/search_candidates.py --trials-a 100 --trials-b 100 -p 64
 ```
 
-- **Configurations:** `baseline` = default constants of [remove_noise.py](src/algorithm/remove_noise.py); `C1` = baseline + C1 (`results/optimization/candidates/search/all.json`); the baselines of phase 2 are `baseline` and `C1`; `C2` = C1 + C2' (best configuration of the run `all` of each group, `results/optimization/features/search/<group>/all.json`, see `search_features.py`).
-- It rebuilds each mixture of `experiment_1.csv` (all the SNR) and its control, generates its candidates and their features with `generate_features` in parallel, and classifies them with the current click rules (`find_click_events`).
-- It saves `denoising/results/optimization/features/{config}/{set}.csv` (`all.csv` if no set is given), **one row per candidate** (a mixture without candidates has no row), overwriting the previous file:
-    - Identification of the mixture (as `get_candidates.py`) and `n_positions`: mixtures of its cell (s, a, c), $N_{a,c}$ (weights of the metric).
-    - `cand`, `start`, `end`: index of the candidate in the mixture and its first and last + 1 sample.
-    - `touches_zone`: the candidate touches the zone of the artifact (±25 ms; empty in the controls).
-    - The features (`bands`, `r_med`, `r_max`, `z_max`, `isolation`, `width_med`, `width_max`, `misalign`, `at_border`), whether it meets each rule (`rule_<name>`) and `is_click`.
+**Generates:** `results/optimization/candidates/search/`: `<run>_trials.csv` (one row per configuration: search, parameters, metrics, feasible), `<run>.json` (constraints, C1 and its metrics and those of the baseline, training and validation), `summary.csv` (one row per finished run), `<runs>.log` (same messages as the terminal) and `<run>.db` (Optuna studies: an interrupted run resumes; a run with its `.json` is skipped). About 200 configurations per run.
 
-The search of the parameters of the features of phase 2 (sections 5.2.2, 5.3.2 and 5.4.2 of the notebook) is run **from the terminal** with [search_features.py](search_features.py), one group of features at a time, from any folder, once the features of the candidates of C1 on the tuning set (`get_features.py -c C1 -s tune`: spans of the candidates, labels and baseline), C1 (`search_candidates.py`) and the folds (`get_splits.py`) exist:
+---
+
+### 7️⃣ Features of the candidates — [get_features.py](get_features.py)
+
+Rebuilds each mixture of `experiment_1.csv` and its control, generates its candidates and their features (`generate_features`) and classifies them with the current click rules (`find_click_events`), for a configuration:
+
+| `-c` | Constants of the algorithm |
+|:-----|:---------------------------|
+| `baseline` (default) | Default values |
+| `C1` | + C1 (`results/optimization/candidates/search/all.json`) |
+| `C2` | + C1 + C2' (run `all` of each group of step 8, `results/optimization/features/search/<group>/all.json`) |
+
+The baselines of phase 2 are `baseline` and `C1` (default parameters of the features, with the candidates of each one).
 
 ```bash
-python denoising/search_features.py -g width                    # -g, --group: width, isolation or impulsiveness
+python denoising/get_features.py -c baseline -s tune   # Baselines of phase 2
+python denoising/get_features.py -c C1 -s tune         # -s: as step 4
+```
+
+**Generates:** `results/optimization/features/<config>/<set>.csv`, **one row per candidate** (a mixture without candidates has no row):
+
+- Identification of the mixture (as step 4) and `n_positions` ($N_{a,c}$: mixtures of its cell, weights of the metric).
+- `cand`, `start`, `end`: index of the candidate in the mixture and its span (samples).
+- `touches_zone`: it touches the zone of the artifact (±25 ms; empty in the controls).
+- Features (`bands`, `r_med`, `r_max`, `z_max`, `isolation`, `width_med`, `width_max`, `misalign`, `at_border`), each rule (`rule_<name>`) and `is_click`.
+
+---
+
+### 8️⃣ Search of the features — [search_features.py](search_features.py)
+
+Bayesian search (Optuna TPE) of the parameters of **one group of features** ([feature_search.py](src/optimization/feature_search.py)), maximizing its metric ([feature_score.py](src/optimization/feature_score.py), section 5.1). The candidates are those of C1 and only the features of the group are recomputed (only the mixtures: the controls are not used by the metric).
+
+| Group (`-g`) | Parameters (search range) | Configurations | Recomputed per mixture |
+|:-------------|:--------------------------|:--------------:|:-----------------------|
+| `width` | `BG_FACTOR` [1, 8] (log), `WIDTH_FLOOR_DB` [6, 40] dB, `EXTEND` [0, 4] FWHM | 60 | Candidate generation + widths (~155 ms) |
+| `isolation` | `ISO_WIN` [20, 500] ms (log) | 20 | Envelope + isolation of the spans of C1 (~1 ms) |
+| `impulsiveness` | `Z_WIN` [20, 500] ms (log), `AR_ORDER` [1, 40] (integer) | 40 | AR model + `z_max` of the spans of C1 (~30 ms) |
+
+- The first configuration is the default one (baseline); the best one of the run `all` is the **C2'** of the group (read by `get_features.py -c C2`).
+- **Nested cross-validation:** the same 5 folds as step 6, plus the run `all`.
+- **Time per configuration** (HPC, 64 cores, whole tuning set): ~4 s (isolation), ~33 s (impulsiveness), ~52 s (width: ~52 min per run).
+
+```bash
+python denoising/search_features.py -g width                    # -g: width, isolation or impulsiveness
 python denoising/search_features.py -g isolation --runs 1       # --runs: folds 1-5 and/or all (one job per run)
-python denoising/search_features.py -g width --trials 60 -p 64  # configurations per run (default: 60 / 20 / 40); processes
+python denoising/search_features.py -g width --trials 60 -p 64  # --trials: configurations per run
 ```
 
-- **Search** ([feature_search.py](src/optimization/feature_search.py), Optuna TPE): one group at a time (the metric of a group only depends on its own parameters), maximizing its metric ([feature_score.py](src/optimization/feature_score.py), section 5.1). The first configuration is the default one (baseline); the best one of the run `all` is the C2' of the group, read by `get_features.py -c C2`.
-- **Search space:** width `BG_FACTOR` [1, 8] (log), `WIDTH_FLOOR_DB` [6, 40] dB, `EXTEND` [0, 4] FWHM; isolation `ISO_WIN` [20, 500] ms (log); impulsiveness `Z_WIN` [20, 500] ms (log), `AR_ORDER` [1, 40] (integer).
-- **Nested cross-validation:** the same 5 folds as phase 1; each fold searches on its training mixtures and evaluates its best configuration (and the baseline) on its validation mixtures; the run `all` repeats the search on the whole tuning set.
-- **Cost:** the candidates are those of C1 and only the features of the group are recomputed in each configuration (only the mixtures: the controls are not used by the metric). Width: candidate generation of each mixture and widths (~155 ms per mixture); isolation: envelope of each mixture and isolation of the spans of the candidates of C1 (~1 ms); impulsiveness: AR model of each mixture and `z_max` of those spans (~30 ms).
-- **Resume:** the study of each run is saved in `<run>.db`; an interrupted run continues where it stopped, and a finished run (`<run>.json`) is skipped. The terminal and `<runs>.log` show the same messages: the baseline, each evaluated configuration (metric, sAUC of each feature, parameters and time), the best configuration, its validation and the cross-validation summary over the finished folds.
-- `feature_score.py` is a copy of the metric of the notebook (section 5.1): if it is changed in the notebook, it must also be changed in the module.
+**Generates:** `results/optimization/features/search/<group>/`: `<run>_trials.csv` (one row per configuration: trial, baseline, parameters, metric, sAUC and AUC of each feature), `<run>.json` (C2' of the run and its metric and that of the baseline, training and validation), `summary.csv`, `<runs>.log` and `<run>.db` (resume, as step 6).
+
+> ⚠️ If a run is stopped while it evaluates its **first** configuration (the default one), delete its `<run>.db` before launching it again: otherwise it ends without the baseline.
+
+---
+
+## 📁 Final folder layout
+
+After running the scripts, the outputs are (compare with [📂 Repository layout](#-repository-layout)):
+
+```
+denoising/
+├── splits/                          ← step 3
+│   ├── clean_split.csv                      # clean_id, label, set (tune / test)
+│   ├── artifact_split.csv                   # art_id, art_duration_ms, set (tune / test)
+│   ├── cv_clean_folds.csv                   # clean_id, label, fold (1-5) of the tuning clean signals
+│   └── cv_artifact_folds.csv                # art_id, art_duration_ms, fold (1-5) of the tuning artifacts
+└── results/
+    ├── experiments/                 ← step 1: experiment_1.csv, experiment_2.csv
+    ├── figures/                     ← step 2: experiment_{1,2}/<name>.{png,svg,html}
+    └── optimization/
+        ├── candidates/
+        │   ├── <name>/<set>.csv     ← step 4: one row per mixture (metrics of its candidates)
+        │   ├── screening/           ← step 5: <PARAMETER>.csv, one row per value
+        │   └── search/              ← step 6: <run>.db, <run>_trials.csv, <run>.json, <runs>.log, summary.csv
+        └── features/
+            ├── <config>/<set>.csv   ← step 7: one row per candidate (span, touches_zone, features, rules)
+            └── search/<group>/      ← step 8: <run>.db, <run>_trials.csv, <run>.json, <runs>.log, summary.csv
+```
+
+Every `.csv` and `.json` is versioned (`experiment_2.csv` with git LFS): among others, `splits/` (the HPC and the notebook must use the same split and folds) and `candidates/baseline/tune.csv` (required by step 6). Not versioned: the `.db` (only to resume a run) and `.log` of the searches.
+
+---
+
+## 📓 Notebooks
+
+Development and documentation tools: running them does not modify the dataset pipeline outputs. From `denoising/`, open the notebook and run all cells in order (after editing, restart the kernel). The fragments must exist in `dataset/dataset/audio/` (step 4 of the dataset pipeline); the experiments of the evaluation only need `denoising/audio/`.
 
 ### [denoise_soundwaveletSWT.ipynb](denoise_soundwaveletSWT.ipynb) — Transient removal filter
 
-Reference notebook of the filter, in 4 sections:
-
-1. **Código original:** Python version of `soundwaveletSWT.m` (heart sound attenuator), with the same variable names as the MATLAB code for a line-by-line comparison.
-2. **Adaptación al proyecto:** description of the changes with respect to the original (in Spanish).
-3. **Funciones:** the current version of the algorithm (`remove_noise` and its helper functions), with all the parameters as constants at the top.
-4. **Visualización + Ejemplo:** imports `summary_plots` from [summary_plots.py](#-summary-figures--summary_plotspy), runs the filter on an example fragment and shows the 8 summary figures, saving them as `.png` in `assets/`. These are the images of [🖼️ Example](#️-example).
+1. **Código original:** Python version of `soundwaveletSWT.m` (heart sound attenuator), with the variable names of the MATLAB code for a line-by-line comparison.
+2. **Adaptación al proyecto:** changes with respect to the original (in Spanish).
+3. **Funciones:** the current version of the algorithm, with all the parameters as constants at the top.
+4. **Visualización + Ejemplo:** runs the filter on an example fragment and shows the 8 summary figures ([summary_plots.py](#-summary-figures--summary_plotspy)), saved as `.png` in `assets/` ([🖼️ Example](#️-example)).
 
 ### [denoise_summary_plots.ipynb](denoise_summary_plots.ipynb) — Development of the summary figures
 
-Notebook where the current version of the algorithm and its figures were developed:
-
-- **Cells 0–2:** imports, the algorithm (same version as the **Funciones** cell of `denoise_soundwaveletSWT.ipynb`, identical output) and the fragment to analyze.
-- **Cells 3–10:** one figure per cell, each one defined and shown in the same cell: decomposition summary, detection map, impulsiveness, isolation, misalign, click classification, noise removal and effect in frequency.
-- Most figures are **interactive Plotly reproductions** of matplotlib figures (same layout, sizes, fonts and legends), with linked time axes, legends that toggle series and hover information.
-
-The figure functions were then copied to [summary_plots.py](#-summary-figures--summary_plotspy).
+Where the current version of the algorithm and its figures were developed: the algorithm (same output as **Funciones**), the fragment, and one cell per figure (decomposition summary, detection map, impulsiveness, isolation, misalign, click classification, noise removal, effect in frequency). Most are **interactive plotly reproductions** of matplotlib figures (same layout, linked time axes, toggling legends, hover). They were then copied to [summary_plots.py](#-summary-figures--summary_plotspy).
 
 ### [evaluation_denoise.ipynb](evaluation_denoise.ipynb) — Evaluation of the algorithm
 
-Notebook for the **evaluation** experiments of the algorithm: artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured.
+Artifacts are added to clean signals, where the expected result is known, and the output of the filter is measured. ✅ Both experiments are run and their figures done.
 
-> ✅ **Done:** 
-> Experiment 1 has been run and its five result figures (detection, elimination, conservation, amplitude and factor analysis) are done.
-> Experiment 2 has been run too and its five result figures are done (comparison with experiment 1, interaction between artifacts, mixture-level performance, conservation with several artifacts and idempotence).
-
-1. **Algorithm:** imported from [remove_noise.py](src/algorithm/remove_noise.py). Its parameters can be changed as module constants, e.g. `rn.K = 6`, before running an experiment.
+1. **Algorithm:** imported from [remove_noise.py](src/algorithm/remove_noise.py) (constants can be changed before an experiment, e.g. `rn.K = 6`).
 2. **Example:** the filter and its summary figures on one fragment.
 3. **Selection of signals:**
-    - **Clean signals:** 38 fragments (10 `Normal`, 10 `Wheeze`, 10 `Rhonchi`, 8 `Stridor`), with only 1 fragment per patient and no audible or visible clicks, scrapes or impacts.
-    - **Artifacts:** 32 clearly visible transients cut from other fragments, with at most 1 per patient, from patients not in the clean set.
+    - **Clean signals:** 38 fragments (10 `Normal`, 10 `Wheeze`, 10 `Rhonchi`, 8 `Stridor`), 1 per patient, without audible or visible clicks, scrapes or impacts.
+    - **Artifacts:** 32 clearly visible transients cut from other fragments, at most 1 per patient, from patients not in the clean set.
 4. **Experiment 1 — Insertion of a single artifact:**
-    - **Mixtures:** each clean signal × each artifact (that fits in it), at `N_REPS = 5` random positions (at least 0.1 s from the borders) and at each local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB. If the same position is drawn twice, the repeated mixture is dropped (`get_mixes`).
-    - The current `results/experiments/experiment_1.csv` (~60 700 rows) was run with the whole `SNR_LIST`.
-    - **Control:** each clean signal is also processed without any artifact (`art_id` = `snr_db` = `"Control"`). It shows what the filter does to a signal that has no artifacts.
-    - **Mixture descriptors** (`insert_artifact`, in [evaluation.py](src/evaluation/evaluation.py)): duration of the artifact, local relative power of the clean signal around it (±25 ms, dB relative to the whole fragment) and global SNR (clean fragment vs artifact energy).
-    - **Metrics** (`metrics`, in [evaluation.py](src/evaluation/evaluation.py)), with the clean signal (> 15 Hz) as reference:
-        - *Detection:* whether a click was detected in the artifact zone (±25 ms), and the number of false clicks.
-        - *Elimination:* SNR in the artifact zone before and after the filter, its improvement (ΔSNR), and `attenuated` (ΔSNR ≥ 3 dB).
-        - *Conservation:* error (NMSE) outside the artifact zone.
-        - *Amplitude:* error (%) of the maximum and mean of the moving RMS (30 ms), in the artifact zone (local) and in the whole fragment (global), before (mixture) and after (output) the filter.
-    - **Execution:** `run_experiment` (in [evaluation.py](src/evaluation/evaluation.py)) processes all the mixtures in parallel with `multiprocessing`, one process per CPU core. It saves the metrics in `results/experiments/experiment_1.csv`. Also from the terminal: `python denoising/run_experiment.py -e 1` (see [▶️ How to run](#️-how-to-run)).
-    - **Results:** loaded from the `.csv`. Five figures (sections 5.4.1–5.4.5), each one a function of `results_df` (which is not modified); the notebook saves each one as `assets/exp1_<name>.png` (`save_png`, defined in the imports cell; scale 5), shown below its description, and the plotly version of each one is saved as `results/figures/experiment_1/<name>.{png, svg, html}` by [save_figures.py](save_figures.py) (see [▶️ How to run](#️-how-to-run)):
-        - `plot_detection` — *Detection:* (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, and (D) SNR at 50 % detection per artifact with its 95 % CI (bootstrap over the clean signals).
+    - **Mixtures:** each clean signal × each artifact that fits, at `N_REPS = 5` random positions (≥ 0.1 s from the borders) and local SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB (repeated positions dropped); ~60 700 rows. **Control:** each clean signal without artifact (`art_id` = `snr_db` = `"Control"`).
+    - **Descriptors** (`insert_artifact`): duration of the artifact, local relative power of the clean signal around it (±25 ms) and global SNR.
+    - **Metrics** (`metrics`, reference: clean signal > 15 Hz): *detection* (click in the artifact zone ±25 ms) and false clicks; *elimination*: SNR in / out, ΔSNR and `attenuated` (ΔSNR ≥ 3 dB); *conservation*: NMSE out of the zone; *amplitude*: error (%) of the maximum and mean moving RMS (30 ms), local and global, before and after the filter.
+    - **Execution:** `run_experiment` (parallel, `multiprocessing`) → `results/experiments/experiment_1.csv` (also [script 1](#1️⃣-evaluation-experiments--run_experimentpy)).
+5. **Experiment 2 — Insertion of several artifacts:** close artifacts, masking and idempotence.
+    - **Layouts:** for each clean signal, `N_GROUPS = 20` random triplets of artifacts, placed one after another with an edge-to-edge gap of `GAP_LIST` = 25, 50, 100, 300 and 500 ms at a random position.
+    - **Paired subsets:** every non-empty subset of each layout (3 singles, 3 pairs and the triplet) at **the same positions** (`group_id`, `subset`): each artifact is compared alone and accompanied, everything else equal.
+    - **SNR conditions:** *equal* (all the artifacts at the same SNR of `SNR_LIST`) and *unequal* (masking: one strong at −20 dB, `is_strong`, and weak ones at −10, −5 and 0 dB). Duplicated mixtures are kept once. Controls as in experiment 1.
+    - **Mixtures** (`insert_artifacts`): each artifact scaled with respect to the **clean** signal (independent of the others).
+    - **Metrics** (`metrics_multi`): zones ±25 ms cut at the midpoint of the gap when they overlap (`artifact_zones`); *per artifact*: detection, `merged` (its click also touches another zone), SNR in / out (with that artifact alone), ΔSNR, `attenuated`, local amplitude errors; *per mixture*: detected artifacts (`n_detected`, `all_detected`), false clicks, NMSE out of the zones and **between** consecutive artifacts, global errors and global SNR.
+    - **Idempotence:** every mixture is processed twice, f(f(x)): clicks of the second pass (`n_clicks_pass2`, in the zones), its change (`idem_nmse_db`), the metrics recomputed after the second pass (suffix `_pass2`), artifacts detected in either pass (`_any`) and global SNR before / after each pass (`snr_glob_*`).
+    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` → `results/experiments/experiment_2.csv` (tuples saved as JSON lists; `read_results` reads them back).
+6. **Results:** each figure is a function of the results table; the notebook saves it as `assets/exp{1,2}_<name>.png` (below) and [script 2](#2️⃣-result-figures--save_figurespy) saves its plotly version.
 
-          ![Detection](assets/exp1_detection.png)
+**Experiment 1**
 
-        - `plot_elimination` — *Elimination:* (A) SNR out vs SNR in of the detected artifacts, attenuated / not attenuated (mean ± IQR), (B) ΔSNR distribution per SNR level (violins), (C) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) and detection rate vs SNR, (D) net SNR improvement vs SNR (all the mixtures, undetected → ΔSNR = 0, and only the detected ones), and (E) SNR improvement of the detected artifacts by class of the clean signal.
+`plot_detection` — (A) detection rate vs SNR per artifact and global, (B) by class of the clean signal, (C) false positives vs SNR and in the controls, (D) SNR at 50 % detection per artifact (95 % CI, bootstrap over the clean signals).
 
-          ![Elimination](assets/exp1_elimination.png)
+![Detection](assets/exp1_detection.png)
 
-        - `plot_conservation` — *Conservation:* (A) NMSE out of the artifact zone vs SNR (mean ± 95 % CI over the clean signals) and in the controls, (B) NMSE out of the zone vs number of detections out of the zone (false positives), mixtures and controls, (C) and (D) the same two by class of the clean signal, and (E) cumulative distribution of the NMSE out of the zone, with references at 1 % and 0.01 % of the signal power.
+`plot_elimination` — (A) SNR out vs SNR in of the detected artifacts, attenuated or not, (B) ΔSNR per SNR (violins), (C) attenuated rate and detection rate vs SNR, (D) net SNR improvement (all mixtures and only detected ones), (E) by class of the clean signal.
 
-          ![Conservation](assets/exp1_conservation.png)
+![Elimination](assets/exp1_elimination.png)
 
-        - `plot_amplitude` — *Amplitude:* RMS error (%) before (mixture) and after (output) the filter vs SNR (median ± IQR), in 4 panels: maximum / mean RMS, local / global, with the controls in the global ones. Each panel has a zoom of the −7 to 22 dB range.
+`plot_conservation` — (A) NMSE out of the zone vs SNR and in the controls, (B) vs number of false positives, (C, D) the same by class, (E) cumulative distribution of the NMSE (references at 1 % and 0.01 % of the signal power).
 
-          ![Amplitude](assets/exp1_amplitude.png)
+![Conservation](assets/exp1_conservation.png)
 
-        - `plot_factor_analysis` — *Factor analysis:* what the result depends on. (A) detection rate and (B) mean ΔSNR of the detected artifacts per artifact and SNR (heatmaps), (C) SNR at 50 % detection vs duration of the artifact, (D) detection rate and (F) ΔSNR of the detected artifacts vs local relative power of the clean signal (deciles, per SNR), (E) local power vs global SNR of the detected and not detected mixtures (density), (G) error of the global RMS peak before / after vs global SNR, and (H) ΔSNR vs NMSE out of the zone of the detected artifacts (removal vs conservation).
+`plot_amplitude` — RMS error (%) before / after the filter vs SNR (median ± IQR): maximum / mean RMS, local / global (with the controls), each with a zoom of −7 to 22 dB.
 
-          ![Factor analysis](assets/exp1_factor_analysis.png)
+![Amplitude](assets/exp1_amplitude.png)
 
-5. **Experiment 2 — Insertion of several artifacts:** what changes when the artifacts are not alone (close artifacts, a strong one masking weak ones), and whether the filter is idempotent.
-    - **Layouts:** for each clean signal, `N_GROUPS = 20` random triplets of distinct artifacts. For each triplet and each edge-to-edge gap of `GAP_LIST` = 25, 50, 100, 300 and 500 ms, the three artifacts are placed in random order, one after another with the same gap, at a random position of the signal (at least 0.1 s from the borders). A layout that does not fit is skipped.
-    - **Paired subsets:** from each layout, every non-empty subset of its artifacts is mixed **at the same positions**: the 3 single artifacts, the 3 pairs and the triplet (7 mixtures, same `group_id`, `subset` = layout positions present). Each artifact can then be compared alone and accompanied, with everything else equal.
-    - **SNR conditions** (local SNR of each artifact, as in experiment 1):
-        - *Equal:* all the artifacts at the same SNR, for each SNR of `SNR_LIST` = −30, −20, −10, −5, 0, 5, 10 and 20 dB.
-        - *Unequal (masking):* one artifact of the layout, chosen at random, is strong (`SNR_STRONG` = −20 dB, `is_strong`) and the others are weak, at each SNR of `SNR_WEAK_LIST` = −10, −5 and 0 dB.
-    - **Duplicates:** the same mixture (same artifacts, positions and SNRs, e.g. a single artifact of both conditions) is only kept once, with the first `group_id`.
-    - **Control:** each clean signal without any artifact (`n_art` = 0, `art_ids` = `snr_db` = `"Control"`).
-    - **Mixtures** (`insert_artifacts`, in [evaluation.py](src/evaluation/evaluation.py)): each artifact is scaled with respect to the **clean** signal, as in experiment 1, so its scaling does not depend on the other artifacts; the mixture is the clean signal plus the contribution of every artifact. The descriptors of `insert_artifact` are kept per artifact.
-    - **Metrics** (`metrics_multi`, in [evaluation.py](src/evaluation/evaluation.py)):
-        - *Artifact zones* (`artifact_zones`): ±25 ms around each artifact, as in experiment 1, but cut at the midpoint of the gap when two zones would overlap, so each sample belongs to one zone at most.
-        - *Per artifact* (one value per artifact, in its own zone): detection, `merged` (its click span also touches the zone of another artifact), SNR in / out, ΔSNR, `attenuated` and local amplitude errors. The SNR is measured with the contribution of that artifact alone, without the others.
-        - *Per mixture:* number of detected artifacts (`n_detected`, `all_detected`), false clicks (click spans that touch no artifact zone), NMSE out of all the zones, NMSE of the signal **between** consecutive artifacts (`nmse_between_db`: how much a merged span changes the signal between the clicks), global amplitude errors and global SNR of all the artifacts together (`snr_global_mix_db`).
-        - *Idempotence:* every mixture (and control) is processed **twice**, f(f(x)). Number of clicks of the second pass (`n_clicks_pass2`, ideally 0), of them inside the artifact zones (`n_clicks_pass2_in_zones`) and change of the second pass (`idem_nmse_db`, NMSE of f(f(x)) − f(x)).
-        - *After the second pass:* the metrics of the first pass recomputed on f(f(x)), with the suffix `_pass2` (`PASS2_KEYS`: detection, `merged`, SNR out, ΔSNR, `attenuated`, `n_detected`, `all_detected`, false clicks, NMSE out of the zones and global amplitude errors after the filter); artifacts detected in at least one of the two passes (`detected_any`, `n_detected_any`, `all_detected_any`); and global SNR of the whole fragment (> 15 Hz) before the filter, after the first pass and after the second pass (`snr_glob_in_db`, `snr_glob_out_db`, `snr_glob_out_pass2_db`).
-        - The current `results/experiments/experiment_2.csv` already includes all these metrics (also the `_pass2`, `_any` and `snr_glob_*` columns).
-    - **Execution:** `run_experiment(..., worker=process_mixture_multi)` saves the metrics in `results/experiments/experiment_2.csv` (also from the terminal: `python denoising/run_experiment.py -e 2`). The per-artifact columns are tuples, saved as JSON lists; `read_results` reads them back as tuples.
-    - **Results:** loaded from the `.csv`. Five figures (sections 6.4.1–6.4.5), each one a function of `results_df` (which is not modified); the notebook saves each one as `assets/exp2_<name>.png` (`save_png`, defined in the imports cell; scale 5), shown below its description, and the plotly version of each one is saved as `results/figures/experiment_2/<name>.{png, svg, html}` by [save_figures.py](save_figures.py):
-        - `plot_experiment_comparison` — *Experiment 2 vs experiment 1* (equal condition, per number of artifacts in the mixture, with experiment 1 as reference and the paired difference per clean signal below each panel): (A) detection rate vs SNR, with the proportion of merged artifacts, (B) own detection rate vs SNR (detected and not merged, or merged but also detected alone), with the borrowed detection (total − own), (C) SNR at 50 % detection, total and own, with its 95 % CI (bootstrap over the clean signals), (D) ΔSNR of the detected artifacts vs SNR, (E) mean local RMS error after the filter vs SNR (all the artifacts, median ± IQR), and (F) proportion of attenuated artifacts (ΔSNR ≥ 3 dB) among the detected ones vs SNR.
+`plot_factor_analysis` — (A) detection and (B) ΔSNR per artifact and SNR (heatmaps), (C) SNR at 50 % vs duration, (D, F) detection and ΔSNR vs local power of the clean signal, (E) local power vs global SNR of detected / not detected, (G) global RMS peak error vs global SNR, (H) ΔSNR vs NMSE out of the zone.
 
-          ![Experiment 2 vs experiment 1](assets/exp2_experiment_comparison.png)
+![Factor analysis](assets/exp1_factor_analysis.png)
 
-        - `plot_interaction_artifacts` — *Interaction between artifacts* (accompanied − alone: the same artifact, at the same position and SNR, in the mixture vs alone): (A) change in the detection rate (total and own) vs gap between artifacts, for pairs and triplets, and (B) proportion of merged artifacts vs gap, both with the characteristic distances of the algorithm as references (2·`TOL`, `REF_INNER`, `REF_OUTER`) and 95 % CI over the clean signals; (C) change in the detection rate and (D) change in the ΔSNR of the artifacts detected both alone and accompanied, per gap and SNR (triplets, heatmaps); (E) masking (unequal condition): change in the detection (total and own) of a weak artifact next to the strong one (−20 dB) vs gap, per SNR of the weak one; and (F) ΔSNR of the detected artifacts vs SNR, alone / merged / not merged, with the NMSE of the signal between the two artifacts of the pairs (merged / not merged, median ± IQR) below.
+**Experiment 2**
 
-          ![Interaction between artifacts](assets/exp2_interaction_artifacts.png)
+`plot_experiment_comparison` — equal condition per number of artifacts, with experiment 1 as reference and the paired difference below each panel: (A) detection rate with merged ones, (B) own detection (and borrowed), (C) SNR at 50 % (total and own, 95 % CI), (D) ΔSNR of the detected, (E) local RMS error after the filter, (F) attenuated rate among the detected.
 
-        - `plot_mixture_performance` — *Mixture-level performance* (equal condition, per number of artifacts in the mixture): (A) number of detected artifacts per mixture vs SNR (stacked bars: all, all but one, all but two, none), (B) rate of mixtures with all the artifacts detected vs SNR, with all the mixtures pooled and the rate expected without interaction (each artifact detected alone), (C) error of the global RMS peak before / after the filter vs global SNR of the mixture (median ± IQR, 5 dB bins, with a zoom from −5 dB), and (D) the all-detected rate of (B) vs global SNR of the mixture.
+![Experiment 2 vs experiment 1](assets/exp2_experiment_comparison.png)
 
-          ![Mixture-level performance](assets/exp2_mixture_performance.png)
+`plot_interaction_artifacts` — accompanied − alone: (A) change of detection (total and own) vs gap, for pairs and triplets, and (B) merged rate vs gap, with the characteristic distances of the algorithm (2·`TOL`, `REF_INNER`, `REF_OUTER`); (C) change of detection and (D) of ΔSNR per gap and SNR (heatmaps); (E) masking: detection of a weak artifact next to the strong one; (F) ΔSNR alone / merged / not merged, with the NMSE between the two artifacts.
 
-        - `plot_conservation_multiple` — *Conservation with several artifacts* (equal condition and controls): (A) cumulative distribution of the NMSE out of the artifact zones per number of artifacts in the mixture and in the controls, (B) the same for the mixtures of 2 and 3 artifacts with / without some merged artifact, with 1 artifact as reference, both with references at 1 % and 0.01 % of the signal power (−20 and −40 dB), (C) NMSE out of the zones vs SNR per number of artifacts (median ± IQR), and (D) false positives per mixture vs SNR per number of artifacts (mean ± 95 % CI over the clean signals); in (C) and (D) the controls are shown at the right of the SNR axis, with their value as a reference line. In the plotly version, the large cumulative distributions are evaluated on a 0.05 dB grid, so the `.html` stays small.
+![Interaction between artifacts](assets/exp2_interaction_artifacts.png)
 
-          ![Conservation with several artifacts](assets/exp2_conservation_multiple.png)
+`plot_mixture_performance` — per number of artifacts: (A) detected artifacts per mixture vs SNR (stacked), (B) rate of mixtures with all detected, with the rate expected without interaction, (C) global RMS peak error vs global SNR, (D) all-detected rate vs global SNR.
 
-        - `plot_idempotence` — *Idempotence* (second pass f(f(x)), per number of artifacts in the mixture and in the controls): (A) proportion of mixtures with clicks detected in the second pass (only in the artifact zones / out of them), (B) cumulative distribution of the NMSE between the outputs of the 1st and 2nd pass, (C) and (D) the same two vs SNR, with the controls at the right of the SNR axis, (E) proportion of artifacts detected after one pass and after one or two passes vs SNR, with the recovered ones (%) below, and (F) extra attenuation of the artifacts in the second pass (ΔSNR after 2nd − after 1st pass) vs SNR.
+![Mixture-level performance](assets/exp2_mixture_performance.png)
 
-          ![Idempotence](assets/exp2_idempotence.png)
+`plot_conservation_multiple` — (A) cumulative distribution of the NMSE out of the zones per number of artifacts and controls, (B) with / without merged artifacts, (C) NMSE vs SNR, (D) false positives vs SNR (controls at the right of the SNR axis).
+
+![Conservation with several artifacts](assets/exp2_conservation_multiple.png)
+
+`plot_idempotence` — second pass: (A) mixtures with clicks in the second pass (in / out of the zones), (B) cumulative distribution of the NMSE between both passes, (C, D) the same vs SNR, (E) artifacts detected after one and after one or two passes (recovered ones below), (F) extra attenuation of the second pass.
+
+![Idempotence](assets/exp2_idempotence.png)
 
 ### [parameter_optimization.ipynb](parameter_optimization.ipynb) — Parameter optimization
 
-Notebook of the **parameter optimization** of the algorithm, which will replace the thresholds selected by eye ([⚙️ Parameters](#️-parameters)). It follows the plan of [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md), over mixtures like those of experiment 1 of [evaluation_denoise.ipynb](#evaluation_denoiseipynb--evaluation-of-the-algorithm).
-
-> 🚧 **In progress:**
+Optimization of the parameters of the algorithm, following [PARAMETER_OPTIMIZATION.md](PARAMETER_OPTIMIZATION.md), on mixtures like those of experiment 1. 🚧 In progress.
 
 1. **Import libraries.**
-2. **Score definition:** per-artifact quality $q$, global quality $Q$, number of false positives $FP$ and score $S = Q - \lambda \cdot FP$. $Q$ and $FP$ are averaged first over the positions of each cell (SNR, artifact, clean signal), so that each artifact and each clean signal weighs the same.
+2. **Score definition:** per-artifact quality $q$, global quality $Q$, false positives $FP$ and score $S = Q - \lambda \cdot FP$, averaged first over the positions of each cell (SNR, artifact, clean signal).
 3. **Phase 0 — Preparation:**
-    - **3.1. Tuning/test split:** the four sets of `experiment_1.csv`.
-    - **3.2. Penalty λ:** masking SNR $s^* \approx -7.8$ dB and cost of missing an artifact there: $\lambda \approx -s^*/30 = 0.26$ (ideal elimination) and $\lambda = \Delta q_{s^*} = 0.21$ (measured, the one used).
-    - **3.3. Baseline:** score of the current version on the tuning set: $S = 0.8987$.
+    - **3.1. Tuning/test split** ([script 3](#3️⃣-tuningtest-split-and-folds--get_splitspy)): the four sets of `experiment_1.csv`.
+    - **3.2. Penalty λ:** masking SNR $s^* \approx -7.8$ dB → $\lambda = \Delta q_{s^*} = 0.21$ (measured; ideal elimination: $-s^*/30 = 0.26$).
+    - **3.3. Baseline:** $S = 0.8987$ on the tuning set.
 4. **Phase 1 — Candidate generation:**
-    - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact at each SNR, $c_s = 1 - q(s)$), load and overflow, and their diagnostics, from the per-mixture results of [get_candidates.py](get_candidates.py).
-    - **4.2. Baseline:** candidate metrics of the current version on the tuning set: recall = 0.986 (unweighted, SNR ≤ 0 dB: 0.943), load = 7.4 candidates per control, median $w_i$ = 0.86 (median overflow: 15 ms). About half of the artifact zones already touch a candidate of the clean signal (recall ≈ 0.54 at 20 dB), which is why the recall is weighted by the cost.
-    - **4.3. Screening:** one parameter at a time, with [screen_candidates.py](screen_candidates.py). The tables are loaded with `load_screening` and shown in one figure (`plot_screening`): one row per parameter and one column per metric (recall, load, median $w_i$), with the same y axis in each column, the default value and the baseline.
-    - **4.4. Search:** results of [search_candidates.py](search_candidates.py) ((a) maximum recall, (b) minimum load, safeguard (b2); nested 5-fold cross-validation and whole tuning set): table of each run and history of the searches (recall, load and overflow of each configuration in the order of evaluation, with the best feasible configuration so far and the best recall of (a)). Every run needed the safeguard.
-    - **4.5. Choice:** C1 of each run with its recall–load and load–overflow Pareto fronts, parameters of C1, nested cross-validation (C1 − baseline on the training and validation mixtures of each fold, optimism, mean ± SD over the folds) and stability of the parameters of C1.
-        - **Final C1** (whole tuning set; search (b2), trial 289):
+    - **4.1. Metrics:** candidate recall (weighted by the cost of missing an artifact, $c_s = 1 - q(s)$), load and overflow ([script 4](#4️⃣-candidates--get_candidatespy)).
+    - **4.2. Baseline:** recall = 0.986, load = 7.4 candidates per control, median $w_i$ = 0.86. About half of the artifact zones already touch a candidate of the clean signal (recall ≈ 0.54 at 20 dB), hence the cost weights.
+    - **4.3. Screening** ([script 5](#5️⃣-screening-of-the-candidate-generation--screen_candidatespy)): one row per parameter and one column per metric.
+    - **4.4. Search** ([script 6](#6️⃣-search-of-the-candidate-generation--search_candidatespy)): history of the searches of each run. Every run needed the safeguard.
+    - **4.5. Choice:** C1 with its Pareto fronts, nested cross-validation and stability:
 
-          | Parameter | Baseline | C1 |
-          |:----------|:--------:|:--:|
-          | `WAVELET`       | db4    | db8      |
-          | `K`             | 5      | 5.50     |
-          | `ENV_SMOOTH`    | 4 ms   | 15.8 ms  |
-          | `MASK_DILATION` | 15 ms  | 8.8 ms   |
-          | `REF_INNER`     | 100 ms | 36.1 ms  |
-          | `REF_OUTER`     | 400 ms | 233.1 ms |
-          | `MAX_EVENT`     | 140 ms | 140 ms (fixed) |
+      | | `WAVELET` | `K` | `ENV_SMOOTH` | `MASK_DILATION` | `REF_INNER` | `REF_OUTER` | Recall | Load | Median $w_i$ |
+      |:--|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|:--:|
+      | **Baseline** | db4 | 5 | 4 ms | 15 ms | 100 ms | 400 ms | 0.986 | 7.4 | 0.860 |
+      | **C1** | db8 | 5.50 | 15.8 ms | 8.8 ms | 36.1 ms | 233.1 ms | 0.993 | 3.3 | 0.876 |
 
-          | Metric | Baseline | C1 | Validation: C1 − baseline (mean ± SD over the 5 folds) |
-          |:-------|:--------:|:--:|:------------------------------------------------------:|
-          | Candidate recall                | 0.986   | 0.993   | +0.010 ± 0.011 |
-          | Load (candidates per control)   | 7.4     | 3.3     | −1.8 ± 2.7     |
-          | Median $w_i$                    | 0.860   | 0.876   | +0.005 ± 0.025 |
-          | Unweighted recall (SNR ≤ 0 dB)  | 0.943   | 0.962   | +0.025 ± 0.017 |
-          | Median overflow                 | 15.3 ms | 13.3 ms | −0.6 ± 2.8 ms  |
+      Validation (C1 − baseline, mean ± SD over the folds): recall +0.010 ± 0.011, load −1.8 ± 2.7, median $w_i$ +0.005 ± 0.025. The C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
+5. **Phase 2 — Feature definition:**
+    - **5.1. Metric:** standardized partial ROC-AUC (McClish) of each feature over all the candidates of the tuning mixtures ([script 7](#7️⃣-features-of-the-candidates--get_featurespy)), in the region of its use in the rules (selectors `isolation`, `z_max`: FPR ≤ 0.1; vetoes `width_med`, `width_max`: TPR ≥ 0.9). Artifacts: one per mixture with candidates in its zone (most artifact-like value, weight $c_s/N_{a,c}$); rest: the candidates out of the zone (weight $1/N_{a,c}$). Metric of a group: mean over its features.
+        - Below: the figure `plot_features` (general: any configurations and features; plotly version of `plot_features_mpl`): weighted ROC curve of each configuration and cumulative distribution of each feature; and the general functions of the results of the search (`load_feature_search`, `describe_feature_search`, `plot_feature_search_history`, `plot_feature_search_values`, `plot_feature_search_cv`).
+    - **5.2–5.4. Width, isolation and impulsiveness:** baseline (metric and figure with `baseline` and `C1`) and optimization ([script 8](#8️⃣-search-of-the-features--search_featurespy)): C2' of the group, nested cross-validation, history, metric vs value of each parameter and stability.
+    - **5.5. Choice:** C2' of each group (parameters, limit of the range, metric and validation), C2 = C1 + C2', and check with `baseline`, `C1` and `C2` (metric and new ROC curves; pending `get_features.py -c C2`):
 
-        - **Stability:** the C1 of the folds differ (`WAVELET` db6 or db8, `K` 4.1–6.4, `MASK_DILATION` 1.3–22 ms).
-5. **Phase 2 — Feature definition:** width, isolation and impulsiveness → C2' (C1 together with C2' → C2); full run with C2 (candidate table and scores).
-    - **5.1. Metric:** standardized partial ROC-AUC (McClish) of each feature over all the candidates of the tuning mixtures, in the region of the ROC curve of its use in the rules (selectors `isolation`, `z_max`: FPR ≤ 0.1; vetoes `width_med`, `width_max`: TPR ≥ 0.9), from the features of [get_features.py](get_features.py): artifacts (one per mixture with some candidate in its zone, with the most artifact-like value of those candidates, weight $c_s / N_{a,c}$) vs the candidates of the mixtures out of the zone (weight $1 / N_{a,c}$). Metric of each group: mean over its features. Figure `plot_features` (defined after the metric, general: any configurations and features; interactive plotly version of `plot_features_mpl`, with hover on the ROC curves and the distributions and a clickable key): weighted ROC curve of each configuration in the region of the feature and, for each configuration, weighted cumulative distribution of each feature in the artifacts and in the rest. Baselines of phase 2: the default parameters of the features, with the candidates of the baseline and with those of C1 (`get_features.py -c baseline -s tune` and `-c C1 -s tune`).
-    - **5.2–5.4. Width, isolation and impulsiveness:** for each group, metric (`describe_feature_metric`) and figure (`plot_features`) of the two baselines, `baseline` and `C1`. Optimization (5.2.2, 5.3.2, 5.4.2): results of [search_features.py](search_features.py).
-6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$, per cell, with the quality of the full run of phase 2 and imputation of the missing values), importance of each condition and backward pruning.
+      | Group | Parameters (default → C2') | Metric (default → C2') | Validation (C2' − default) |
+      |:--|:--|:--:|:--:|
+      | **Width** | `BG_FACTOR` 2 → 1.02, `WIDTH_FLOOR_DB` 20 → 6.4 dB, `EXTEND` 2 → 3.98 FWHM | 0.534 → 0.572 | +0.037 ± 0.020 |
+      | **Isolation** | `ISO_WIN` 100 → 493.4 ms | 0.781 → 0.840 | +0.052 ± 0.072 |
+      | **Impulsiveness** | `Z_WIN` 100 → 108.5 ms, `AR_ORDER` 20 → 6 | 0.918 → 0.943 | +0.012 ± 0.054 |
+
+      Width and isolation end at the limit of their ranges (kept). In width, the floor is the peak − 6 dB, so `BG_FACTOR` has almost no effect, and `width_max` stays at the level of chance (sAUC ≈ 0.50); `width_med` improves from 0.576 to 0.643.
+    - **5.6. Full run:** candidate table and scores of every mixture with C2 (pending).
+6. **Phase 3 — Rule selection:** descriptive and univariate analysis, provisional optimization (estimated score $\hat{S}$), importance of each condition and backward pruning.
 7. **Phase 4 — Attenuation.**
 8. **Phase 5 — Validation:** sensitivity to λ, comparison and generalization.
-
 
 ---
 
 ## 📈 Summary figures — [summary_plots.py](src/algorithm/summary_plots.py)
 
-Module with the figure functions of `denoise_summary_plots.ipynb`, built from the intermediate results of `remove_noise(..., return_details=True)`. `summary_plots(signal, fs, details, params, save_dir=None, scale=5)` shows them one after the other:
+Figure functions of `denoise_summary_plots.ipynb`, from `remove_noise(..., return_details=True)`. `summary_plots(signal, fs, details, params, save_dir=None, scale=5)` shows them one after the other:
 
 | Function | File (`save_dir`) | Content |
 |:---------|:------------------|:--------|
@@ -678,19 +630,16 @@ Module with the figure functions of `denoise_summary_plots.ipynb`, built from th
 | `plot_noise_removal` | `noise_removal.png` | Original, filtered and residual, with spectrograms |
 | `plot_frequency_response` | `frequency_response.png` | PSD, attenuation and removed energy per band |
 
-- `params`: the algorithm constants the figures need (`G_FAC`, `K`, `Z_CLICK`, `Z_TOLERANCE`, `AR_ORDER`, `ISO_WIN`, `ISOLATION`, `ISOLATION_IMPULSIVE`, `ISOLATION_ALIGNED`, `MAX_MISALIGN`).
-- `save_dir`: if given, each figure is also saved as `<save_dir>/<name>.png` (Plotly static export with `kaleido`), with `scale` as the image scale factor.
-
-> The FWHM of each band (`plot_misalign`, values of the table in [step 1](#1️⃣-decomposition-into-10-bands)) is computed with `band_resolution` of [remove_noise.py](src/algorithm/remove_noise.py), for the decomposition of `details["bands"]`, so it follows any change of the decomposition. ⚠️ `band_resolution` is cached (`lru_cache`) and `WAVELET` is not one of its arguments: after changing `rn.WAVELET` in the same process, call `rn.band_resolution.cache_clear()`.
+- `params`: the constants the figures need (`G_FAC`, `K`, `Z_CLICK`, `Z_TOLERANCE`, `AR_ORDER`, `ISO_WIN`, `ISOLATION`, `ISOLATION_IMPULSIVE`, `ISOLATION_ALIGNED`, `MAX_MISALIGN`).
+- `save_dir`: each figure is also saved as `<save_dir>/<name>.png` (plotly static export with `kaleido`, image scale `scale`).
+- The FWHM of each band (`plot_misalign`) is computed with `band_resolution`, so it follows any change of the decomposition.
 
 ---
 
 ## 📋 Status
 
-- [x] Click-only transient removal (4 rules + border rule) developed and checked by eye and by ear on real fragments.
+- [x] Click-only transient removal (4 rules + border rule), checked by eye and by ear on real fragments.
 - [x] Summary figures (`summary_plots.py`) and example in `denoise_soundwaveletSWT.ipynb`.
-- [x] Evaluation of the algorithm (`evaluation_denoise.ipynb`):
-    - [x] Experiment 1 (single artifact)
-    - [x] Experiment 2 (several artifacts + idempotence)
-- [ ] Deeper optimization of the thresholds (currently selected by eye).
+- [x] Evaluation (`evaluation_denoise.ipynb`): experiment 1 (single artifact) and experiment 2 (several artifacts + idempotence).
+- [ ] Optimization of the thresholds (in progress: phases 0–1 done, phase 2 in progress).
 - [ ] Port of the current version to the dataset pipeline.

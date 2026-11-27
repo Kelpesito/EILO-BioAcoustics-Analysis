@@ -1,0 +1,26 @@
+{
+  "run": "all",
+  "group": "Impulsiveness",
+  "n_trials": 40,
+  "best": {
+    "trial": 12,
+    "baseline": false,
+    "params": {
+      "Z_WIN": 0.10849091631002444,
+      "AR_ORDER": 6
+    }
+  },
+  "train": {
+    "best": {
+      "auc_z_max": 0.9759587482467215,
+      "metric": 0.9426644627500331,
+      "sauc_z_max": 0.9426644627500331
+    },
+    "baseline": {
+      "metric": 0.9175073828848088,
+      "sauc_z_max": 0.9175073828848088,
+      "auc_z_max": 0.9724739620225155
+    }
+  },
+  "validation": null
+}

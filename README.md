@@ -144,6 +144,15 @@ EILO-BioAcoustics-Analysis/
 ---
 
 ## 📝 Changelog
+- **v2.3.11**
+    - Results of the Bayesian search of the parameters of the features (phase 2 of the parameter optimization) → C2'.
+    - Updated `denoising/parameter_optimization.ipynb` (phase 2):
+        - 5.1: General functions of the results of the search.
+        - 5.2.2, 5.3.2 and 5.4.2. Optimization: C2' of each group, with its figures.
+        - 5.5. Choice (Preparation): C2' of each group, C2 = C1 + C2', and check with `baseline`, `C1` and `C2`.
+    - Updated `denoising/README.md`: shortened.
+    - Updated `denoising/PARAMETER_OPTIMIZATION.md` (C2').
+
 - **v2.3.10**
     - Phase 2 (feature definition) of the parameter optimization of the denoising algorithm: Bayesian search of the parameters of the features.
     - Updated `denoising/parameter_optimization.ipynb` (phase 2):

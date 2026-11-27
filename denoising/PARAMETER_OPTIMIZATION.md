@@ -349,6 +349,29 @@ sAUC = 0.5: no better than chance; sAUC = 1: perfect separation in the region. *
 - Candidate table: features of every candidate.
 - Scores: $q$, detection and false positives of every mixture, needed for $\hat{S}$ in [Phase 3](#3️⃣-phase-3--rule-selection).
 
+**C2'** (whole tuning set, run `all` of each group):
+
+| Group | Parameter | Default | C2' | Folds |
+|:------|:----------|:-------:|:---:|:------|
+| **Width**         | `BG_FACTOR`      | 2      | 1.02      | 1.02–1.03 |
+|                   | `WIDTH_FLOOR_DB` | 20 dB  | 6.4 dB    | 6.4–6.6 dB |
+|                   | `EXTEND`         | 2 FWHM | 3.98 FWHM | 3.98 FWHM |
+| **Isolation**     | `ISO_WIN`        | 100 ms | 493.4 ms  | 493.4 ms |
+| **Impulsiveness** | `Z_WIN`          | 100 ms | 108.5 ms          | 111–191 ms |
+|                   | `AR_ORDER`       | 20     | 6                 | 1–7 |
+
+| Group | Feature | Default | C2' | Validation: C2' − default (mean ± SD over the 5 folds) |
+|:------|:--------|:-------:|:---:|:------------------------------------------------------:|
+| **Width**         | `width_med` (sAUC) | 0.576 | 0.643 | |
+|                   | `width_max` (sAUC) | 0.492 | 0.500 | |
+|                   | Metric             | 0.534 | 0.572 | +0.037 ± 0.020 |
+| **Isolation**     | `isolation` (sAUC) | 0.781 | 0.840 | +0.052 ± 0.072 |
+| **Impulsiveness** | `z_max` (sAUC)     | 0.918 | 0.943 | +0.012 ± 0.054 |
+
+- **Width:** the floor of C2' is the peak − 6 dB (a FWHM-like width without the tails), and with it `BG_FACTOR` has almost no effect: the floor $0.5 \cdot$ peak is above $\texttt{BG\_FACTOR} \cdot$ reference while `BG_FACTOR` ≲ `K`/2. `width_max` is at the level of chance (sAUC ≈ 0.50 in every configuration; full AUC 0.31 < 0.5: the artifacts have a larger `width_max`, as they are detected in more low bands).
+- **Range limits:** the trends are monotonic but flatten close to the limits; the ranges were not extended.
+- The searches of every fold evaluate the same configurations at the start (same seed), so equal C2' across the folds (width, isolation) do not prove stability.
+
 ---
 
 ### 3️⃣ Phase 3 — Rule selection
